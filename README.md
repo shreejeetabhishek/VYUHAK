@@ -1,15 +1,13 @@
-# VYUHAK // Global Tracker
+# VYUHAK // Orbital Intelligence & Regional Surveillance Platform
 
-VYUHAK is an open-source, browser-based Earth Observation Platform that tracks live global events using completely free, public APIs.
+VYUHAK (*Virtual Yield Uplink & Heuristic Aerospace Kinematics*) is an open-source, browser-based 3D/2D Earth Observation Platform that tracks live global events and extracts comprehensive real-time Ground Data for any region covered by the satellite's scanning footprint.
 
-## Live Features Included:
-1. **Global Events Feed:** Automatically pulls live data from the **USGS Earthquake API**, the **NASA EONET API** (Wildfires/Storms), the **BBC News RSS feed**, and the **UN ReliefWeb API** (Humanitarian Crises).
-2. **Ground Conditions:** Pulls live temperature and wind speed for the location directly beneath the satellite using the **Open-Meteo API**.
-3. **Reverse Geography & Landmarks:** Uses the **Nominatim (OpenStreetMap) API** to determine the sovereign territory below, and the **Wikipedia Geosearch API** to list local landmarks.
-4. **Interactive 3D Engine:** Includes a photorealistic globe, visible orbit trajectory lines, correct downward-facing scanning cones, and multiple camera views (Free, Chase, Look Down).
+## Live Regional & Global Data Streams (100% Free & Keyless APIs):
+1. **Territory, Population & Economy:** Uses **BigDataCloud Reverse Geocoding** and the **REST Countries API** to display the sovereign nation, state/city, population count, capital city, currency, and local timezone.
+2. **Live Weather in Footprint:** Uses the **Open-Meteo API** to pull real-time temperature, wind speed, relative humidity, and sky conditions directly beneath the satellite.
+3. **Wars, Conflicts & Disasters in Swath:** Cross-references the satellite's scanning radius with live **USGS Earthquakes**, **NASA EONET Wildfires/Storms**, and queries the **UN ReliefWeb API** for active humanitarian and conflict reports in that country.
+4. **Regional News & Public Interest:** Dynamically queries live regional news feeds (via Google News RSS-to-JSON) and **Wikipedia REST Summaries** for the specific state, city, or country being scanned.
+5. **Top Places & Landmarks:** Queries the **Wikipedia Geosearch API** to list notable landmarks, monuments, and infrastructure below the satellite with exact distance measurements.
 
-## Installation
-No build required. This is a static web application.
-1. Download the repository.
-2. Upload `index.html`, `styles.css`, and `app.js` to GitHub Pages, Vercel, or any hosting provider.
-3. Open the webpage.
+## Deployment
+Upload `index.html`, `styles.css`, `app.js`, and `README.md` directly to your GitHub Pages repository.

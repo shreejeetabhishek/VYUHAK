@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>VYUHAK // ORBITAL INTELLIGENCE PROTOCOL</title>
+    
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- Three.js & OrbitControls -->
@@ -14,164 +16,396 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
+    <!-- Typography -->
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    
     <style>
-        body { margin: 0; overflow: hidden; background-color: #02040a; font-family: 'Space Grotesk', sans-serif; color: #e2e8f0; user-select: none; }
+        * { box-sizing: border-box; }
+        body { margin: 0; overflow: hidden; background-color: #02040a; font-family: 'Space Grotesk', sans-serif; color: #e2e8f0; user-select: none; -webkit-user-select: none; }
         .mono-telemetry { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
 
         /* Viewports */
         #globe-viewport, #map-viewport { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
-        #map-viewport { display: none; z-index: 2; } /* Hidden by default */
+        #map-viewport { display: none; z-index: 2; }
         
         /* UI Layer */
-        #ui-layer { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10; pointer-events: none; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; }
 
         /* Glassmorphism */
         .obsidian-glass {
-            background: rgba(6, 11, 20, 0.65);
+            background: rgba(6, 11, 20, 0.75);
             backdrop-filter: blur(20px) saturate(180%);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 4px 20px rgba(0, 0, 0, 0.5);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 4px 20px rgba(0, 0, 0, 0.6);
         }
 
         .pointer-events-auto { pointer-events: auto; }
         ::-webkit-scrollbar { display: none; }
-        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; overflow-x: auto; }
 
-        /* Custom UI Elements */
-        .btn-active { background: rgba(56, 189, 248, 0.2); border-color: #38bdf8; color: #38bdf8; }
+        .btn-active { background: rgba(56, 189, 248, 0.25); border-color: #38bdf8; color: #38bdf8; }
+        
+        /* Tactical Brackets */
         .hud-brackets { position: relative; }
-        .hud-brackets::before, .hud-brackets::after { content: ''; position: absolute; width: 6px; height: 6px; border-color: #38bdf8; border-style: solid; transition: all 0.3s ease; }
+        .hud-brackets::before, .hud-brackets::after { content: ''; position: absolute; width: 6px; height: 6px; border-color: #38bdf8; border-style: solid; transition: all 0.3s ease; pointer-events: none; }
         .hud-brackets::before { top: -1px; left: -1px; border-width: 1px 0 0 1px; }
         .hud-brackets::after { bottom: -1px; right: -1px; border-width: 0 1px 1px 0; }
 
-        /* Leaflet Customization */
+        /* Leaflet Fixes */
         .leaflet-control-zoom { display: none; }
         .leaflet-container { background: #02040a; }
+
+        /* Range Slider Styling */
+        input[type=range] { -webkit-appearance: none; background: transparent; width: 100%; margin: 8px 0; }
+        input[type=range]:focus { outline: none; }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 2px; cursor: pointer; background: #334155; border-radius: 1px; }
+        input[type=range]::-webkit-slider-thumb { border: 2px solid #02040a; height: 16px; width: 16px; border-radius: 50%; background: #38bdf8; cursor: pointer; -webkit-appearance: none; margin-top: -7px; box-shadow: 0 0 10px rgba(56,189,248,0.5); }
+        
+        /* Status LED */
+        .status-led { width: 6px; height: 6px; border-radius: 50%; background-color: #10b981; box-shadow: 0 0 8px #10b981; }
+        .status-led.recording { background-color: #ef4444; box-shadow: 0 0 8px #ef4444; animation: blink 1s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        
+        /* Bottom Dock Animation */
+        #bottom-dock {
+            transition: height 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            height: 48px; /* Collapsed state */
+        }
+        #bottom-dock.expanded {
+            height: 45vh; /* Expanded state */
+            max-height: 400px;
+        }
+        
+        /* Content Tabs */
+        .tab-content { display: none; height: 100%; overflow-y: auto; padding: 1rem; }
+        .tab-content.active { display: block; }
     </style>
 </head>
 <body>
 
-    <!-- 3D Earth Viewport -->
+    <!-- VIEWPORTS -->
     <div id="globe-viewport"></div>
-    
-    <!-- 2D Tactical Map Viewport -->
     <div id="map-viewport"></div>
 
-    <!-- UI Overlay -->
-    <div id="ui-layer" class="flex flex-col justify-between p-4">
+    <!-- UI LAYER -->
+    <div id="ui-layer">
         
-        <!-- TOP SECTION -->
-        <div class="flex flex-col md:flex-row gap-4 justify-between items-start w-full">
+        <!-- TOP HUD (Compact for Mobile) -->
+        <div class="p-3 w-full flex flex-col gap-3 max-w-7xl mx-auto">
             
-            <!-- Left: Telemetry Panel -->
-            <div class="obsidian-glass hud-brackets pointer-events-auto rounded-md p-3 w-full md:w-80 shrink-0">
-                <div class="flex items-center justify-between mb-3">
+            <!-- Row 1: Telemetry Panel -->
+            <div class="obsidian-glass hud-brackets pointer-events-auto rounded-md p-3 w-full shrink-0">
+                <div class="flex items-center justify-between mb-3 border-b border-slate-700/50 pb-2">
                     <div class="flex items-center gap-2">
                         <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        <h1 class="text-[12px] font-bold tracking-widest text-sky-400">VYUHAK<span class="text-slate-400 font-normal"> // OSINT</span></h1>
+                        <h1 class="text-[13px] font-bold tracking-widest text-sky-400">VYUHAK<span class="text-slate-400 font-normal"> // OSINT</span></h1>
                     </div>
-                    <div class="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></div>
+                    <div class="flex items-center gap-3">
+                        <span id="hud-time" class="text-[10px] font-bold text-amber-400 mono-telemetry hidden sm:block">UTC 00:00:00</span>
+                        <div class="status-led"></div>
+                    </div>
                 </div>
                 
-                <div class="grid grid-cols-2 gap-y-3 gap-x-2 text-[10px] uppercase text-slate-400 mono-telemetry">
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-y-3 gap-x-2 text-[10px] uppercase text-slate-400 mono-telemetry">
                     <div>
-                        <div class="mb-0.5 opacity-70">Sat Callsign</div>
+                        <div class="mb-0.5 opacity-70 text-[8px]">Sat Callsign</div>
                         <div class="text-sky-100 font-bold" id="hud-sat-name">VK-SENTINEL-01</div>
                     </div>
                     <div>
-                        <div class="mb-0.5 opacity-70">Target Time</div>
-                        <div class="text-amber-400 font-bold" id="hud-time">UTC 12:45:00</div>
+                        <div class="mb-0.5 opacity-70 text-[8px]">Optics Mode</div>
+                        <div class="text-slate-200 font-bold" id="hud-optics">TRUE COLOR</div>
                     </div>
                     <div>
-                        <div class="mb-0.5 opacity-70">Alt / Vel</div>
+                        <div class="mb-0.5 opacity-70 text-[8px]">Alt / Vel</div>
                         <div class="text-slate-200"><span id="hud-alt">400</span>KM / <span id="hud-vel">7.59</span>KPS</div>
                     </div>
                     <div>
-                        <div class="mb-0.5 opacity-70">Nadir Lat/Lon</div>
+                        <div class="mb-0.5 opacity-70 text-[8px]">Nadir Lat/Lon</div>
                         <div class="text-emerald-400"><span id="hud-lat">0.00</span>&deg;, <span id="hud-lon">0.00</span>&deg;</div>
                     </div>
                 </div>
             </div>
 
-            <!-- Center: Engine & Camera Controls -->
-            <div class="pointer-events-auto flex flex-col items-center gap-2">
-                <!-- 3D / 2D Toggle -->
-                <div class="obsidian-glass rounded-md flex p-1 border border-slate-700/50">
-                    <button id="btn-3d" onclick="switchEngine('3D')" class="btn-active px-4 py-1.5 rounded text-[10px] font-bold tracking-wider transition-colors w-24">3D GLOBE</button>
-                    <button id="btn-2d" onclick="switchEngine('2D')" class="px-4 py-1.5 rounded text-[10px] font-bold tracking-wider text-slate-400 hover:text-white transition-colors w-24">2D TACTICAL</button>
+            <!-- Row 2: Action Bar (Horizontal Scroll) -->
+            <div class="pointer-events-auto flex gap-2 overflow-x-auto hide-scrollbar w-full pb-1">
+                <!-- Engine Toggle -->
+                <div class="obsidian-glass rounded flex p-1 shrink-0 border border-slate-700/50">
+                    <button id="btn-3d" onclick="switchEngine('3D')" class="btn-active px-3 py-1.5 rounded text-[9px] font-bold tracking-wider">3D GLOBE</button>
+                    <button id="btn-2d" onclick="switchEngine('2D')" class="px-3 py-1.5 rounded text-[9px] font-bold tracking-wider text-slate-400 hover:text-white">2D TACTICAL</button>
                 </div>
-                <!-- Camera Modes (Only visible in 3D) -->
-                <div id="cam-controls" class="obsidian-glass rounded-md flex p-1 border border-slate-700/50">
-                    <button id="cam-free" onclick="switchCamera('FREE')" class="btn-active px-3 py-1 rounded text-[9px] font-bold tracking-wider">FREE</button>
-                    <button id="cam-chase" onclick="switchCamera('CHASE')" class="px-3 py-1 rounded text-[9px] font-bold tracking-wider text-slate-400 hover:text-white">CHASE</button>
-                    <button id="cam-nadir" onclick="switchCamera('NADIR')" class="px-3 py-1 rounded text-[9px] font-bold tracking-wider text-slate-400 hover:text-white">NADIR</button>
+                <!-- Camera Controls -->
+                <div id="cam-controls" class="obsidian-glass rounded flex p-1 shrink-0 border border-slate-700/50">
+                    <button id="cam-free" onclick="switchCamera('FREE')" class="btn-active px-3 py-1.5 rounded text-[9px] font-bold tracking-wider">FREE</button>
+                    <button id="cam-chase" onclick="switchCamera('CHASE')" class="px-3 py-1.5 rounded text-[9px] font-bold tracking-wider text-slate-400 hover:text-white">CHASE</button>
+                    <button id="cam-nadir" onclick="switchCamera('NADIR')" class="px-3 py-1.5 rounded text-[9px] font-bold tracking-wider text-slate-400 hover:text-white">NADIR</button>
                 </div>
             </div>
-
-            <!-- Right: Actions -->
-            <div class="flex flex-row md:flex-col gap-2 pointer-events-auto overflow-x-auto hide-scrollbar w-full md:w-32 shrink-0">
-                <button onclick="toggleGeoLock()" id="btn-geo-lock" class="obsidian-glass hud-brackets px-3 py-2 rounded-md text-[10px] font-bold tracking-wide hover:bg-white/10 transition-colors flex items-center justify-between min-w-[110px]">
-                    <span>GEO LOCK</span>
-                    <span id="lock-indicator" class="text-slate-500 ml-2">OFF</span>
-                </button>
-                <button class="obsidian-glass px-3 py-2 rounded-md text-[10px] uppercase tracking-wider text-slate-300 hover:text-white transition-colors flex justify-between items-center group min-w-[110px]">
-                    <span>PALETTE</span>
-                    <span class="bg-white/10 px-1 rounded text-[8px] ml-2">&#8984;K</span>
-                </button>
-            </div>
+            
         </div>
 
+        <!-- BOTTOM DOCK (Unified Workspace) -->
+        <div id="bottom-dock" class="obsidian-glass pointer-events-auto w-full rounded-t-xl border-t border-sky-900/50 flex flex-col mt-auto relative z-20 shadow-[0_-10px_40px_rgba(0,0,0,0.8)]">
+            
+            <!-- Tab Headers -->
+            <div class="flex border-b border-slate-700/50 h-[48px] shrink-0">
+                <button onclick="openTab('intel', this)" class="dock-tab flex-1 text-[10px] sm:text-xs font-bold tracking-widest text-sky-400 border-b-2 border-sky-400 bg-sky-900/20 transition-colors uppercase">Live Intel</button>
+                <button onclick="openTab('sensors', this)" class="dock-tab flex-1 text-[10px] sm:text-xs font-bold tracking-widest text-slate-400 border-b-2 border-transparent hover:text-slate-200 transition-colors uppercase">Sensors & Optics</button>
+                <button onclick="openTab('mission', this)" class="dock-tab flex-1 text-[10px] sm:text-xs font-bold tracking-widest text-slate-400 border-b-2 border-transparent hover:text-slate-200 transition-colors uppercase">Mission Control</button>
+            </div>
+            
+            <!-- Tab Content: Live Intel -->
+            <div id="tab-intel" class="tab-content active hide-scrollbar">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-[10px] font-bold text-slate-400 tracking-widest">ACTIVE SURVEILLANCE FEED</h3>
+                    <span id="intel-swath-val" class="text-[9px] bg-sky-900/50 text-sky-300 px-2 py-1 rounded mono-telemetry">SWATH: 1,200 KM</span>
+                </div>
+                
+                <div class="space-y-2">
+                    <div class="bg-red-900/20 border border-red-500/30 rounded p-3 flex gap-3 items-start">
+                        <div class="status-led recording mt-1.5 shrink-0"></div>
+                        <div>
+                            <div class="text-[11px] font-bold text-red-400 mb-0.5">USGS SEISMIC ALERT // MAG 5.2</div>
+                            <div class="text-[9px] text-slate-300 mono-telemetry">LOC: 35.68&deg;N, 139.76&deg;E (TOKYO) | STATUS: ACTIVE</div>
+                        </div>
+                    </div>
+                    <div class="bg-amber-900/20 border border-amber-500/30 rounded p-3 flex gap-3 items-start">
+                        <div class="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-[0_0_8px_#f59e0b] mt-1.5 shrink-0"></div>
+                        <div>
+                            <div class="text-[11px] font-bold text-amber-400 mb-0.5">NASA EONET // THERMAL ANOMALY</div>
+                            <div class="text-[9px] text-slate-300 mono-telemetry">LOC: 34.05&deg;N, 118.24&deg;W (CALIFORNIA) | WILDFIRE DETECTED</div>
+                        </div>
+                    </div>
+                    <div class="bg-emerald-900/20 border border-emerald-500/30 rounded p-3 flex gap-3 items-start">
+                        <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981] mt-1.5 shrink-0"></div>
+                        <div>
+                            <div class="text-[11px] font-bold text-emerald-400 mb-0.5">MARITIME CHOKEPOINT CLEAR</div>
+                            <div class="text-[9px] text-slate-300 mono-telemetry">LOC: 29.92&deg;N, 32.55&deg;E (SUEZ) | TRAFFIC FLOW NORMAL</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Tab Content: Sensors & Optics -->
+            <div id="tab-sensors" class="tab-content hide-scrollbar">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    
+                    <!-- Optics Selection -->
+                    <div>
+                        <h3 class="text-[10px] font-bold text-slate-400 tracking-widest mb-3 border-b border-slate-700 pb-1">MULTI-SPECTRAL OPTICS</h3>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="setOptics(0)" class="optics-btn btn-active px-2 py-2 text-[9px] border border-slate-700 rounded text-center transition-colors font-bold text-slate-200">TRUE COLOR</button>
+                            <button onclick="setOptics(1)" class="optics-btn px-2 py-2 text-[9px] bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700 rounded text-center transition-colors font-bold text-amber-400">FLIR THERMAL</button>
+                            <button onclick="setOptics(2)" class="optics-btn px-2 py-2 text-[9px] bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700 rounded text-center transition-colors font-bold text-emerald-400">NVG TACTICAL</button>
+                            <button onclick="setOptics(3)" class="optics-btn px-2 py-2 text-[9px] bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700 rounded text-center transition-colors font-bold text-sky-400">SAR RADAR</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Swath Slider -->
+                    <div>
+                        <h3 class="text-[10px] font-bold text-slate-400 tracking-widest mb-3 border-b border-slate-700 pb-1">LASER SCANNING SWATH</h3>
+                        <div class="flex justify-between text-[10px] text-slate-300 font-bold mb-2">
+                            <span>RADIUS</span>
+                            <span id="swath-val" class="mono-telemetry text-sky-400">1200 KM</span>
+                        </div>
+                        <input type="range" id="swath-slider" min="0.05" max="0.5" step="0.01" value="0.25" class="w-full" oninput="updateSwath(this.value)">
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Tab Content: Mission Control -->
+            <div id="tab-mission" class="tab-content hide-scrollbar">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    
+                    <!-- Pre-Programmed Missions -->
+                    <div>
+                        <h3 class="text-[10px] font-bold text-slate-400 tracking-widest mb-3 border-b border-slate-700 pb-1">AI MISSION PROFILES</h3>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="setMission('OMNI')" class="px-2 py-2 text-[9px] bg-slate-800/50 hover:bg-sky-900/50 border border-slate-700 hover:border-sky-500 rounded text-center transition-colors font-bold text-slate-200">OMNI-SPECTRUM</button>
+                            <button onclick="setMission('TRADE')" class="px-2 py-2 text-[9px] bg-slate-800/50 hover:bg-amber-900/50 border border-slate-700 hover:border-amber-500 rounded text-center transition-colors font-bold text-amber-400">MARITIME TRADE</button>
+                            <button onclick="setMission('CLIMATE')" class="px-2 py-2 text-[9px] bg-slate-800/50 hover:bg-emerald-900/50 border border-slate-700 hover:border-emerald-500 rounded text-center transition-colors font-bold text-emerald-400">CLIMATE / SEISMIC</button>
+                            <button onclick="setMission('TACTICAL')" class="px-2 py-2 text-[9px] bg-slate-800/50 hover:bg-red-900/50 border border-slate-700 hover:border-red-500 rounded text-center transition-colors font-bold text-red-400">KINETIC CONFLICT</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Orbit & GEO Lock -->
+                    <div>
+                        <h3 class="text-[10px] font-bold text-slate-400 tracking-widest mb-3 border-b border-slate-700 pb-1">ORBITAL MECHANICS</h3>
+                        <div class="flex justify-between text-[10px] text-slate-300 font-bold mb-2">
+                            <span>TIME WARP / SPEED</span>
+                            <span id="speed-val" class="mono-telemetry text-sky-400">1.0X</span>
+                        </div>
+                        <input type="range" id="speed-slider" min="0.0005" max="0.015" step="0.0005" value="0.003" class="w-full mb-4" oninput="updateSpeed(this.value)">
+                        
+                        <button onclick="toggleGeoLock()" id="btn-geo-lock" class="w-full px-4 py-3 bg-slate-800/80 hover:bg-sky-900/80 border border-slate-700 rounded-md text-[11px] font-bold tracking-widest transition-colors flex items-center justify-between">
+                            <span class="text-white">STATIONARY GEO LOCK</span>
+                            <span id="lock-indicator" class="text-slate-500 bg-slate-900 px-2 py-1 rounded">OFF</span>
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+            
+        </div>
     </div>
 
-    <!-- LOGIC & ENGINE INIT -->
+    <!-- AUDIO ENGINE & LOGIC -->
     <script>
-        // State
-        let activeEngine = '3D'; // 3D or 2D
-        let activeCamera = 'FREE'; // FREE, CHASE, NADIR
+        // --- WEB AUDIO API (Synthesized UI Sounds) ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playClick() {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(900, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.05);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.05);
+        }
+
+        function playLock() {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square'; // harsher tactical sound
+            osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+            osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.05, audioCtx.currentTime + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+        }
+
+        // --- UI TAB LOGIC ---
+        let isDockExpanded = false;
+        let activeTab = null;
+
+        function openTab(tabName, btnElement) {
+            playClick();
+            const dock = document.getElementById('bottom-dock');
+            
+            // If clicking the currently active tab, close the dock
+            if (isDockExpanded && activeTab === tabName) {
+                dock.classList.remove('expanded');
+                isDockExpanded = false;
+                resetTabStyles();
+                return;
+            }
+
+            // Expand dock
+            dock.classList.add('expanded');
+            isDockExpanded = true;
+            activeTab = tabName;
+
+            // Hide all contents
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            // Show selected content
+            document.getElementById('tab-' + tabName).classList.add('active');
+
+            // Reset tab styles
+            resetTabStyles();
+            // Highlight selected tab
+            btnElement.classList.replace('text-slate-400', 'text-sky-400');
+            btnElement.classList.replace('border-transparent', 'border-sky-400');
+            btnElement.classList.add('bg-sky-900/20');
+        }
+
+        function resetTabStyles() {
+            document.querySelectorAll('.dock-tab').forEach(el => {
+                el.classList.replace('text-sky-400', 'text-slate-400');
+                el.classList.replace('border-sky-400', 'border-transparent');
+                el.classList.remove('bg-sky-900/20');
+            });
+        }
+
+        // --- ORBITAL & OPTICS LOGIC ---
         let isGeoLocked = false;
+        function toggleGeoLock() {
+            isGeoLocked = !isGeoLocked;
+            const btn = document.getElementById('btn-geo-lock');
+            const ind = document.getElementById('lock-indicator');
+            
+            if(isGeoLocked) {
+                btn.classList.add('bg-sky-900/40', 'border-sky-400');
+                ind.textContent = 'ON'; 
+                ind.classList.replace('text-slate-500', 'text-sky-400');
+                document.getElementById('hud-sat-name').textContent = 'VK-GEO-02 [FIXED]';
+                document.getElementById('hud-vel').textContent = '0.00';
+                playLock();
+            } else {
+                btn.classList.remove('bg-sky-900/40', 'border-sky-400');
+                ind.textContent = 'OFF'; 
+                ind.classList.replace('text-sky-400', 'text-slate-500');
+                document.getElementById('hud-sat-name').textContent = 'VK-SENTINEL-01';
+                document.getElementById('hud-vel').textContent = '7.59';
+                playClick();
+            }
+        }
+
+        function setMission(profile) {
+            playLock();
+            // Automate UI changes based on profile
+            if (profile === 'OMNI') {
+                setOptics(0); updateSwath(0.25); document.getElementById('swath-slider').value = 0.25;
+            } else if (profile === 'TRADE') {
+                setOptics(3); updateSwath(0.1); document.getElementById('swath-slider').value = 0.1; // SAR for ships
+            } else if (profile === 'CLIMATE') {
+                setOptics(1); updateSwath(0.5); document.getElementById('swath-slider').value = 0.5; // FLIR wide
+            } else if (profile === 'TACTICAL') {
+                setOptics(2); updateSwath(0.15); document.getElementById('swath-slider').value = 0.15; // NVG narrow
+            }
+            alert(`VYUHAK PROTOCOL: ${profile} MISSION INITIALIZED.`);
+        }
+
+        // --- THREE.JS ENGINE INITIALIZATION ---
+        let activeEngine = '3D';
+        let activeCamera = 'FREE';
         
-        // Orbital Math
         let orbitTime = 0;
-        const orbitRadius = 1.35; // Earth radius = 1
-        const orbitSpeed = 0.002;
-        let satLat = 0;
-        let satLon = 0;
+        let orbitRadius = 1.35; // Satellite distance from Earth center (Earth R = 1.0)
+        let orbitSpeed = 0.003;
+        let swathRadius = 0.25; 
         
-        // --- 1. THREE.JS 3D ENGINE ---
         const scene = new THREE.Scene();
         
-        // Textures (NASA Blue Marble style from reliable CDN)
+        // Textures
         const texLoader = new THREE.TextureLoader();
+        // Fallback colors are provided in materials in case CDNs fail
         const earthDayTex = texLoader.load('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg');
+        const earthNightTex = texLoader.load('https://unpkg.com/three-globe/example/img/earth-night.jpg');
         const earthBumpTex = texLoader.load('https://unpkg.com/three-globe/example/img/earth-topology.png');
         const earthWaterTex = texLoader.load('https://unpkg.com/three-globe/example/img/earth-water.png');
         
-        // Camera & Renderer
+        // Camera setup (responsive depth)
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 1.5, 3.5);
+        function getTargetZ() { return window.innerWidth < window.innerHeight ? 4.8 : 3.0; }
+        camera.position.set(0, 1.5, getTargetZ());
         
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         document.getElementById('globe-viewport').appendChild(renderer.domElement);
         
-        // OrbitControls for Free Cam
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
-        controls.minDistance = 1.1;
-        controls.maxDistance = 6;
+        controls.enableDamping = true; controls.dampingFactor = 0.05;
+        controls.minDistance = 1.1; controls.maxDistance = 6;
         
         // Lighting
-        scene.add(new THREE.AmbientLight(0xffffff, 0.15)); // Dark space
+        scene.add(new THREE.AmbientLight(0xffffff, 0.15));
         const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
-        sunLight.position.set(5, 1, 3); // Sun position to create day/night terminator
+        sunLight.position.set(5, 2, 3);
         scene.add(sunLight);
         
         // Earth Sphere
         const earthGeo = new THREE.SphereGeometry(1, 64, 64);
         const earthMat = new THREE.MeshPhongMaterial({
+            color: 0xffffff, // Fallback if texture fails
             map: earthDayTex,
             bumpMap: earthBumpTex,
             bumpScale: 0.015,
@@ -183,152 +417,204 @@
         scene.add(earthMesh);
         
         // Atmospheric Glow
-        const glowMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.1, side: THREE.BackSide });
+        const glowMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.12, side: THREE.BackSide });
         const glowMesh = new THREE.Mesh(new THREE.SphereGeometry(1.025, 32, 32), glowMat);
         scene.add(glowMesh);
         
-        // Satellite 3D Model Assembly
+        // SATELLITE ASSEMBLY
         const satGroup = new THREE.Group();
         
-        // Bus (Gold Foil)
-        const busGeo = new THREE.BoxGeometry(0.04, 0.04, 0.08);
+        // 1. Bus (Body)
         const busMat = new THREE.MeshStandardMaterial({ color: 0xffd700, roughness: 0.3, metalness: 0.8 });
-        satGroup.add(new THREE.Mesh(busGeo, busMat));
+        satGroup.add(new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.08), busMat));
         
-        // Solar Panels (Blue)
+        // 2. Solar Panels
         const panelGeo = new THREE.PlaneGeometry(0.18, 0.05);
         const panelMat = new THREE.MeshStandardMaterial({ color: 0x1e3a8a, side: THREE.DoubleSide, metalness: 0.5 });
-        const panelL = new THREE.Mesh(panelGeo, panelMat);
-        panelL.position.x = -0.11;
-        satGroup.add(panelL);
-        const panelR = new THREE.Mesh(panelGeo, panelMat);
-        panelR.position.x = 0.11;
-        satGroup.add(panelR);
-        
-        // Laser Scanning Cone
-        const coneGeo = new THREE.ConeGeometry(0.3, 1, 32, 1, true);
-        coneGeo.translate(0, -0.5, 0); // pivot at tip
-        const coneMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.2, wireframe: true });
-        const laserCone = new THREE.Mesh(coneGeo, coneMat);
-        satGroup.add(laserCone);
+        const panelL = new THREE.Mesh(panelGeo, panelMat); panelL.position.x = -0.11; satGroup.add(panelL);
+        const panelR = new THREE.Mesh(panelGeo, panelMat); panelR.position.x = 0.11; satGroup.add(panelR);
         
         scene.add(satGroup);
 
+        // 3. Laser Scanning Cone (Detached from satGroup for precise Downward physics)
+        let coneMesh, ringMesh;
+        function buildLaserAndFootprint() {
+            if(coneMesh) scene.remove(coneMesh);
+            if(ringMesh) scene.remove(ringMesh);
+
+            const coneHeight = orbitRadius - 1.0; // Distance from sat to earth surface
+            
+            // Build Cone
+            const cGeo = new THREE.ConeGeometry(swathRadius, coneHeight, 32, 1, true);
+            // Three.js cone default: base is at Y=-height/2, tip at Y=height/2.
+            // Move tip to origin (0,0,0) by translating Y down by half height.
+            cGeo.translate(0, -coneHeight/2, 0); 
+            // Now tip is at 0,0,0 and base is at Y = -coneHeight.
+            // When we use lookAt(0,0,0) on the mesh, its local -Z axis points at the target.
+            // We need the base (currently at -Y) to be at -Z. Rotate X by -90 deg.
+            cGeo.rotateX(-Math.PI / 2);
+            
+            const cMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.15, wireframe: true });
+            coneMesh = new THREE.Mesh(cGeo, cMat);
+            scene.add(coneMesh);
+
+            // Build Footprint Ring (Rendered precisely on the globe surface)
+            const rGeo = new THREE.RingGeometry(swathRadius - 0.01, swathRadius, 32);
+            const rMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.7, side: THREE.DoubleSide });
+            ringMesh = new THREE.Mesh(rGeo, rMat);
+            scene.add(ringMesh);
+        }
+        buildLaserAndFootprint(); // Initial build
+
         // --- 2. LEAFLET 2D ENGINE ---
         const map = L.map('map-viewport', { zoomControl: false, attributionControl: false }).setView([0, 0], 3);
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 17 }).addTo(map);
         
-        // Esri World Imagery Tile Layer
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            maxZoom: 17
-        }).addTo(map);
-        
-        // Satellite Marker
         const satIcon = L.divIcon({
             html: `<div style="width:16px;height:16px;background:#ef4444;border-radius:50%;border:2px solid white;box-shadow:0 0 10px #ef4444;"></div>`,
             className: '', iconSize: [16, 16], iconAnchor: [8, 8]
         });
         const satMarker = L.marker([0, 0], { icon: satIcon }).addTo(map);
-        
-        // --- UI INTERACTION LOGIC ---
+        const satCircle = L.circle([0, 0], { radius: 1200000, color: '#38bdf8', weight: 1, fillOpacity: 0.1 }).addTo(map);
+
+        // --- INTERACTION FUNCTIONS ---
         function switchEngine(mode) {
+            playClick();
             activeEngine = mode;
             document.getElementById('globe-viewport').style.display = (mode === '3D') ? 'block' : 'none';
             document.getElementById('map-viewport').style.display = (mode === '2D') ? 'block' : 'none';
             document.getElementById('cam-controls').style.opacity = (mode === '3D') ? '1' : '0';
             
-            // Button Styles
-            document.getElementById('btn-3d').className = (mode === '3D') ? 'btn-active px-4 py-1.5 rounded text-[10px] font-bold tracking-wider transition-colors w-24' : 'px-4 py-1.5 rounded text-[10px] font-bold tracking-wider text-slate-400 hover:text-white transition-colors w-24';
-            document.getElementById('btn-2d').className = (mode === '2D') ? 'btn-active px-4 py-1.5 rounded text-[10px] font-bold tracking-wider transition-colors w-24' : 'px-4 py-1.5 rounded text-[10px] font-bold tracking-wider text-slate-400 hover:text-white transition-colors w-24';
+            document.getElementById('btn-3d').className = (mode === '3D') ? 'btn-active px-3 py-1.5 rounded text-[9px] font-bold tracking-wider transition-colors' : 'px-3 py-1.5 rounded text-[9px] font-bold tracking-wider text-slate-400 hover:text-white transition-colors';
+            document.getElementById('btn-2d').className = (mode === '2D') ? 'btn-active px-3 py-1.5 rounded text-[9px] font-bold tracking-wider transition-colors' : 'px-3 py-1.5 rounded text-[9px] font-bold tracking-wider text-slate-400 hover:text-white transition-colors';
             
-            if(mode === '2D') { map.invalidateSize(); } // Fix leaflet render bug when unhiding
+            if(mode === '2D') { setTimeout(() => map.invalidateSize(), 100); }
         }
 
         function switchCamera(mode) {
+            playClick();
             activeCamera = mode;
-            const btns = ['cam-free', 'cam-chase', 'cam-nadir'];
-            btns.forEach(id => {
-                document.getElementById(id).className = 'px-3 py-1 rounded text-[9px] font-bold tracking-wider text-slate-400 hover:text-white';
+            ['cam-free', 'cam-chase', 'cam-nadir'].forEach(id => { 
+                document.getElementById(id).className = 'px-3 py-1.5 rounded text-[9px] font-bold tracking-wider text-slate-400 hover:text-white transition-colors'; 
             });
-            document.getElementById(`cam-${mode.toLowerCase()}`).className = 'btn-active px-3 py-1 rounded text-[9px] font-bold tracking-wider';
+            document.getElementById(`cam-${mode.toLowerCase()}`).className = 'btn-active px-3 py-1.5 rounded text-[9px] font-bold tracking-wider';
         }
 
-        function toggleGeoLock() {
-            isGeoLocked = !isGeoLocked;
-            const btn = document.getElementById('btn-geo-lock');
-            const ind = document.getElementById('lock-indicator');
-            const satName = document.getElementById('hud-sat-name');
-            const vel = document.getElementById('hud-vel');
+        const opticsNames = ['TRUE COLOR', 'FLIR THERMAL', 'NVG TACTICAL', 'SAR RADAR'];
+        function setOptics(idx) {
+            playClick();
+            const el = document.getElementById('hud-optics');
+            el.textContent = opticsNames[idx];
             
-            if(isGeoLocked) {
-                btn.classList.add('bg-sky-900/40', 'border-sky-400');
-                ind.textContent = 'ON'; ind.classList.replace('text-slate-500', 'text-sky-400');
-                satName.textContent = 'VK-GEO-02 [FIXED]';
-                vel.textContent = '0.00';
-            } else {
-                btn.classList.remove('bg-sky-900/40', 'border-sky-400');
-                ind.textContent = 'OFF'; ind.classList.replace('text-sky-400', 'text-slate-500');
-                satName.textContent = 'VK-SENTINEL-01';
-                vel.textContent = '7.59';
+            // Update Buttons UI
+            document.querySelectorAll('.optics-btn').forEach((btn, i) => {
+                if(i === idx) {
+                    btn.classList.add('btn-active');
+                    btn.classList.remove('bg-slate-800/50', 'hover:bg-slate-700/50');
+                } else {
+                    btn.classList.remove('btn-active');
+                    btn.classList.add('bg-slate-800/50', 'hover:bg-slate-700/50');
+                }
+            });
+
+            // Update 3D Material
+            if (idx === 0) {
+                earthMat.map = earthDayTex; earthMat.color.setHex(0xffffff); el.className = 'text-slate-200 font-bold';
+            } else if (idx === 1) { // FLIR
+                earthMat.map = earthNightTex; earthMat.color.setHex(0xff5500); el.className = 'text-amber-400 font-bold';
+            } else if (idx === 2) { // NVG
+                earthMat.map = earthNightTex; earthMat.color.setHex(0x00ff00); el.className = 'text-emerald-400 font-bold';
+            } else { // SAR
+                earthMat.map = null; earthMat.color.setHex(0x061120); earthMat.wireframe = true; el.className = 'text-sky-400 font-bold';
             }
+            if(idx !== 3) earthMat.wireframe = false;
+        }
+
+        function updateSwath(val) {
+            swathRadius = parseFloat(val);
+            buildLaserAndFootprint();
+            
+            const km = Math.round(swathRadius * 4800);
+            document.getElementById('swath-val').textContent = km + " KM";
+            document.getElementById('intel-swath-val').textContent = "SWATH: " + km + " KM";
+            satCircle.setRadius(km * 1000);
+        }
+
+        function updateSpeed(val) {
+            orbitSpeed = parseFloat(val);
+            let mult = (orbitSpeed / 0.003).toFixed(1);
+            document.getElementById('speed-val').textContent = mult + "X";
         }
 
         // --- ANIMATION & PHYSICS LOOP ---
         function animate() {
             requestAnimationFrame(animate);
             
-            // Earth Rotation
             earthMesh.rotation.y += 0.0005;
 
-            // Satellite Physics
             if (!isGeoLocked) {
                 orbitTime += orbitSpeed;
                 
-                // Calculate 3D Position (Inclined orbit)
-                satGroup.position.x = Math.cos(orbitTime) * orbitRadius;
-                satGroup.position.z = Math.sin(orbitTime) * orbitRadius;
-                satGroup.position.y = Math.sin(orbitTime * 0.7) * orbitRadius * 0.4; 
+                // Calculate position on an inclined orbit
+                const x = Math.cos(orbitTime) * orbitRadius;
+                const z = Math.sin(orbitTime) * orbitRadius;
+                const y = Math.sin(orbitTime * 0.7) * orbitRadius * 0.4; 
+                satGroup.position.set(x, y, z);
                 
-                // Make Satellite point laser directly at Earth center
+                // Point satellite bus at earth
                 satGroup.lookAt(0,0,0);
-                satGroup.rotateX(Math.PI / 2); // align cone
                 
-                // Math to extract Lat/Lon
-                satLat = (Math.asin(satGroup.position.y / orbitRadius) * 180 / Math.PI).toFixed(2);
-                
-                // Adjust longitude for earth rotation so 2D map matches exactly
+                // Correct Cone Physics (Tip at satellite, base pointing precisely at Earth center -Z)
+                coneMesh.position.copy(satGroup.position);
+                coneMesh.lookAt(0,0,0);
+
+                // Correct Ring Physics (Hovering exactly 1% above earth surface directly under satellite)
+                ringMesh.position.copy(satGroup.position).normalize().multiplyScalar(1.005);
+                ringMesh.lookAt(0,0,0); // Orient ring flat against the sphere surface
+
+                // Math for UI
+                let satLat = (Math.asin(satGroup.position.y / orbitRadius) * 180 / Math.PI).toFixed(2);
                 let rawLon = (Math.atan2(satGroup.position.z, satGroup.position.x) * 180 / Math.PI);
                 let earthRotDegrees = (earthMesh.rotation.y * 180 / Math.PI) % 360;
-                satLon = (rawLon - earthRotDegrees);
+                let satLon = (rawLon - earthRotDegrees);
                 if (satLon < -180) satLon += 360;
                 if (satLon > 180) satLon -= 360;
                 satLon = satLon.toFixed(2);
 
-                // Update UI Text
                 document.getElementById('hud-lat').textContent = satLat;
                 document.getElementById('hud-lon').textContent = satLon;
                 
-                // Sync Leaflet 2D Map Marker
+                // Sync 2D Map
                 satMarker.setLatLng([satLat, satLon]);
+                satCircle.setLatLng([satLat, satLon]);
                 
-                // Format UTC Time
-                const d = new Date();
-                document.getElementById('hud-time').textContent = 'UTC ' + d.toISOString().substr(11,8);
+                // Live Clock
+                document.getElementById('hud-time').textContent = 'UTC ' + new Date().toISOString().substr(11,8);
             }
 
-            // Camera Logic
+            // Camera Handling
             if (activeCamera === 'FREE') {
                 controls.update();
             } else if (activeCamera === 'CHASE') {
-                // Position camera slightly behind and above satellite
-                const offset = satGroup.position.clone().normalize().multiplyScalar(0.3); // up/out
-                const backward = new THREE.Vector3(Math.cos(orbitTime - 0.1), Math.sin((orbitTime - 0.1) * 0.7) * 0.4, Math.sin(orbitTime - 0.1)).multiplyScalar(orbitRadius);
+                // Look forward along orbit path for smooth trailing
+                const forward = new THREE.Vector3(
+                    -Math.sin(orbitTime), 
+                    Math.cos(orbitTime * 0.7) * 0.4 * 0.7, 
+                    Math.cos(orbitTime)
+                ).normalize();
                 
-                const targetCamPos = backward.add(offset);
-                camera.position.lerp(targetCamPos, 0.1);
+                const up = new THREE.Vector3(0,1,0);
+                const right = new THREE.Vector3().crossVectors(forward, up).normalize();
+                
+                // Place camera behind, up, and slightly right of the satellite
+                const offset = new THREE.Vector3().addScaledVector(forward, -0.7).addScaledVector(up, 0.3).addScaledVector(right, 0.1);
+                
+                const targetCamPos = satGroup.position.clone().add(offset);
+                camera.position.lerp(targetCamPos, 0.08); // Smooth follow
                 camera.lookAt(satGroup.position);
             } else if (activeCamera === 'NADIR') {
-                // Position camera exactly on satellite, looking down laser cone at earth
-                const targetCamPos = satGroup.position.clone().multiplyScalar(1.05); // just outside the bus
+                // Mount camera on back of satellite looking down the laser cone
+                const targetCamPos = satGroup.position.clone().multiplyScalar(1.08);
                 camera.position.lerp(targetCamPos, 0.1);
                 camera.lookAt(0,0,0);
             }
@@ -336,14 +622,13 @@
             renderer.render(scene, camera);
         }
         
-        // Resize Handler
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+            if(activeEngine === '2D') map.invalidateSize();
         });
 
-        // Start
         animate();
     </script>
 </body>

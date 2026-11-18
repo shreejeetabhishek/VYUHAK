@@ -20,6 +20,42 @@ function playSound(type) {
     osc.connect(gain); gain.connect(audioCtx.destination);
 }
 
+// --- EXACT SPHERICAL COORDINATE CONVERSIONS ---
+// Three.js SphereGeometry standard UV mapping:
+// At earthMesh.rotation.y = 0:
+//   x =  r * cos(lat) * cos(lon)
+//   y =  r * sin(lat)
+//   z = -r * cos(lat) * sin(lon)
+// When earthMesh is rotated around Y by theta = earthMesh.rotation.y,
+// a ground point (lat, lon) moves to world angle: lonRad + earthMesh.rotation.y.
+function latLonToWorldPosition(latDeg, lonDeg, radius, earthRotationY) {
+    const latRad = latDeg * Math.PI / 180;
+    const lonRad = (lonDeg * Math.PI / 180) + earthRotationY;
+    const x = radius * Math.cos(latRad) * Math.cos(lonRad);
+    const y = radius * Math.sin(latRad);
+    const z = -radius * Math.cos(latRad) * Math.sin(lonRad);
+    return new THREE.Vector3(x, y, z);
+}
+
+// Exact inverse of latLonToWorldPosition:
+// Given ANY 3D world position (x, y, z) and earthRotationY, returns the exact (lat, lon) on the Earth's surface below it.
+function worldPositionToLatLon(pos, earthRotationY) {
+    const r = pos.length();
+    if (r === 0) return { lat: 0, lon: 0 };
+    const latRad = Math.asin(Math.max(-1, Math.min(1, pos.y / r)));
+    const worldLonRad = Math.atan2(-pos.z, pos.x);
+    let lonDeg = ((worldLonRad - earthRotationY) * 180 / Math.PI) % 360;
+    if (lonDeg < -180) lonDeg += 360;
+    if (lonDeg > 180) lonDeg -= 360;
+    const latDeg = latRad * 180 / Math.PI;
+    return { lat: latDeg, lon: lonDeg };
+}
+
+// Local position on unrotated earthMesh (for attaching 3D beacons directly to earthMesh)
+function latLonToLocalEarthPosition(latDeg, lonDeg, radius) {
+    return latLonToWorldPosition(latDeg, lonDeg, radius, 0);
+}
+
 // --- STATE VARIABLES ---
 let isDockExpanded = false;
 let currentTab = 'intel';
@@ -31,7 +67,7 @@ function calcOrbitRadius(km) {
     return 1.28 + (parseFloat(km) / 6371) * 0.9;
 }
 
-let orbitTime = 1.1; // Start over populated land instead of 0,0 ocean
+let orbitTime = -1.35; // Starts near India/Asia
 let currentAltitudeKm = 1200;
 let orbitRadius = calcOrbitRadius(currentAltitudeKm);
 let orbitSpeed = 0.003;
@@ -39,6 +75,37 @@ let orbitInclination = 45;
 let swathRadius = 0.25; 
 let activeEngine = '3D', activeCamera = 'FREE';
 let lastScannedTime = 0;
+
+// --- INSTANT SOVEREIGN DEMOGRAPHICS FALLBACK DICTIONARY ---
+// Guarantees 0ms instant population/capital/currency/area display even if external APIs are slow
+const SOVEREIGN_DB = {
+    "IN": { name: "India", pop: 1428627663, cap: "New Delhi", cur: "Indian Rupee (₹)", area: 3287263, tz: "UTC+05:30" },
+    "US": { name: "United States", pop: 339996563, cap: "Washington, D.C.", cur: "US Dollar ($)", area: 9372610, tz: "UTC-05:00" },
+    "CN": { name: "China", pop: 1411750000, cap: "Beijing", cur: "Chinese Yuan (¥)", area: 9596961, tz: "UTC+08:00" },
+    "BR": { name: "Brazil", pop: 216422446, cap: "Brasília", cur: "Brazilian Real (R$)", area: 8515767, tz: "UTC-03:00" },
+    "RU": { name: "Russia", pop: 144444359, cap: "Moscow", cur: "Russian Ruble (₽)", area: 17098242, tz: "UTC+03:00" },
+    "JP": { name: "Japan", pop: 123294513, cap: "Tokyo", cur: "Japanese Yen (¥)", area: 377930, tz: "UTC+09:00" },
+    "GB": { name: "United Kingdom", pop: 67736802, cap: "London", cur: "British Pound (£)", area: 242900, tz: "UTC+00:00" },
+    "FR": { name: "France", pop: 64756584, cap: "Paris", cur: "Euro (€)", area: 551695, tz: "UTC+01:00" },
+    "DE": { name: "Germany", pop: 83294633, cap: "Berlin", cur: "Euro (€)", area: 357114, tz: "UTC+01:00" },
+    "AU": { name: "Australia", pop: 26439111, cap: "Canberra", cur: "Australian Dollar ($)", area: 7692024, tz: "UTC+10:00" },
+    "CA": { name: "Canada", pop: 40097761, cap: "Ottawa", cur: "Canadian Dollar ($)", area: 9984670, tz: "UTC-05:00" },
+    "TD": { name: "Chad", pop: 18278568, cap: "N'Djamena", cur: "Central African CFA Franc", area: 1284000, tz: "UTC+01:00" },
+    "NG": { name: "Nigeria", pop: 223804632, cap: "Abuja", cur: "Nigerian Naira (₦)", area: 923768, tz: "UTC+01:00" },
+    "EG": { name: "Egypt", pop: 112716598, cap: "Cairo", cur: "Egyptian Pound (E£)", area: 1002450, tz: "UTC+02:00" },
+    "ZA": { name: "South Africa", pop: 60414495, cap: "Pretoria", cur: "South African Rand (R)", area: 1221037, tz: "UTC+02:00" },
+    "ID": { name: "Indonesia", pop: 277534122, cap: "Jakarta", cur: "Indonesian Rupiah (Rp)", area: 1904569, tz: "UTC+07:00" },
+    "PK": { name: "Pakistan", pop: 240485658, cap: "Islamabad", cur: "Pakistani Rupee (₨)", area: 881912, tz: "UTC+05:00" },
+    "BD": { name: "Bangladesh", pop: 172954319, cap: "Dhaka", cur: "Bangladeshi Taka (৳)", area: 147570, tz: "UTC+06:00" },
+    "MX": { name: "Mexico", pop: 128455567, cap: "Mexico City", cur: "Mexican Peso ($)", area: 1964375, tz: "UTC-06:00" },
+    "TR": { name: "Turkey", pop: 85816199, cap: "Ankara", cur: "Turkish Lira (₺)", area: 783562, tz: "UTC+03:00" },
+    "IR": { name: "Iran", pop: 89172767, cap: "Tehran", cur: "Iranian Rial (﷼)", area: 1648195, tz: "UTC+03:30" },
+    "SA": { name: "Saudi Arabia", pop: 36947025, cap: "Riyadh", cur: "Saudi Riyal (SR)", area: 2149690, tz: "UTC+03:00" },
+    "AE": { name: "United Arab Emirates", pop: 9516871, cap: "Abu Dhabi", cur: "UAE Dirham (AED)", area: 83600, tz: "UTC+04:00" },
+    "UA": { name: "Ukraine", pop: 36744634, cap: "Kyiv", cur: "Ukrainian Hryvnia (₴)", area: 603500, tz: "UTC+02:00" },
+    "IL": { name: "Israel", pop: 9174520, cap: "Jerusalem", cur: "Israeli New Shekel (₪)", area: 20770, tz: "UTC+02:00" },
+    "AR": { name: "Argentina", pop: 45773884, cap: "Buenos Aires", cur: "Argentine Peso ($)", area: 2780400, tz: "UTC-03:00" }
+};
 
 // --- UI LOGIC ---
 function openTab(tabName, btnEl) {
@@ -72,35 +139,51 @@ function scanCurrentFootprint() {
     fetchSubSatData(curLat, curLon, true);
 }
 
-function toggleGeoLock() {
-    isGeoLocked = !isGeoLocked;
+function updateLockUI(locked) {
     const btn = document.getElementById('btn-geo-lock');
     const ind = document.getElementById('lock-indicator');
-    
-    if(isGeoLocked) {
+    const topBtn = document.getElementById('top-geo-lock');
+    const topInd = document.getElementById('top-lock-ind');
+
+    if (locked) {
         btn.classList.add('bg-sky-700/50', 'border-sky-400');
         ind.textContent = 'ON'; ind.classList.replace('text-slate-400', 'text-sky-300');
+        topBtn.classList.add('bg-sky-900/60', 'border-sky-400');
+        topInd.textContent = 'ON'; topInd.classList.replace('text-slate-400', 'text-emerald-400');
         document.getElementById('hud-sat-name').textContent = 'VK-Hover-02';
         document.getElementById('hud-vel').textContent = '0.00';
         if (orbitLineMesh) orbitLineMesh.visible = false;
-        playSound('lock');
-        
-        lockedLat = parseFloat(document.getElementById('hud-lat').textContent);
-        lockedLon = parseFloat(document.getElementById('hud-lon').textContent);
-        fetchSubSatData(lockedLat, lockedLon, true);
     } else {
         btn.classList.remove('bg-sky-700/50', 'border-sky-400');
         ind.textContent = 'OFF'; ind.classList.replace('text-sky-300', 'text-slate-400');
+        topBtn.classList.remove('bg-sky-900/60', 'border-sky-400');
+        topInd.textContent = 'OFF'; topInd.classList.replace('text-emerald-400', 'text-slate-400');
         document.getElementById('hud-sat-name').textContent = 'VK-Tracker-01';
         if (orbitLineMesh) orbitLineMesh.visible = true;
-        
         const speedVal = document.getElementById('speed-slider').value;
-        updateSpeed(speedVal); 
+        updateSpeed(speedVal);
+    }
+}
+
+function toggleGeoLock() {
+    isGeoLocked = !isGeoLocked;
+    if(isGeoLocked) {
+        // Compute exact Lat/Lon from current 3D position so the satellite freezes in place with ZERO jump!
+        const exactCoords = worldPositionToLatLon(satGroup.position, earthMesh.rotation.y);
+        lockedLat = exactCoords.lat;
+        lockedLon = exactCoords.lon;
+        document.getElementById('hud-lat').textContent = lockedLat.toFixed(2);
+        document.getElementById('hud-lon').textContent = lockedLon.toFixed(2);
+        updateLockUI(true);
+        playSound('lock');
+        fetchSubSatData(lockedLat, lockedLon, true);
+    } else {
+        updateLockUI(false);
         playSound('click');
     }
 }
 
-// --- API ENGINE (MULTI-SOURCE FALLBACKS FOR 100% RELIABILITY) ---
+// --- API ENGINE (PARALLELIZED FOR ULTRA-FAST UPDATES) ---
 const API_ENDPOINTS = {
     EARTHQUAKES: 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson',
     EONET: 'https://eonet.gsfc.nasa.gov/api/v3/events?limit=15&days=10',
@@ -112,8 +195,8 @@ const API_ENDPOINTS = {
     RELIEFWEB_COUNTRY: (country) => `https://api.reliefweb.int/v1/reports?appname=vyuhak&query[value]=${encodeURIComponent(country)}&limit=3`,
     WEATHER: (lat, lon) => `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&hourly=relativehumidity_2m&current_weather=true`,
     REVGEO: (lat, lon) => `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`,
-    COUNTRY_ALPHA: (code) => `https://restcountries.com/v3.1/alpha/${encodeURIComponent(code)}`,
-    COUNTRY_NAME: (name) => `https://restcountries.com/v3.1/name/${encodeURIComponent(name)}`,
+    COUNTRY_ALPHA: (code) => `https://restcountries.com/v3.1/alpha/${encodeURIComponent(code)}?fields=name,population,capital,currencies,area,timezones`,
+    COUNTRY_NAME: (name) => `https://restcountries.com/v3.1/name/${encodeURIComponent(name)}?fields=name,population,capital,currencies,area,timezones`,
     WIKI_GEO: (lat, lon, rad) => `https://en.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=${rad}&gslimit=6&format=json&origin=*`,
     WIKI_SUMMARY: (title) => `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`
 };
@@ -163,97 +246,88 @@ async function fetchLiveIntel(force = false) {
     let alertCount = 0;
 
     try {
-        try {
-            const eqRes = await fetch(API_ENDPOINTS.EARTHQUAKES);
-            const eqData = await eqRes.json();
-            if (eqData.features && eqData.features.length > 0) {
-                eqData.features.slice(0, 4).forEach(eq => {
+        const [eqRes, eoRes, rwRes, newsRes] = await Promise.allSettled([
+            fetch(API_ENDPOINTS.EARTHQUAKES).then(r => r.json()),
+            fetch(API_ENDPOINTS.EONET).then(r => r.json()),
+            fetch(API_ENDPOINTS.RELIEFWEB_GLOBAL).then(r => r.json()),
+            fetch(API_ENDPOINTS.NEWS_GLOBAL).then(r => r.json())
+        ]);
+
+        if (eqRes.status === 'fulfilled' && eqRes.value.features) {
+            eqRes.value.features.slice(0, 4).forEach(eq => {
+                alertCount++;
+                const mag = eq.properties.mag.toFixed(1);
+                const place = eq.properties.place;
+                const [lon, lat] = eq.geometry.coordinates;
+                liveIntelData.push({ type: 'eq', lat, lon, title: `Magnitude ${mag} Earthquake near ${place}` });
+                newItemsHTML += `
+                <div class="api-item bg-red-900/20 border border-red-500/30 rounded-lg p-3 flex gap-3 items-start cursor-pointer hover:bg-red-900/40 transition" onclick="parkSatelliteAt(${lat}, ${lon})">
+                    <div class="text-xl">🌋</div>
+                    <div>
+                        <div class="text-[12px] font-bold text-red-400 mb-1">Earthquake (Magnitude ${mag})</div>
+                        <div class="text-[11px] text-slate-200">${place}</div>
+                        <div class="text-[10px] text-sky-400 mt-1 font-semibold">Tap to lock satellite & view Ground Data &rarr;</div>
+                    </div>
+                </div>`;
+            });
+        }
+
+        if (eoRes.status === 'fulfilled' && eoRes.value.events) {
+            eoRes.value.events.slice(0, 4).forEach(ev => {
+                if(ev.geometry && ev.geometry.length > 0) {
                     alertCount++;
-                    const mag = eq.properties.mag.toFixed(1);
-                    const place = eq.properties.place;
-                    const [lon, lat] = eq.geometry.coordinates;
-                    liveIntelData.push({ type: 'eq', lat, lon, title: `Magnitude ${mag} Earthquake near ${place}` });
+                    const title = ev.title;
+                    const coords = ev.geometry[0].coordinates;
+                    let lon = coords[0], lat = coords[1];
+                    if(Array.isArray(lon)) { lon = coords[0][0][0]; lat = coords[0][0][1]; } 
+                    liveIntelData.push({ type: 'eonet', lat, lon, title: title });
                     newItemsHTML += `
-                    <div class="api-item bg-red-900/20 border border-red-500/30 rounded-lg p-3 flex gap-3 items-start cursor-pointer hover:bg-red-900/40 transition" onclick="parkSatelliteAt(${lat}, ${lon})">
-                        <div class="text-xl">🌋</div>
+                    <div class="api-item bg-amber-900/20 border border-amber-500/30 rounded-lg p-3 flex gap-3 items-start cursor-pointer hover:bg-amber-900/40 transition" onclick="parkSatelliteAt(${lat}, ${lon})">
+                        <div class="text-xl">🔥</div>
                         <div>
-                            <div class="text-[12px] font-bold text-red-400 mb-1">Earthquake (Magnitude ${mag})</div>
-                            <div class="text-[11px] text-slate-200">${place}</div>
+                            <div class="text-[12px] font-bold text-amber-400 mb-1">Active Wildfire / Storm</div>
+                            <div class="text-[11px] text-slate-200">${title}</div>
                             <div class="text-[10px] text-sky-400 mt-1 font-semibold">Tap to lock satellite & view Ground Data &rarr;</div>
                         </div>
                     </div>`;
-                });
-            }
-        } catch(e) {}
+                }
+            });
+        }
 
-        try {
-            const eoRes = await fetch(API_ENDPOINTS.EONET);
-            const eoData = await eoRes.json();
-            if (eoData.events && eoData.events.length > 0) {
-                eoData.events.slice(0, 4).forEach(ev => {
-                    if(ev.geometry && ev.geometry.length > 0) {
-                        alertCount++;
-                        const title = ev.title;
-                        const coords = ev.geometry[0].coordinates;
-                        let lon = coords[0], lat = coords[1];
-                        if(Array.isArray(lon)) { lon = coords[0][0][0]; lat = coords[0][0][1]; } 
-                        liveIntelData.push({ type: 'eonet', lat, lon, title: title });
-                        newItemsHTML += `
-                        <div class="api-item bg-amber-900/20 border border-amber-500/30 rounded-lg p-3 flex gap-3 items-start cursor-pointer hover:bg-amber-900/40 transition" onclick="parkSatelliteAt(${lat}, ${lon})">
-                            <div class="text-xl">🔥</div>
-                            <div>
-                                <div class="text-[12px] font-bold text-amber-400 mb-1">Active Wildfire / Storm</div>
-                                <div class="text-[11px] text-slate-200">${title}</div>
-                                <div class="text-[10px] text-sky-400 mt-1 font-semibold">Tap to lock satellite & view Ground Data &rarr;</div>
-                            </div>
-                        </div>`;
-                    }
-                });
-            }
-        } catch(e) {}
-
-        try {
-            const rwRes = await fetch(API_ENDPOINTS.RELIEFWEB_GLOBAL);
-            const rwData = await rwRes.json();
-            if (rwData.data && rwData.data.length > 0) {
-                rwData.data.slice(0, 4).forEach(d => {
-                    if(d.fields && d.fields.primary_country && d.fields.primary_country.location) {
-                        alertCount++;
-                        const lat = d.fields.primary_country.location.lat;
-                        const lon = d.fields.primary_country.location.lon;
-                        const title = d.fields.name;
-                        liveIntelData.push({ type: 'rw', lat, lon, title: title });
-                        newItemsHTML += `
-                        <div class="api-item bg-fuchsia-900/20 border border-fuchsia-500/30 rounded-lg p-3 flex gap-3 items-start cursor-pointer hover:bg-fuchsia-900/40 transition" onclick="parkSatelliteAt(${lat}, ${lon})">
-                            <div class="text-xl">⚠️</div>
-                            <div>
-                                <div class="text-[12px] font-bold text-fuchsia-400 mb-1">Conflict / Humanitarian Crisis</div>
-                                <div class="text-[11px] text-slate-200">${title}</div>
-                                <div class="text-[10px] text-sky-400 mt-1 font-semibold">Tap to lock satellite & view Ground Data &rarr;</div>
-                            </div>
-                        </div>`;
-                    }
-                });
-            }
-        } catch(e) {}
-
-        try {
-            const newsRes = await fetch(API_ENDPOINTS.NEWS_GLOBAL);
-            const newsData = await newsRes.json();
-            if (newsData.items && newsData.items.length > 0) {
-                newsData.items.slice(0, 3).forEach(n => {
+        if (rwRes.status === 'fulfilled' && rwRes.value.data) {
+            rwRes.value.data.slice(0, 4).forEach(d => {
+                if(d.fields && d.fields.primary_country && d.fields.primary_country.location) {
                     alertCount++;
+                    const lat = d.fields.primary_country.location.lat;
+                    const lon = d.fields.primary_country.location.lon;
+                    const title = d.fields.name;
+                    liveIntelData.push({ type: 'rw', lat, lon, title: title });
                     newItemsHTML += `
-                    <div class="api-item bg-blue-900/20 border border-blue-500/30 rounded-lg p-3 flex gap-3 items-start">
-                        <div class="text-xl">📰</div>
+                    <div class="api-item bg-fuchsia-900/20 border border-fuchsia-500/30 rounded-lg p-3 flex gap-3 items-start cursor-pointer hover:bg-fuchsia-900/40 transition" onclick="parkSatelliteAt(${lat}, ${lon})">
+                        <div class="text-xl">⚠️</div>
                         <div>
-                            <div class="text-[12px] font-bold text-blue-400 mb-1">World Headline</div>
-                            <div class="text-[11px] text-slate-200">${n.title}</div>
+                            <div class="text-[12px] font-bold text-fuchsia-400 mb-1">Conflict / Humanitarian Crisis</div>
+                            <div class="text-[11px] text-slate-200">${title}</div>
+                            <div class="text-[10px] text-sky-400 mt-1 font-semibold">Tap to lock satellite & view Ground Data &rarr;</div>
                         </div>
                     </div>`;
-                });
-            }
-        } catch(e) {}
+                }
+            });
+        }
+
+        if (newsRes.status === 'fulfilled' && newsRes.value.items) {
+            newsRes.value.items.slice(0, 3).forEach(n => {
+                alertCount++;
+                newItemsHTML += `
+                <div class="api-item bg-blue-900/20 border border-blue-500/30 rounded-lg p-3 flex gap-3 items-start">
+                    <div class="text-xl">📰</div>
+                    <div>
+                        <div class="text-[12px] font-bold text-blue-400 mb-1">World Headline</div>
+                        <div class="text-[11px] text-slate-200">${n.title}</div>
+                    </div>
+                </div>`;
+            });
+        }
 
         feed.innerHTML = newItemsHTML || '<div class="text-center p-4 text-[12px] text-slate-500">No major global alerts right now.</div>';
         
@@ -273,35 +347,22 @@ async function fetchLiveIntel(force = false) {
 
 let currentScanId = 0;
 async function fetchSubSatData(lat, lon, force = false) {
-    const scanId = ++currentScanId; // Cancels stale scans (like initial 0,0 ocean scan)
+    const scanId = ++currentScanId;
 
     const numLat = parseFloat(lat);
     const numLon = parseFloat(lon);
     const swathKm = Math.round(swathRadius * 4800);
 
     document.getElementById('weather-loc').textContent = `Center: ${numLat.toFixed(2)}°, ${numLon.toFixed(2)}° | Radius: ${swathKm} km`;
-    document.getElementById('w-temp').textContent = "Scanning...";
-    document.getElementById('w-wind').textContent = "Scanning...";
-    document.getElementById('w-hum').textContent = "Scanning...";
-    document.getElementById('w-cond').textContent = "Scanning...";
-    document.getElementById('reg-pop').textContent = "Loading...";
-    document.getElementById('reg-cap').textContent = "Loading...";
-    document.getElementById('reg-cur').textContent = "Loading...";
-    document.getElementById('reg-area').textContent = "Loading...";
-    document.getElementById('reg-dens').textContent = "Loading...";
-    document.getElementById('reg-tz').textContent = "Loading...";
-    document.getElementById('geo-data').textContent = "Identifying territory, population, and local sector...";
-    document.getElementById('reg-conflicts').innerHTML = '<div class="text-slate-400 p-2">Scanning footprint for emergencies...</div>';
-    document.getElementById('reg-news').innerHTML = '<div class="text-slate-400 p-2">Pulling live regional news...</div>';
-    document.getElementById('reg-interest').innerHTML = '<div class="text-slate-400 p-2">Analyzing public interest & regional profile...</div>';
-    document.getElementById('wiki-data').innerHTML = '<div class="text-slate-400 p-2">Locating top places & landmarks...</div>';
+    document.getElementById('connection-led').classList.add('recording');
 
-    // 1. Live Weather (Open-Meteo with Humidity fallback)
-    try {
-        const wRes = await fetch(API_ENDPOINTS.WEATHER(numLat, numLon));
-        const wData = await wRes.json();
-        if (scanId !== currentScanId) return;
+    // Run Weather + Reverse Geocoding + Wikipedia Geosearch concurrently for instant responsiveness!
+    const weatherPromise = fetch(API_ENDPOINTS.WEATHER(numLat, numLon)).then(r => r.json()).catch(() => null);
+    const geoPromise = fetch(API_ENDPOINTS.REVGEO(numLat, numLon)).then(r => r.json()).catch(() => null);
 
+    // 1. Handle Weather immediately when ready
+    weatherPromise.then(wData => {
+        if (scanId !== currentScanId || !wData) return;
         let temp = '--', wind = '--', hum = '--', code = 0;
         if (wData.current) {
             temp = wData.current.temperature_2m;
@@ -312,123 +373,131 @@ async function fetchSubSatData(lat, lon, force = false) {
             temp = wData.current_weather.temperature;
             wind = wData.current_weather.windspeed;
             code = wData.current_weather.weathercode;
-            if (wData.hourly && wData.hourly.relativehumidity_2m && wData.hourly.relativehumidity_2m.length > 0) {
-                hum = wData.hourly.relativehumidity_2m[0];
-            } else {
-                hum = Math.round(45 + Math.abs(Math.sin(numLat)) * 35);
-            }
+            hum = (wData.hourly && wData.hourly.relativehumidity_2m) ? wData.hourly.relativehumidity_2m[0] : Math.round(45 + Math.abs(Math.sin(numLat)) * 35);
         }
         document.getElementById('w-temp').innerHTML = `${temp} &deg;C`;
         document.getElementById('w-wind').innerHTML = `${wind} km/h`;
         document.getElementById('w-hum').innerHTML = `${hum}%`;
         document.getElementById('w-cond').textContent = decodeWeatherCode(code);
-    } catch(e) {
-        if (scanId === currentScanId) document.getElementById('w-temp').textContent = "N/A";
+    });
+
+    // 2. Handle Reverse Geocoding & Trigger Parallel Sub-Modules
+    const geoData = await geoPromise;
+    if (scanId !== currentScanId) return;
+    document.getElementById('connection-led').classList.remove('recording');
+
+    if (!geoData) {
+        document.getElementById('geo-data').textContent = "Unable to resolve ground details at this moment.";
+        return;
     }
 
-    // 2. Reverse Geocoding + Country Demographics + Regional News + Public Interest + Landmarks
-    try {
-        const geoRes = await fetch(API_ENDPOINTS.REVGEO(numLat, numLon));
-        const geoData = await geoRes.json();
-        if (scanId !== currentScanId) return;
+    const ctry = geoData.countryName || '';
+    const ctryCode = (geoData.countryCode || '').toUpperCase();
+    const state = geoData.principalSubdivision || '';
+    const city = geoData.city || geoData.locality || '';
+    const informative = (geoData.localityInfo && geoData.localityInfo.informative) ? geoData.localityInfo.informative : [];
+    const admin = (geoData.localityInfo && geoData.localityInfo.administrative) ? geoData.localityInfo.administrative : [];
+    const ocean = informative.length > 0 ? informative[0].name : 'International Waters';
+
+    if (!ctry) {
+        // Over Ocean
+        document.getElementById('geo-data').innerHTML = `
+            <div class="text-sky-400 font-bold text-sm">🌊 Maritime / Oceanic Sector: ${ocean}</div>
+            <div class="text-slate-300 text-xs mt-1">The satellite footprint is currently over open international waters. Monitoring maritime weather, shipping lanes, and subsea seismic activity.</div>
+        `;
+        document.getElementById('reg-pop').textContent = "0 (Oceanic)";
+        document.getElementById('reg-cap').textContent = "Int'l Waters";
+        document.getElementById('reg-cur').textContent = "Maritime Trade";
+        document.getElementById('reg-area').textContent = "Open Ocean";
+        document.getElementById('reg-dens').textContent = "0 / km²";
+        document.getElementById('reg-tz').textContent = `UTC ${numLon >= 0 ? '+' : ''}${Math.round(numLon / 15)}h`;
         
-        const ctry = geoData.countryName || '';
-        const ctryCode = geoData.countryCode || '';
-        const state = geoData.principalSubdivision || '';
-        const city = geoData.city || geoData.locality || '';
-        const informative = (geoData.localityInfo && geoData.localityInfo.informative) ? geoData.localityInfo.informative : [];
-        const admin = (geoData.localityInfo && geoData.localityInfo.administrative) ? geoData.localityInfo.administrative : [];
-        const ocean = informative.length > 0 ? informative[0].name : 'International Waters';
+        // Fire all sub-modules in parallel!
+        Promise.allSettled([
+            fetchRegionalNews(ocean, "Maritime Shipping", scanId),
+            fetchPublicInterest(ocean, "", "", informative, admin, scanId),
+            checkFootprintConflicts(numLat, numLon, swathKm, "", scanId),
+            fetchTopLandmarks(numLat, numLon, ocean, informative, admin, scanId)
+        ]);
+    } else {
+        // Over Land
+        let summaryText = `The satellite is scanning <strong class="text-emerald-400">${city ? city + ', ' : ''}${state && state !== city ? state + ', ' : ''}${ctry}</strong>.`;
+        document.getElementById('geo-data').innerHTML = `<div class="mb-1">${summaryText}</div><div id="region-bio" class="text-[11px] text-slate-300 mt-1.5 leading-relaxed">Loading regional overview...</div>`;
 
-        if (!ctry) {
-            // Over Ocean
-            document.getElementById('geo-data').innerHTML = `
-                <div class="text-sky-400 font-bold text-sm">🌊 Maritime / Oceanic Sector: ${ocean}</div>
-                <div class="text-slate-300 text-xs mt-1">The satellite footprint is currently over open international waters. Monitoring maritime weather, shipping lanes, and subsea seismic activity.</div>
-            `;
-            document.getElementById('reg-pop').textContent = "0 (Oceanic)";
-            document.getElementById('reg-cap').textContent = "Int'l Waters";
-            document.getElementById('reg-cur').textContent = "Maritime Trade";
-            document.getElementById('reg-area').textContent = "Open Ocean";
-            document.getElementById('reg-dens').textContent = "0 / km²";
-            document.getElementById('reg-tz').textContent = `UTC ${numLon >= 0 ? '+' : ''}${Math.round(numLon / 15)}h`;
-            
-            fetchRegionalNews(ocean, "Maritime Shipping", scanId);
-            fetchPublicInterest(ocean, "", "", informative, admin, scanId);
-            checkFootprintConflicts(numLat, numLon, swathKm, "", scanId);
-            fetchTopLandmarks(numLat, numLon, ocean, informative, admin, scanId);
-        } else {
-            // Over Land
-            let summaryText = `The satellite is scanning <strong class="text-emerald-400">${city ? city + ', ' : ''}${state && state !== city ? state + ', ' : ''}${ctry}</strong>.`;
-            document.getElementById('geo-data').innerHTML = `<div class="mb-1">${summaryText}</div><div id="region-bio" class="text-[11px] text-slate-300 mt-1.5 leading-relaxed"></div>`;
-
-            // Fetch Country Population, Capital, Currency, Area, Density via REST Countries (with Name fallback)
-            try {
-                let cRes = ctryCode ? await fetch(API_ENDPOINTS.COUNTRY_ALPHA(ctryCode)) : null;
-                if (!cRes || !cRes.ok) {
-                    cRes = await fetch(API_ENDPOINTS.COUNTRY_NAME(ctry));
-                }
-                if (cRes && cRes.ok && scanId === currentScanId) {
-                    const cArr = await cRes.json();
-                    const cInfo = Array.isArray(cArr) ? cArr[0] : cArr;
-                    if (cInfo) {
-                        const popNum = cInfo.population || 0;
-                        const areaNum = cInfo.area || 0;
-                        const pop = formatPopulation(popNum);
-                        const cap = cInfo.capital && cInfo.capital[0] ? cInfo.capital[0] : 'N/A';
-                        const curObj = cInfo.currencies ? Object.values(cInfo.currencies)[0] : null;
-                        const cur = curObj ? `${curObj.name} (${curObj.symbol || ''})` : 'N/A';
-                        const areaStr = areaNum ? areaNum.toLocaleString() + ' km²' : 'N/A';
-                        const densStr = (popNum && areaNum) ? Math.round(popNum / areaNum).toLocaleString() + ' / km²' : 'N/A';
-                        const tz = cInfo.timezones && cInfo.timezones[0] ? cInfo.timezones[0] : 'UTC';
-                        
-                        document.getElementById('reg-pop').textContent = pop;
-                        document.getElementById('reg-cap').textContent = cap;
-                        document.getElementById('reg-cur').textContent = cur;
-                        document.getElementById('reg-area').textContent = areaStr;
-                        document.getElementById('reg-dens').textContent = densStr;
-                        document.getElementById('reg-tz').textContent = tz;
-                    }
-                }
-            } catch(e) {
-                if (scanId === currentScanId) {
-                    document.getElementById('reg-pop').textContent = "Data Protected";
-                }
-            }
-
-            // Fetch Wikipedia Regional Summary (Tries City -> State -> Country so it NEVER stays blank)
-            const candidates = [city, state, ctry].filter(Boolean);
-            for (const placeName of candidates) {
-                try {
-                    const sumRes = await fetch(API_ENDPOINTS.WIKI_SUMMARY(placeName));
-                    if (sumRes.ok) {
-                        const sumData = await sumRes.json();
-                        if (sumData.extract && scanId === currentScanId) {
-                            const bioEl = document.getElementById('region-bio');
-                            if (bioEl) bioEl.innerHTML = `<span class="text-sky-300 font-semibold">[${placeName} Overview]:</span> ${sumData.extract}`;
-                            break;
-                        }
-                    }
-                } catch(e) {}
-            }
-
-            // Fetch Live Regional News (Tries Local State/City -> Country -> GDELT -> Global)
-            fetchRegionalNews(state || city || ctry, ctry, scanId);
-
-            // Fetch Public Interest Topics & Strategic Dossier
-            fetchPublicInterest(ctry, state, city, informative, admin, scanId);
-
-            // Check Conflicts & Disasters in Footprint + Country
-            checkFootprintConflicts(numLat, numLon, swathKm, ctry, scanId);
-
-            // Fetch Top Places & Landmarks
-            fetchTopLandmarks(numLat, numLon, state || ctry, informative, admin, scanId);
+        // INSTANT DEMOGRAPHICS DISPLAY FROM LOCAL DICTIONARY IF AVAILABLE
+        if (SOVEREIGN_DB[ctryCode]) {
+            const db = SOVEREIGN_DB[ctryCode];
+            document.getElementById('reg-pop').textContent = formatPopulation(db.pop);
+            document.getElementById('reg-cap').textContent = db.cap;
+            document.getElementById('reg-cur').textContent = db.cur;
+            document.getElementById('reg-area').textContent = db.area.toLocaleString() + ' km²';
+            document.getElementById('reg-dens').textContent = Math.round(db.pop / db.area).toLocaleString() + ' / km²';
+            document.getElementById('reg-tz').textContent = db.tz;
         }
 
+        // Fire Country API, Wikipedia Bio, Regional News, Public Interest, Conflicts, and Landmarks IN PARALLEL!
+        Promise.allSettled([
+            fetchCountryMetrics(ctryCode, ctry, numLon, scanId),
+            fetchRegionBio(city, state, ctry, scanId),
+            fetchRegionalNews(state || city || ctry, ctry, scanId),
+            fetchPublicInterest(ctry, state, city, informative, admin, scanId),
+            checkFootprintConflicts(numLat, numLon, swathKm, ctry, scanId),
+            fetchTopLandmarks(numLat, numLon, state || ctry, informative, admin, scanId)
+        ]);
+    }
+}
+
+async function fetchCountryMetrics(ctryCode, ctryName, numLon, scanId) {
+    try {
+        let cRes = ctryCode ? await fetch(API_ENDPOINTS.COUNTRY_ALPHA(ctryCode)) : null;
+        if (!cRes || !cRes.ok) {
+            cRes = await fetch(API_ENDPOINTS.COUNTRY_NAME(ctryName));
+        }
+        if (cRes && cRes.ok && scanId === currentScanId) {
+            const cArr = await cRes.json();
+            const cInfo = Array.isArray(cArr) ? cArr[0] : cArr;
+            if (cInfo) {
+                const popNum = cInfo.population || 0;
+                const areaNum = cInfo.area || 0;
+                const pop = formatPopulation(popNum);
+                const cap = cInfo.capital && cInfo.capital[0] ? cInfo.capital[0] : 'N/A';
+                const curObj = cInfo.currencies ? Object.values(cInfo.currencies)[0] : null;
+                const cur = curObj ? `${curObj.name} (${curObj.symbol || ''})` : 'N/A';
+                const areaStr = areaNum ? areaNum.toLocaleString() + ' km²' : 'N/A';
+                const densStr = (popNum && areaNum) ? Math.round(popNum / areaNum).toLocaleString() + ' / km²' : 'N/A';
+                const tz = cInfo.timezones && cInfo.timezones[0] ? cInfo.timezones[0] : `UTC ${numLon >= 0 ? '+' : ''}${Math.round(numLon / 15)}h`;
+                
+                document.getElementById('reg-pop').textContent = pop;
+                document.getElementById('reg-cap').textContent = cap;
+                document.getElementById('reg-cur').textContent = cur;
+                document.getElementById('reg-area').textContent = areaStr;
+                document.getElementById('reg-dens').textContent = densStr;
+                document.getElementById('reg-tz').textContent = tz;
+            }
+        }
     } catch(e) {
-        if (scanId === currentScanId) {
-            document.getElementById('geo-data').textContent = "Unable to resolve ground details at this moment.";
+        if (scanId === currentScanId && !SOVEREIGN_DB[ctryCode]) {
+            document.getElementById('reg-tz').textContent = `UTC ${numLon >= 0 ? '+' : ''}${Math.round(numLon / 15)}h`;
         }
+    }
+}
+
+async function fetchRegionBio(city, state, ctry, scanId) {
+    // Prefer State/Country or non-disambiguation summaries
+    const candidates = [state ? `${city ? city + ', ' : ''}${state}` : '', state, ctry].filter(Boolean);
+    for (const placeName of candidates) {
+        try {
+            const sumRes = await fetch(API_ENDPOINTS.WIKI_SUMMARY(placeName));
+            if (sumRes.ok) {
+                const sumData = await sumRes.json();
+                // Skip Wikipedia disambiguation pages (like "Dongargaon may refer to...")
+                if (sumData.extract && sumData.type !== 'disambiguation' && !sumData.extract.includes('may refer to:') && scanId === currentScanId) {
+                    const bioEl = document.getElementById('region-bio');
+                    if (bioEl) bioEl.innerHTML = `<span class="text-sky-300 font-semibold">[${sumData.title || placeName}]:</span> ${sumData.extract}`;
+                    return;
+                }
+            }
+        } catch(e) {}
     }
 }
 
@@ -438,7 +507,6 @@ async function fetchRegionalNews(primaryQuery, fallbackCountry = '', scanId) {
         let items = [];
         let sourceTag = primaryQuery;
 
-        // Tier 1: Google News RSS for exact state/city + country
         const fullQuery = fallbackCountry && primaryQuery !== fallbackCountry ? `${primaryQuery} ${fallbackCountry}` : primaryQuery;
         try {
             let res = await fetch(API_ENDPOINTS.NEWS_REGIONAL_RSS2JSON(fullQuery));
@@ -449,7 +517,6 @@ async function fetchRegionalNews(primaryQuery, fallbackCountry = '', scanId) {
             }
         } catch(e) {}
 
-        // Tier 2: Fallback to Country-level Google News RSS (e.g., "Chad" when "Tibasti Chad" has 0 articles)
         if (items.length === 0 && fallbackCountry) {
             try {
                 let res2 = await fetch(API_ENDPOINTS.NEWS_REGIONAL_RSS2JSON(fallbackCountry));
@@ -461,7 +528,6 @@ async function fetchRegionalNews(primaryQuery, fallbackCountry = '', scanId) {
             } catch(e) {}
         }
 
-        // Tier 3: GDELT Global Knowledge Graph API fallback
         if (items.length === 0 && (fallbackCountry || primaryQuery)) {
             try {
                 let gRes = await fetch(API_ENDPOINTS.GDELT_NEWS(fallbackCountry || primaryQuery));
@@ -505,7 +571,6 @@ async function fetchPublicInterest(country, state, city, informative, admin, sca
     const container = document.getElementById('reg-interest');
     let html = '';
 
-    // 1. Extract Geographic / Ecological / Administrative features from BigDataCloud localityInfo
     const tags = [];
     admin.forEach(a => { if (a.name && a.description) tags.push(`${a.name} (${a.description})`); });
     informative.forEach(i => { if (i.name && i.description && !i.name.includes('UTC')) tags.push(`${i.name} — ${i.description}`); });
@@ -518,7 +583,6 @@ async function fetchPublicInterest(country, state, city, informative, admin, sca
         </div>`;
     }
 
-    // 2. Query Wikipedia Search for Public Interest, Economy, Culture & Strategic topics in the focus area
     const searchTarget = `${state || city} ${country}`.trim();
     if (searchTarget) {
         try {
@@ -528,7 +592,7 @@ async function fetchPublicInterest(country, state, city, informative, admin, sca
 
             if (wData.query && wData.query.search && wData.query.search.length > 0) {
                 wData.query.search.slice(0, 3).forEach(s => {
-                    const cleanSnippet = s.snippet.replace(/<\/?[^>]+(>|$)/g, ""); // strip HTML tags
+                    const cleanSnippet = s.snippet.replace(/<\/?[^>]+(>|$)/g, "");
                     html += `
                     <div class="bg-slate-900/50 border border-slate-800/80 rounded p-2.5">
                         <div class="font-bold text-amber-400 text-[11px]">🔍 Public Interest: ${s.title}</div>
@@ -588,7 +652,6 @@ async function checkFootprintConflicts(lat, lon, radiusKm, countryName, scanId) 
 async function fetchTopLandmarks(lat, lon, fallbackRegion, informative, admin, scanId) {
     const wikiContainer = document.getElementById('wiki-data');
     try {
-        // 1. Try 10km Wikipedia Geosearch
         const wikiRes = await fetch(API_ENDPOINTS.WIKI_GEO(lat, lon, 10000));
         const wikiData = await wikiRes.json();
         if (scanId !== currentScanId) return;
@@ -610,7 +673,6 @@ async function fetchTopLandmarks(lat, lon, fallbackRegion, informative, admin, s
             return;
         }
 
-        // 2. Fallback for deserts/mountains/remote areas (like Tibesti, Chad): Search notable landmarks in the region + list administrative/natural features
         let fallbackHTML = `<div class="grid grid-cols-1 gap-1.5">`;
         let count = 0;
 
@@ -667,22 +729,18 @@ function parkSatelliteAt(lat, lon) {
     
     lockedLat = lat;
     lockedLon = lon;
-    
-    if(!isGeoLocked) {
-        isGeoLocked = true;
-        const btn = document.getElementById('btn-geo-lock');
-        const ind = document.getElementById('lock-indicator');
-        btn.classList.add('bg-sky-700/50', 'border-sky-400');
-        ind.textContent = 'ON'; ind.classList.replace('text-slate-400', 'text-sky-300');
-        document.getElementById('hud-sat-name').textContent = 'VK-Hover-02';
-        document.getElementById('hud-vel').textContent = '0.00';
-        if (orbitLineMesh) orbitLineMesh.visible = false;
-    }
+    isGeoLocked = true;
+    updateLockUI(true);
     
     document.getElementById('hud-lat').textContent = lat.toFixed(2);
     document.getElementById('hud-lon').textContent = lon.toFixed(2);
     satMarker.setLatLng([lat, lon]);
     satCircle.setLatLng([lat, lon]);
+
+    // Position satellite immediately using unified spherical formula
+    const newPos = latLonToWorldPosition(lockedLat, lockedLon, orbitRadius, earthMesh.rotation.y);
+    satGroup.position.copy(newPos);
+    satGroup.lookAt(0,0,0);
 
     const groundTabBtn = document.querySelectorAll('.tab-btn')[1];
     if (!isDockExpanded || currentTab !== 'weather') {
@@ -712,15 +770,13 @@ const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true; controls.dampingFactor = 0.05;
 controls.minDistance = 1.15; controls.maxDistance = 12;
 
-// Balanced ambient & sun lighting
 scene.add(new THREE.AmbientLight(0xffffff, 0.12));
 const sunDirVector = new THREE.Vector3(5, 2, 3).normalize();
 const sunLight = new THREE.DirectionalLight(0xffffff, 1.35);
 sunLight.position.set(5, 2, 3);
 scene.add(sunLight);
 
-// SMART ADAPTIVE SATELLITE SPOTLIGHT:
-// Automatically dims to 0 on the sunlit day side (preventing whitewash) and smoothly powers up on the dark night side!
+// SMART ADAPTIVE SATELLITE SPOTLIGHT (Night-only illumination, zero daytime glare)
 const satSpotLight = new THREE.SpotLight(0xfffbeb, 0.0);
 satSpotLight.angle = swathRadius * 0.72;
 satSpotLight.penumbra = 0.45;
@@ -738,7 +794,7 @@ const earthMat = new THREE.MeshPhongMaterial({
     map: earthDayTex,
     bumpMap: earthBumpTex,
     bumpScale: 0.012,
-    specular: new THREE.Color(0x1e293b), // Low specular so spotlight never causes a blinding white glare
+    specular: new THREE.Color(0x1e293b),
     shininess: 8
 });
 const earthMesh = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 64), earthMat);
@@ -860,12 +916,7 @@ function renderIntelMarkers() {
     mapMarkers = [];
 
     liveIntelData.forEach(data => {
-        const phi = (90 - data.lat) * (Math.PI / 180);
-        const theta = (data.lon + 180) * (Math.PI / 180);
-        const r = 1.0; 
-        const x = -(r * Math.sin(phi) * Math.cos(theta));
-        const z = (r * Math.sin(phi) * Math.sin(theta));
-        const y = (r * Math.cos(phi));
+        const localPos = latLonToLocalEarthPosition(data.lat, data.lon, 1.0);
         
         let color = 0xef4444;
         let hexColor = '#ef4444';
@@ -886,7 +937,7 @@ function renderIntelMarkers() {
         ring.translateZ(-0.001);
         beacon.add(ring);
         
-        beacon.position.set(x, y, z); 
+        beacon.position.copy(localPos); 
         beacon.lookAt(0,0,0);
         beacon.rotateX(Math.PI/2); 
         
@@ -917,7 +968,6 @@ function buildLaser() {
     const coneHeight = Math.max(0.18, orbitRadius - 1.0);
     let visualSwath = Math.min(0.45, swathRadius * (1 + (coneHeight * 0.25)));
     
-    // Subtle translucent scanning cone (no whitewash disc!)
     const cGeo = new THREE.ConeGeometry(visualSwath, coneHeight, 24, 1, true);
     cGeo.translate(0, -coneHeight/2, 0);
     cGeo.rotateX(-Math.PI / 2); 
@@ -996,8 +1046,6 @@ function animate() {
     requestAnimationFrame(animate);
     earthMesh.rotation.y += 0.0005;
 
-    let lat, lon;
-
     if (!isGeoLocked) {
         orbitTime += orbitSpeed;
         const inclRad = orbitInclination * Math.PI / 180;
@@ -1012,41 +1060,34 @@ function animate() {
         coneMesh.position.copy(satGroup.position); coneMesh.lookAt(0,0,0);
         ringMesh.position.copy(satGroup.position).normalize().multiplyScalar(1.003); ringMesh.lookAt(0,0,0); 
 
-        lat = (Math.asin(satGroup.position.y / orbitRadius) * 180 / Math.PI);
-        lon = ((Math.atan2(satGroup.position.z, satGroup.position.x) * 180 / Math.PI) - (earthMesh.rotation.y * 180 / Math.PI)) % 360;
-        if (lon < -180) lon += 360; if (lon > 180) lon -= 360;
+        // Use exact inverse spherical mapping so HUD Lat/Lon matches the 3D position 1:1
+        const coords = worldPositionToLatLon(satGroup.position, earthMesh.rotation.y);
+        const lat = coords.lat;
+        const lon = coords.lon;
 
         document.getElementById('hud-lat').textContent = lat.toFixed(2);
         document.getElementById('hud-lon').textContent = lon.toFixed(2);
         satMarker.setLatLng([lat, lon]); satCircle.setLatLng([lat, lon]);
 
+        // Fast 3.5-second auto-refresh while Ground Data tab is open
         const now = Date.now();
-        if (isDockExpanded && currentTab === 'weather' && now - lastScannedTime > 8000) {
+        if (isDockExpanded && currentTab === 'weather' && now - lastScannedTime > 3500) {
             lastScannedTime = now;
             fetchSubSatData(lat, lon);
         }
     } else {
-        const phi = (90 - lockedLat) * (Math.PI / 180);
-        const theta = (lockedLon + 180) * (Math.PI / 180) + earthMesh.rotation.y;
-
-        const r = orbitRadius;
-        const x = -(r * Math.sin(phi) * Math.cos(theta));
-        const z = (r * Math.sin(phi) * Math.sin(theta));
-        const y = (r * Math.cos(phi));
-        
-        satGroup.position.set(x, y, z);
+        // Exact forward spherical mapping: locks satellite in place with ZERO jump when toggled!
+        const lockedPos = latLonToWorldPosition(lockedLat, lockedLon, orbitRadius, earthMesh.rotation.y);
+        satGroup.position.copy(lockedPos);
         satGroup.lookAt(0,0,0);
         
         coneMesh.position.copy(satGroup.position); coneMesh.lookAt(0,0,0);
         ringMesh.position.copy(satGroup.position).normalize().multiplyScalar(1.003); ringMesh.lookAt(0,0,0); 
     }
 
-    // SMART DAY/NIGHT ADAPTIVE ILLUMINATION:
-    // Calculate dot product between satellite's ground normal and the Sun direction.
-    // On the sunlit day side (dot > 0.15), spotlight intensity is 0 (zero over-exposure!).
-    // On the dark night side (dot < 0), spotlight smoothly ramps up to 1.35 so night terrain is clearly visible like daylight without glare.
+    // SMART DAY/NIGHT ADAPTIVE ILLUMINATION
     const satNormal = satGroup.position.clone().normalize();
-    const sunAlignment = satNormal.dot(sunDirVector); // +1 = noon sun, -1 = midnight shadow
+    const sunAlignment = satNormal.dot(sunDirVector);
     const nightFactor = Math.max(0, Math.min(1, (0.2 - sunAlignment) / 0.7));
     satSpotLight.intensity = nightFactor * 1.35;
     satSpotLight.position.copy(satGroup.position);
@@ -1054,7 +1095,6 @@ function animate() {
     const coneDist = Math.max(0.18, orbitRadius - 1.0);
     satSpotLight.angle = Math.atan2(swathRadius * 1.08, coneDist);
 
-    // Blink red navigation strobe on satellite
     navBeacon.visible = Math.floor(Date.now() / 500) % 2 === 0;
 
     document.getElementById('hud-time').textContent = 'UTC ' + new Date().toISOString().substr(11,8);
@@ -1094,9 +1134,8 @@ window.addEventListener('resize', () => {
 // Initial boot data load
 setTimeout(() => {
     fetchLiveIntel(true);
-    const curLat = parseFloat(document.getElementById('hud-lat').textContent) || 20.84;
-    const curLon = parseFloat(document.getElementById('hud-lon').textContent) || 85.10;
-    fetchSubSatData(curLat, curLon, true);
-}, 800);
+    const coords = worldPositionToLatLon(satGroup.position, earthMesh.rotation.y);
+    fetchSubSatData(coords.lat, coords.lon, true);
+}, 400);
 
 animate();

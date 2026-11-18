@@ -62,6 +62,11 @@
                 <button id="cam-chase" onclick="switchCamera('CHASE')" class="px-4 py-2 rounded text-[11px] font-bold text-slate-400 hover:text-white">Follow Satellite</button>
                 <button id="cam-nadir" onclick="switchCamera('NADIR')" class="px-4 py-2 rounded text-[11px] font-bold text-slate-400 hover:text-white">Look Down</button>
             </div>
+            <!-- Quick Stop / Hover Button on Top Bar -->
+            <button id="top-geo-lock" onclick="toggleGeoLock()" class="obsidian-glass rounded px-3.5 py-2 text-[11px] font-bold text-sky-300 border border-sky-500/40 shrink-0 flex items-center gap-1.5">
+                <span>Hover Lock:</span>
+                <span id="top-lock-ind" class="text-slate-400">OFF</span>
+            </button>
         </div>
     </div>
 

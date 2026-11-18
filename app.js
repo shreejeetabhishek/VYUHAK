@@ -21,13 +21,6 @@ function playSound(type) {
 }
 
 // --- EXACT SPHERICAL COORDINATE CONVERSIONS ---
-// Three.js SphereGeometry standard UV mapping:
-// At earthMesh.rotation.y = 0:
-//   x =  r * cos(lat) * cos(lon)
-//   y =  r * sin(lat)
-//   z = -r * cos(lat) * sin(lon)
-// When earthMesh is rotated around Y by theta = earthMesh.rotation.y,
-// a ground point (lat, lon) moves to world angle: lonRad + earthMesh.rotation.y.
 function latLonToWorldPosition(latDeg, lonDeg, radius, earthRotationY) {
     const latRad = latDeg * Math.PI / 180;
     const lonRad = (lonDeg * Math.PI / 180) + earthRotationY;
@@ -37,8 +30,6 @@ function latLonToWorldPosition(latDeg, lonDeg, radius, earthRotationY) {
     return new THREE.Vector3(x, y, z);
 }
 
-// Exact inverse of latLonToWorldPosition:
-// Given ANY 3D world position (x, y, z) and earthRotationY, returns the exact (lat, lon) on the Earth's surface below it.
 function worldPositionToLatLon(pos, earthRotationY) {
     const r = pos.length();
     if (r === 0) return { lat: 0, lon: 0 };
@@ -51,9 +42,32 @@ function worldPositionToLatLon(pos, earthRotationY) {
     return { lat: latDeg, lon: lonDeg };
 }
 
-// Local position on unrotated earthMesh (for attaching 3D beacons directly to earthMesh)
 function latLonToLocalEarthPosition(latDeg, lonDeg, radius) {
     return latLonToWorldPosition(latDeg, lonDeg, radius, 0);
+}
+
+// Compute 5-Point Satellite Swath Grid (Center, North, South, East, West at 55% swath radius)
+function getSwathSamplePoints(centerLat, centerLon, radiusKm) {
+    const sampleDistKm = Math.max(120, radiusKm * 0.55);
+    const dLat = sampleDistKm / 111.0;
+    const cosLat = Math.max(0.2, Math.cos(centerLat * Math.PI / 180));
+    const dLon = sampleDistKm / (111.0 * cosLat);
+
+    const clampLat = (l) => Math.max(-85, Math.min(85, l));
+    const wrapLon = (ln) => {
+        let v = ln % 360;
+        if (v < -180) v += 360;
+        if (v > 180) v -= 360;
+        return v;
+    };
+
+    return [
+        { label: "Center", lat: centerLat, lon: centerLon },
+        { label: "North Sector", lat: clampLat(centerLat + dLat), lon: centerLon },
+        { label: "South Sector", lat: clampLat(centerLat - dLat), lon: centerLon },
+        { label: "East Sector", lat: centerLat, lon: wrapLon(centerLon + dLon) },
+        { label: "West Sector", lat: centerLat, lon: wrapLon(centerLon - dLon) }
+    ];
 }
 
 // --- STATE VARIABLES ---
@@ -67,7 +81,7 @@ function calcOrbitRadius(km) {
     return 1.28 + (parseFloat(km) / 6371) * 0.9;
 }
 
-let orbitTime = -1.35; // Starts near India/Asia
+let orbitTime = -1.35;
 let currentAltitudeKm = 1200;
 let orbitRadius = calcOrbitRadius(currentAltitudeKm);
 let orbitSpeed = 0.003;
@@ -76,8 +90,7 @@ let swathRadius = 0.25;
 let activeEngine = '3D', activeCamera = 'FREE';
 let lastScannedTime = 0;
 
-// --- INSTANT SOVEREIGN DEMOGRAPHICS FALLBACK DICTIONARY ---
-// Guarantees 0ms instant population/capital/currency/area display even if external APIs are slow
+// --- EXPANDED GLOBAL SOVEREIGN DEMOGRAPHICS DATABASE (INSTANT 0ms LOOKUP) ---
 const SOVEREIGN_DB = {
     "IN": { name: "India", pop: 1428627663, cap: "New Delhi", cur: "Indian Rupee (₹)", area: 3287263, tz: "UTC+05:30" },
     "US": { name: "United States", pop: 339996563, cap: "Washington, D.C.", cur: "US Dollar ($)", area: 9372610, tz: "UTC-05:00" },
@@ -90,10 +103,25 @@ const SOVEREIGN_DB = {
     "DE": { name: "Germany", pop: 83294633, cap: "Berlin", cur: "Euro (€)", area: 357114, tz: "UTC+01:00" },
     "AU": { name: "Australia", pop: 26439111, cap: "Canberra", cur: "Australian Dollar ($)", area: 7692024, tz: "UTC+10:00" },
     "CA": { name: "Canada", pop: 40097761, cap: "Ottawa", cur: "Canadian Dollar ($)", area: 9984670, tz: "UTC-05:00" },
+    "NA": { name: "Namibia", pop: 2604172, cap: "Windhoek", cur: "Namibian Dollar (N$)", area: 825615, tz: "UTC+02:00" },
+    "BW": { name: "Botswana", pop: 2675352, cap: "Gaborone", cur: "Botswana Pula (P)", area: 581730, tz: "UTC+02:00" },
+    "AO": { name: "Angola", pop: 36684202, cap: "Luanda", cur: "Angolan Kwanza (Kz)", area: 1246700, tz: "UTC+01:00" },
+    "ZM": { name: "Zambia", pop: 20569737, cap: "Lusaka", cur: "Zambian Kwacha (ZK)", area: 752612, tz: "UTC+02:00" },
+    "ZW": { name: "Zimbabwe", pop: 16665409, cap: "Harare", cur: "ZiG / USD ($)", area: 390757, tz: "UTC+02:00" },
     "TD": { name: "Chad", pop: 18278568, cap: "N'Djamena", cur: "Central African CFA Franc", area: 1284000, tz: "UTC+01:00" },
     "NG": { name: "Nigeria", pop: 223804632, cap: "Abuja", cur: "Nigerian Naira (₦)", area: 923768, tz: "UTC+01:00" },
     "EG": { name: "Egypt", pop: 112716598, cap: "Cairo", cur: "Egyptian Pound (E£)", area: 1002450, tz: "UTC+02:00" },
     "ZA": { name: "South Africa", pop: 60414495, cap: "Pretoria", cur: "South African Rand (R)", area: 1221037, tz: "UTC+02:00" },
+    "KE": { name: "Kenya", pop: 55100586, cap: "Nairobi", cur: "Kenyan Shilling (KSh)", area: 580367, tz: "UTC+03:00" },
+    "ET": { name: "Ethiopia", pop: 126527060, cap: "Addis Ababa", cur: "Ethiopian Birr (Br)", area: 1104300, tz: "UTC+03:00" },
+    "SD": { name: "Sudan", pop: 48109006, cap: "Khartoum", cur: "Sudanese Pound (SDG)", area: 1886068, tz: "UTC+02:00" },
+    "CD": { name: "DR Congo", pop: 102262808, cap: "Kinshasa", cur: "Congolese Franc (FC)", area: 2344858, tz: "UTC+01:00" },
+    "TZ": { name: "Tanzania", pop: 67438106, cap: "Dodoma", cur: "Tanzanian Shilling (TSh)", area: 945087, tz: "UTC+03:00" },
+    "MA": { name: "Morocco", pop: 37840044, cap: "Rabat", cur: "Moroccan Dirham (MAD)", area: 446550, tz: "UTC+01:00" },
+    "DZ": { name: "Algeria", pop: 45606480, cap: "Algiers", cur: "Algerian Dinar (DA)", area: 2381741, tz: "UTC+01:00" },
+    "LY": { name: "Libya", pop: 6888388, cap: "Tripoli", cur: "Libyan Dinar (LD)", area: 1759540, tz: "UTC+02:00" },
+    "NE": { name: "Niger", pop: 27202843, cap: "Niamey", cur: "West African CFA Franc", area: 1267000, tz: "UTC+01:00" },
+    "ML": { name: "Mali", pop: 23293698, cap: "Bamako", cur: "West African CFA Franc", area: 1240192, tz: "UTC+00:00" },
     "ID": { name: "Indonesia", pop: 277534122, cap: "Jakarta", cur: "Indonesian Rupiah (Rp)", area: 1904569, tz: "UTC+07:00" },
     "PK": { name: "Pakistan", pop: 240485658, cap: "Islamabad", cur: "Pakistani Rupee (₨)", area: 881912, tz: "UTC+05:00" },
     "BD": { name: "Bangladesh", pop: 172954319, cap: "Dhaka", cur: "Bangladeshi Taka (৳)", area: 147570, tz: "UTC+06:00" },
@@ -104,7 +132,22 @@ const SOVEREIGN_DB = {
     "AE": { name: "United Arab Emirates", pop: 9516871, cap: "Abu Dhabi", cur: "UAE Dirham (AED)", area: 83600, tz: "UTC+04:00" },
     "UA": { name: "Ukraine", pop: 36744634, cap: "Kyiv", cur: "Ukrainian Hryvnia (₴)", area: 603500, tz: "UTC+02:00" },
     "IL": { name: "Israel", pop: 9174520, cap: "Jerusalem", cur: "Israeli New Shekel (₪)", area: 20770, tz: "UTC+02:00" },
-    "AR": { name: "Argentina", pop: 45773884, cap: "Buenos Aires", cur: "Argentine Peso ($)", area: 2780400, tz: "UTC-03:00" }
+    "AR": { name: "Argentina", pop: 45773884, cap: "Buenos Aires", cur: "Argentine Peso ($)", area: 2780400, tz: "UTC-03:00" },
+    "CL": { name: "Chile", pop: 19629590, cap: "Santiago", cur: "Chilean Peso ($)", area: 756102, tz: "UTC-04:00" },
+    "CO": { name: "Colombia", pop: 52085168, cap: "Bogotá", cur: "Colombian Peso ($)", area: 1141748, tz: "UTC-05:00" },
+    "PE": { name: "Peru", pop: 34352719, cap: "Lima", cur: "Peruvian Sol (S/)", area: 1285216, tz: "UTC-05:00" },
+    "VE": { name: "Venezuela", pop: 28838499, cap: "Caracas", cur: "Venezuelan Bolívar", area: 916445, tz: "UTC-04:00" },
+    "IT": { name: "Italy", pop: 58870762, cap: "Rome", cur: "Euro (€)", area: 301336, tz: "UTC+01:00" },
+    "ES": { name: "Spain", pop: 47519628, cap: "Madrid", cur: "Euro (€)", area: 505992, tz: "UTC+01:00" },
+    "PL": { name: "Poland", pop: 41026067, cap: "Warsaw", cur: "Polish Złoty (zł)", area: 312679, tz: "UTC+01:00" },
+    "KR": { name: "South Korea", pop: 51784059, cap: "Seoul", cur: "South Korean Won (₩)", area: 100210, tz: "UTC+09:00" },
+    "TH": { name: "Thailand", pop: 71801279, cap: "Bangkok", cur: "Thai Baht (฿)", area: 513120, tz: "UTC+07:00" },
+    "VN": { name: "Vietnam", pop: 98858950, cap: "Hanoi", cur: "Vietnamese Đồng (₫)", area: 331212, tz: "UTC+07:00" },
+    "PH": { name: "Philippines", pop: 117337368, cap: "Manila", cur: "Philippine Peso (₱)", area: 342353, tz: "UTC+08:00" },
+    "MY": { name: "Malaysia", pop: 34308525, cap: "Kuala Lumpur", cur: "Malaysian Ringgit (RM)", area: 330803, tz: "UTC+08:00" },
+    "MM": { name: "Myanmar", pop: 54577997, cap: "Naypyidaw", cur: "Myanmar Kyat (K)", area: 676578, tz: "UTC+06:30" },
+    "NP": { name: "Nepal", pop: 30896590, cap: "Kathmandu", cur: "Nepalese Rupee (₨)", area: 147181, tz: "UTC+05:45" },
+    "LK": { name: "Sri Lanka", pop: 21893579, cap: "Colombo / Sri Jayawardenepura", cur: "Sri Lankan Rupee (Rs)", area: 65610, tz: "UTC+05:30" }
 };
 
 // --- UI LOGIC ---
@@ -168,7 +211,6 @@ function updateLockUI(locked) {
 function toggleGeoLock() {
     isGeoLocked = !isGeoLocked;
     if(isGeoLocked) {
-        // Compute exact Lat/Lon from current 3D position so the satellite freezes in place with ZERO jump!
         const exactCoords = worldPositionToLatLon(satGroup.position, earthMesh.rotation.y);
         lockedLat = exactCoords.lat;
         lockedLon = exactCoords.lon;
@@ -183,21 +225,21 @@ function toggleGeoLock() {
     }
 }
 
-// --- API ENGINE (PARALLELIZED FOR ULTRA-FAST UPDATES) ---
+// --- API ENGINE (MULTI-POINT FULL SWATH AGGREGATION) ---
 const API_ENDPOINTS = {
     EARTHQUAKES: 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson',
     EONET: 'https://eonet.gsfc.nasa.gov/api/v3/events?limit=15&days=10',
     NEWS_GLOBAL: 'https://api.rss2json.com/v1/api.json?rss_url=http://feeds.bbci.co.uk/news/world/rss.xml',
     NEWS_REGIONAL_RSS2JSON: (query) => `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://news.google.com/rss/search?q=' + encodeURIComponent(query) + '&hl=en-US&gl=US&ceid=US:en')}`,
     GDELT_NEWS: (query) => `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(query)}&mode=artlist&maxrecords=5&format=json&sort=DateDesc`,
-    WIKI_SEARCH: (query) => `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&utf8=&format=json&origin=*&srlimit=4`,
+    WIKI_SEARCH: (query) => `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&utf8=&format=json&origin=*&srlimit=5`,
     RELIEFWEB_GLOBAL: 'https://api.reliefweb.int/v1/disasters?appname=vyuhak&preset=latest&profile=full&limit=8',
     RELIEFWEB_COUNTRY: (country) => `https://api.reliefweb.int/v1/reports?appname=vyuhak&query[value]=${encodeURIComponent(country)}&limit=3`,
     WEATHER: (lat, lon) => `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&hourly=relativehumidity_2m&current_weather=true`,
     REVGEO: (lat, lon) => `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`,
     COUNTRY_ALPHA: (code) => `https://restcountries.com/v3.1/alpha/${encodeURIComponent(code)}?fields=name,population,capital,currencies,area,timezones`,
     COUNTRY_NAME: (name) => `https://restcountries.com/v3.1/name/${encodeURIComponent(name)}?fields=name,population,capital,currencies,area,timezones`,
-    WIKI_GEO: (lat, lon, rad) => `https://en.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=${rad}&gslimit=6&format=json&origin=*`,
+    WIKI_GEO: (lat, lon, rad) => `https://en.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=${rad}&gslimit=4&format=json&origin=*`,
     WIKI_SUMMARY: (title) => `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`
 };
 
@@ -352,15 +394,28 @@ async function fetchSubSatData(lat, lon, force = false) {
     const numLat = parseFloat(lat);
     const numLon = parseFloat(lon);
     const swathKm = Math.round(swathRadius * 4800);
+    const swathAreaKm2 = Math.round(Math.PI * swathKm * swathKm);
 
-    document.getElementById('weather-loc').textContent = `Center: ${numLat.toFixed(2)}°, ${numLon.toFixed(2)}° | Radius: ${swathKm} km`;
+    // 5-Point Full Swath Sampling Grid (Center, North, South, East, West)
+    const samplePoints = getSwathSamplePoints(numLat, numLon, swathKm);
+
+    document.getElementById('weather-loc').textContent = `Center: ${numLat.toFixed(2)}°, ${numLon.toFixed(2)}° | Swath Radius: ${swathKm} km (5-Point Array)`;
     document.getElementById('connection-led').classList.add('recording');
 
-    // Run Weather + Reverse Geocoding + Wikipedia Geosearch concurrently for instant responsiveness!
-    const weatherPromise = fetch(API_ENDPOINTS.WEATHER(numLat, numLon)).then(r => r.json()).catch(() => null);
-    const geoPromise = fetch(API_ENDPOINTS.REVGEO(numLat, numLon)).then(r => r.json()).catch(() => null);
+    // Clear stale "0 (Oceanic)" or old metrics immediately when starting a new scan!
+    document.getElementById('reg-pop').textContent = "Scanning...";
+    document.getElementById('reg-cap').textContent = "Scanning...";
+    document.getElementById('reg-cur').textContent = "Scanning...";
+    document.getElementById('reg-area').textContent = `${swathAreaKm2.toLocaleString()} km²`;
+    document.getElementById('reg-dens').textContent = "Scanning...";
+    document.getElementById('reg-tz').textContent = "Scanning...";
 
-    // 1. Handle Weather immediately when ready
+    // 1. Fetch Weather + 5-Point Reverse Geocoding in Parallel
+    const weatherPromise = fetch(API_ENDPOINTS.WEATHER(numLat, numLon)).then(r => r.json()).catch(() => null);
+    const multiGeoPromises = Promise.allSettled(
+        samplePoints.map(pt => fetch(API_ENDPOINTS.REVGEO(pt.lat, pt.lon)).then(r => r.json()))
+    );
+
     weatherPromise.then(wData => {
         if (scanId !== currentScanId || !wData) return;
         let temp = '--', wind = '--', hum = '--', code = 0;
@@ -381,119 +436,184 @@ async function fetchSubSatData(lat, lon, force = false) {
         document.getElementById('w-cond').textContent = decodeWeatherCode(code);
     });
 
-    // 2. Handle Reverse Geocoding & Trigger Parallel Sub-Modules
-    const geoData = await geoPromise;
+    const geoResults = await multiGeoPromises;
     if (scanId !== currentScanId) return;
     document.getElementById('connection-led').classList.remove('recording');
 
-    if (!geoData) {
-        document.getElementById('geo-data').textContent = "Unable to resolve ground details at this moment.";
-        return;
-    }
+    // Aggregate all countries, states/provinces, cities, oceans across all 5 points in the satellite footprint
+    const countriesMap = new Map(); // code -> name
+    const statesSet = new Set();
+    const citiesSet = new Set();
+    const oceansSet = new Set();
+    const informativeList = [];
+    const adminList = [];
+    const sectorBreakdown = [];
 
-    const ctry = geoData.countryName || '';
-    const ctryCode = (geoData.countryCode || '').toUpperCase();
-    const state = geoData.principalSubdivision || '';
-    const city = geoData.city || geoData.locality || '';
-    const informative = (geoData.localityInfo && geoData.localityInfo.informative) ? geoData.localityInfo.informative : [];
-    const admin = (geoData.localityInfo && geoData.localityInfo.administrative) ? geoData.localityInfo.administrative : [];
-    const ocean = informative.length > 0 ? informative[0].name : 'International Waters';
+    geoResults.forEach((res, idx) => {
+        if (res.status === 'fulfilled' && res.value) {
+            const g = res.value;
+            const ptLabel = samplePoints[idx].label;
+            const cName = g.countryName || '';
+            // CRITICAL FIX: BigDataCloud uses "NA" for Namibia, which JS treats as valid string, ensure uppercase trim
+            const cCode = (g.countryCode || '').trim().toUpperCase();
+            const st = g.principalSubdivision || '';
+            const ct = g.city || g.locality || '';
+            const inf = (g.localityInfo && g.localityInfo.informative) ? g.localityInfo.informative : [];
+            const adm = (g.localityInfo && g.localityInfo.administrative) ? g.localityInfo.administrative : [];
 
-    if (!ctry) {
-        // Over Ocean
+            if (cName) {
+                countriesMap.set(cCode || cName, cName);
+                if (st) statesSet.add(st);
+                if (ct && ct !== st) citiesSet.add(ct);
+                sectorBreakdown.push(`<span class="text-slate-400">${ptLabel}:</span> <strong class="text-emerald-300">${ct ? ct + ', ' : ''}${st ? st + ', ' : ''}${cName}</strong>`);
+            } else {
+                const ocName = inf.length > 0 ? inf[0].name : 'Open Ocean';
+                oceansSet.add(ocName);
+                sectorBreakdown.push(`<span class="text-slate-400">${ptLabel}:</span> <strong class="text-sky-300">🌊 ${ocName}</strong>`);
+            }
+
+            inf.forEach(i => informativeList.push(i));
+            adm.forEach(a => adminList.push(a));
+        }
+    });
+
+    const uniqueCountryCodes = Array.from(countriesMap.keys());
+    const uniqueCountries = Array.from(countriesMap.values());
+    const uniqueStates = Array.from(statesSet);
+    const uniqueCities = Array.from(citiesSet);
+    const uniqueOceans = Array.from(oceansSet);
+
+    if (uniqueCountries.length === 0) {
+        // 100% Oceanic Swath
+        const oceanTitle = uniqueOceans.join(', ') || 'International Waters';
         document.getElementById('geo-data').innerHTML = `
-            <div class="text-sky-400 font-bold text-sm">🌊 Maritime / Oceanic Sector: ${ocean}</div>
-            <div class="text-slate-300 text-xs mt-1">The satellite footprint is currently over open international waters. Monitoring maritime weather, shipping lanes, and subsea seismic activity.</div>
+            <div class="text-sky-400 font-bold text-sm">🌊 Full Swath Maritime Sector: ${oceanTitle}</div>
+            <div class="text-slate-300 text-xs mt-1">All 5 sensor points inside the ${swathKm} km footprint are over open water. Monitoring maritime weather, shipping lanes, and subsea seismic activity.</div>
         `;
-        document.getElementById('reg-pop').textContent = "0 (Oceanic)";
+        document.getElementById('reg-pop').textContent = "0 (Maritime Swath)";
         document.getElementById('reg-cap').textContent = "Int'l Waters";
         document.getElementById('reg-cur').textContent = "Maritime Trade";
-        document.getElementById('reg-area').textContent = "Open Ocean";
+        document.getElementById('reg-area').textContent = `${swathAreaKm2.toLocaleString()} km²`;
         document.getElementById('reg-dens').textContent = "0 / km²";
         document.getElementById('reg-tz').textContent = `UTC ${numLon >= 0 ? '+' : ''}${Math.round(numLon / 15)}h`;
-        
-        // Fire all sub-modules in parallel!
+
         Promise.allSettled([
-            fetchRegionalNews(ocean, "Maritime Shipping", scanId),
-            fetchPublicInterest(ocean, "", "", informative, admin, scanId),
-            checkFootprintConflicts(numLat, numLon, swathKm, "", scanId),
-            fetchTopLandmarks(numLat, numLon, ocean, informative, admin, scanId)
+            fetchSwathNews([oceanTitle, "Maritime Shipping"], [], scanId),
+            fetchSwathPublicInterest([], [], [], informativeList, adminList, scanId),
+            checkFootprintConflicts(numLat, numLon, swathKm, [], scanId),
+            fetchSwathLandmarks(samplePoints, oceanTitle, informativeList, scanId)
         ]);
     } else {
-        // Over Land
-        let summaryText = `The satellite is scanning <strong class="text-emerald-400">${city ? city + ', ' : ''}${state && state !== city ? state + ', ' : ''}${ctry}</strong>.`;
-        document.getElementById('geo-data').innerHTML = `<div class="mb-1">${summaryText}</div><div id="region-bio" class="text-[11px] text-slate-300 mt-1.5 leading-relaxed">Loading regional overview...</div>`;
+        // Land or Coastal Multi-Country Swath
+        const countriesText = uniqueCountries.join(', ');
+        const statesText = uniqueStates.slice(0, 6).join(', ');
+        const oceanNote = uniqueOceans.length > 0 ? ` + Coastal Waters (<span class="text-sky-300">${uniqueOceans.slice(0, 2).join(', ')}</span>)` : '';
 
-        // INSTANT DEMOGRAPHICS DISPLAY FROM LOCAL DICTIONARY IF AVAILABLE
-        if (SOVEREIGN_DB[ctryCode]) {
-            const db = SOVEREIGN_DB[ctryCode];
-            document.getElementById('reg-pop').textContent = formatPopulation(db.pop);
-            document.getElementById('reg-cap').textContent = db.cap;
-            document.getElementById('reg-cur').textContent = db.cur;
-            document.getElementById('reg-area').textContent = db.area.toLocaleString() + ' km²';
-            document.getElementById('reg-dens').textContent = Math.round(db.pop / db.area).toLocaleString() + ' / km²';
-            document.getElementById('reg-tz').textContent = db.tz;
-        }
+        document.getElementById('geo-data').innerHTML = `
+            <div class="mb-1.5">
+                <span class="text-[10px] uppercase tracking-wider bg-sky-900/60 text-sky-300 px-2 py-0.5 rounded font-bold">Swath Coverage</span>
+                <span class="ml-1.5">Countries in Footprint: <strong class="text-emerald-400">${countriesText}</strong>${oceanNote}</span>
+            </div>
+            ${statesText ? `<div class="text-[11px] text-slate-300 mb-1.5"><strong>Covered States / Provinces:</strong> ${statesText}</div>` : ''}
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-1 text-[10px] bg-slate-950/60 p-2 rounded border border-slate-800/80 mb-2">
+                ${sectorBreakdown.join('<div></div>')}
+            </div>
+            <div id="region-bio" class="text-[11px] text-slate-300 mt-1.5 leading-relaxed">Loading multi-region overview...</div>
+        `;
 
-        // Fire Country API, Wikipedia Bio, Regional News, Public Interest, Conflicts, and Landmarks IN PARALLEL!
+        // Fire Multi-Country Demographics, Bio, Swath News, Public Interest, Conflicts, and Multi-Point Landmarks in Parallel!
         Promise.allSettled([
-            fetchCountryMetrics(ctryCode, ctry, numLon, scanId),
-            fetchRegionBio(city, state, ctry, scanId),
-            fetchRegionalNews(state || city || ctry, ctry, scanId),
-            fetchPublicInterest(ctry, state, city, informative, admin, scanId),
-            checkFootprintConflicts(numLat, numLon, swathKm, ctry, scanId),
-            fetchTopLandmarks(numLat, numLon, state || ctry, informative, admin, scanId)
+            fetchMultiCountryMetrics(uniqueCountryCodes, uniqueCountries, swathAreaKm2, numLon, scanId),
+            fetchRegionBio(uniqueCities[0] || '', uniqueStates[0] || '', uniqueCountries[0], scanId),
+            fetchSwathNews(uniqueStates, uniqueCountries, scanId),
+            fetchSwathPublicInterest(uniqueCountries, uniqueStates, uniqueCities, informativeList, adminList, scanId),
+            checkFootprintConflicts(numLat, numLon, swathKm, uniqueCountries, scanId),
+            fetchSwathLandmarks(samplePoints, uniqueStates[0] || uniqueCountries[0], informativeList, scanId)
         ]);
     }
 }
 
-async function fetchCountryMetrics(ctryCode, ctryName, numLon, scanId) {
-    try {
-        let cRes = ctryCode ? await fetch(API_ENDPOINTS.COUNTRY_ALPHA(ctryCode)) : null;
-        if (!cRes || !cRes.ok) {
-            cRes = await fetch(API_ENDPOINTS.COUNTRY_NAME(ctryName));
+async function fetchMultiCountryMetrics(codes, names, swathAreaKm2, numLon, scanId) {
+    let totalPop = 0;
+    let totalCountryArea = 0;
+    const capitals = [];
+    const currencies = [];
+    const timezones = [];
+
+    // 1. Instant lookup from SOVEREIGN_DB first
+    const missingCodes = [];
+    codes.forEach((code, idx) => {
+        if (SOVEREIGN_DB[code]) {
+            const db = SOVEREIGN_DB[code];
+            totalPop += db.pop;
+            totalCountryArea += db.area;
+            if (!capitals.includes(db.cap)) capitals.push(db.cap);
+            if (!currencies.includes(db.cur)) currencies.push(db.cur);
+            if (!timezones.includes(db.tz)) timezones.push(db.tz);
+        } else {
+            missingCodes.push({ code, name: names[idx] || code });
         }
-        if (cRes && cRes.ok && scanId === currentScanId) {
-            const cArr = await cRes.json();
-            const cInfo = Array.isArray(cArr) ? cArr[0] : cArr;
-            if (cInfo) {
-                const popNum = cInfo.population || 0;
-                const areaNum = cInfo.area || 0;
-                const pop = formatPopulation(popNum);
-                const cap = cInfo.capital && cInfo.capital[0] ? cInfo.capital[0] : 'N/A';
-                const curObj = cInfo.currencies ? Object.values(cInfo.currencies)[0] : null;
-                const cur = curObj ? `${curObj.name} (${curObj.symbol || ''})` : 'N/A';
-                const areaStr = areaNum ? areaNum.toLocaleString() + ' km²' : 'N/A';
-                const densStr = (popNum && areaNum) ? Math.round(popNum / areaNum).toLocaleString() + ' / km²' : 'N/A';
-                const tz = cInfo.timezones && cInfo.timezones[0] ? cInfo.timezones[0] : `UTC ${numLon >= 0 ? '+' : ''}${Math.round(numLon / 15)}h`;
-                
-                document.getElementById('reg-pop').textContent = pop;
-                document.getElementById('reg-cap').textContent = cap;
-                document.getElementById('reg-cur').textContent = cur;
-                document.getElementById('reg-area').textContent = areaStr;
-                document.getElementById('reg-dens').textContent = densStr;
-                document.getElementById('reg-tz').textContent = tz;
-            }
-        }
-    } catch(e) {
-        if (scanId === currentScanId && !SOVEREIGN_DB[ctryCode]) {
-            document.getElementById('reg-tz').textContent = `UTC ${numLon >= 0 ? '+' : ''}${Math.round(numLon / 15)}h`;
-        }
+    });
+
+    // Render instant DB results right away if we have any
+    if (totalPop > 0 && scanId === currentScanId) {
+        document.getElementById('reg-pop').textContent = formatPopulation(totalPop);
+        document.getElementById('reg-cap').textContent = capitals.slice(0, 3).join(' / ');
+        document.getElementById('reg-cur').textContent = currencies.slice(0, 2).join(' / ');
+        document.getElementById('reg-area').textContent = `${swathAreaKm2.toLocaleString()} km² Swath`;
+        document.getElementById('reg-dens').textContent = totalCountryArea > 0 ? `${Math.round(totalPop / totalCountryArea).toLocaleString()} / km²` : 'N/A';
+        document.getElementById('reg-tz').textContent = timezones.slice(0, 2).join(', ');
     }
+
+    // 2. Fetch any remaining countries from REST Countries API
+    if (missingCodes.length > 0) {
+        const apiResults = await Promise.allSettled(
+            missingCodes.map(async (item) => {
+                let res = await fetch(API_ENDPOINTS.COUNTRY_ALPHA(item.code));
+                if (!res.ok) res = await fetch(API_ENDPOINTS.COUNTRY_NAME(item.name));
+                if (res.ok) return res.json();
+                return null;
+            })
+        );
+
+        apiResults.forEach(r => {
+            if (r.status === 'fulfilled' && r.value) {
+                const cInfo = Array.isArray(r.value) ? r.value[0] : r.value;
+                if (cInfo) {
+                    totalPop += (cInfo.population || 0);
+                    totalCountryArea += (cInfo.area || 0);
+                    const cap = cInfo.capital && cInfo.capital[0] ? cInfo.capital[0] : '';
+                    if (cap && !capitals.includes(cap)) capitals.push(cap);
+                    const curObj = cInfo.currencies ? Object.values(cInfo.currencies)[0] : null;
+                    const cur = curObj ? `${curObj.name} (${curObj.symbol || ''})` : '';
+                    if (cur && !currencies.includes(cur)) currencies.push(cur);
+                    const tz = cInfo.timezones && cInfo.timezones[0] ? cInfo.timezones[0] : '';
+                    if (tz && !timezones.includes(tz)) timezones.push(tz);
+                }
+            }
+        });
+    }
+
+    if (scanId !== currentScanId) return;
+
+    document.getElementById('reg-pop').textContent = totalPop > 0 ? formatPopulation(totalPop) : 'N/A';
+    document.getElementById('reg-cap').textContent = capitals.length > 0 ? capitals.slice(0, 3).join(' / ') : 'N/A';
+    document.getElementById('reg-cur').textContent = currencies.length > 0 ? currencies.slice(0, 2).join(' / ') : 'N/A';
+    document.getElementById('reg-area').textContent = `${swathAreaKm2.toLocaleString()} km² Swath`;
+    document.getElementById('reg-dens').textContent = (totalPop > 0 && totalCountryArea > 0) ? `${Math.round(totalPop / totalCountryArea).toLocaleString()} / km²` : 'N/A';
+    document.getElementById('reg-tz').textContent = timezones.length > 0 ? timezones.slice(0, 2).join(', ') : `UTC ${numLon >= 0 ? '+' : ''}${Math.round(numLon / 15)}h`;
 }
 
 async function fetchRegionBio(city, state, ctry, scanId) {
-    // Prefer State/Country or non-disambiguation summaries
-    const candidates = [state ? `${city ? city + ', ' : ''}${state}` : '', state, ctry].filter(Boolean);
+    const candidates = [state, ctry, city].filter(Boolean);
     for (const placeName of candidates) {
         try {
             const sumRes = await fetch(API_ENDPOINTS.WIKI_SUMMARY(placeName));
             if (sumRes.ok) {
                 const sumData = await sumRes.json();
-                // Skip Wikipedia disambiguation pages (like "Dongargaon may refer to...")
                 if (sumData.extract && sumData.type !== 'disambiguation' && !sumData.extract.includes('may refer to:') && scanId === currentScanId) {
                     const bioEl = document.getElementById('region-bio');
-                    if (bioEl) bioEl.innerHTML = `<span class="text-sky-300 font-semibold">[${sumData.title || placeName}]:</span> ${sumData.extract}`;
+                    if (bioEl) bioEl.innerHTML = `<span class="text-sky-300 font-semibold">[${sumData.title || placeName} Dossier]:</span> ${sumData.extract}`;
                     return;
                 }
             }
@@ -501,103 +621,157 @@ async function fetchRegionBio(city, state, ctry, scanId) {
     }
 }
 
-async function fetchRegionalNews(primaryQuery, fallbackCountry = '', scanId) {
+async function fetchSwathNews(states, countries, scanId) {
     const newsContainer = document.getElementById('reg-news');
-    try {
-        let items = [];
-        let sourceTag = primaryQuery;
+    const primaryCountry = countries[0] || '';
+    const primaryState = states[0] || '';
+    const queryList = [];
 
-        const fullQuery = fallbackCountry && primaryQuery !== fallbackCountry ? `${primaryQuery} ${fallbackCountry}` : primaryQuery;
+    if (primaryCountry) queryList.push(primaryCountry);
+    if (countries[1]) queryList.push(countries[1]);
+    if (primaryState && primaryState !== primaryCountry) queryList.push(`${primaryState} ${primaryCountry}`);
+
+    let allArticles = [];
+    const seenTitles = new Set();
+
+    // 1. Query Google News RSS + GDELT concurrently for covered countries/states
+    const promises = [];
+    queryList.slice(0, 2).forEach(q => {
+        promises.push(
+            fetch(API_ENDPOINTS.NEWS_REGIONAL_RSS2JSON(q))
+                .then(r => r.json())
+                .then(d => ({ type: 'rss', query: q, items: (d && d.items) ? d.items : [] }))
+                .catch(() => ({ type: 'rss', query: q, items: [] }))
+        );
+        promises.push(
+            fetch(API_ENDPOINTS.GDELT_NEWS(q))
+                .then(r => r.json())
+                .then(d => ({
+                    type: 'gdelt',
+                    query: q,
+                    items: (d && d.articles) ? d.articles.map(a => ({ title: a.title, link: a.url, pubDate: a.domain || 'Live Wire' })) : []
+                }))
+                .catch(() => ({ type: 'gdelt', query: q, items: [] }))
+        );
+    });
+
+    const results = await Promise.allSettled(promises);
+    if (scanId !== currentScanId) return;
+
+    results.forEach(r => {
+        if (r.status === 'fulfilled' && r.value && r.value.items) {
+            r.value.items.forEach(item => {
+                const cleanTitle = (item.title || '').replace(/ - .*$/, '').trim();
+                if (cleanTitle && !seenTitles.has(cleanTitle)) {
+                    seenTitles.add(cleanTitle);
+                    allArticles.push({
+                        title: cleanTitle,
+                        link: item.link || '#',
+                        pubDate: item.pubDate ? item.pubDate.split(' ')[0] : 'Live',
+                        tag: r.value.query
+                    });
+                }
+            });
+        }
+    });
+
+    // 2. Guaranteed Fallback: If RSS2JSON and GDELT are rate-limited or blocked, pull live UN ReliefWeb & Global headlines for the country
+    if (allArticles.length === 0 && primaryCountry) {
         try {
-            let res = await fetch(API_ENDPOINTS.NEWS_REGIONAL_RSS2JSON(fullQuery));
-            let data = await res.json();
-            if (data && data.items && data.items.length > 0) {
-                items = data.items;
-                sourceTag = fullQuery;
+            const rwRes = await fetch(API_ENDPOINTS.RELIEFWEB_COUNTRY(primaryCountry));
+            const rwData = await rwRes.json();
+            if (rwData.data && rwData.data.length > 0) {
+                rwData.data.forEach(rep => {
+                    allArticles.push({
+                        title: rep.fields.title,
+                        link: `https://reliefweb.int/node/${rep.id}`,
+                        pubDate: 'UN Dispatch',
+                        tag: primaryCountry
+                    });
+                });
             }
         } catch(e) {}
+    }
 
-        if (items.length === 0 && fallbackCountry) {
-            try {
-                let res2 = await fetch(API_ENDPOINTS.NEWS_REGIONAL_RSS2JSON(fallbackCountry));
-                let data2 = await res2.json();
-                if (data2 && data2.items && data2.items.length > 0) {
-                    items = data2.items;
-                    sourceTag = fallbackCountry;
-                }
-            } catch(e) {}
-        }
+    if (allArticles.length === 0) {
+        try {
+            const gNews = await fetch(API_ENDPOINTS.NEWS_GLOBAL).then(r => r.json());
+            if (gNews && gNews.items) {
+                gNews.items.slice(0, 3).forEach(n => {
+                    allArticles.push({
+                        title: n.title,
+                        link: n.link || '#',
+                        pubDate: 'World Desk',
+                        tag: primaryCountry || 'Global Swath'
+                    });
+                });
+            }
+        } catch(e) {}
+    }
 
-        if (items.length === 0 && (fallbackCountry || primaryQuery)) {
-            try {
-                let gRes = await fetch(API_ENDPOINTS.GDELT_NEWS(fallbackCountry || primaryQuery));
-                let gData = await gRes.json();
-                if (gData && gData.articles && gData.articles.length > 0) {
-                    items = gData.articles.map(a => ({
-                        title: a.title,
-                        link: a.url,
-                        pubDate: a.domain || 'Live Wire'
-                    }));
-                    sourceTag = fallbackCountry || primaryQuery;
-                }
-            } catch(e) {}
-        }
+    if (scanId !== currentScanId) return;
 
-        if (scanId !== currentScanId) return;
-
-        if (items.length > 0) {
-            let html = '';
-            items.slice(0, 4).forEach(item => {
-                const cleanTitle = (item.title || '').replace(/ - .*$/, '');
-                const pubDate = item.pubDate ? item.pubDate.split(' ')[0] : 'Live';
-                html += `
-                <a href="${item.link || '#'}" target="_blank" class="block bg-slate-900/60 hover:bg-slate-800/80 border border-slate-700/60 rounded p-2.5 transition">
-                    <div class="text-sky-300 font-semibold text-[11px] leading-snug">📰 ${cleanTitle}</div>
-                    <div class="text-[9px] text-slate-400 mt-1">Focus: ${sourceTag} &bull; ${pubDate} &bull; Tap to read full report</div>
-                </a>`;
-            });
-            newsContainer.innerHTML = html;
-        } else {
-            newsContainer.innerHTML = `<div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Quiet media sector for ${primaryQuery}. Monitoring global broadcast feeds.</div>`;
-        }
-    } catch(e) {
-        if (scanId === currentScanId) {
-            newsContainer.innerHTML = `<div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Regional news feed temporarily unavailable.</div>`;
-        }
+    if (allArticles.length > 0) {
+        let html = '';
+        allArticles.slice(0, 5).forEach(art => {
+            html += `
+            <a href="${art.link}" target="_blank" class="block bg-slate-900/60 hover:bg-slate-800/80 border border-slate-700/60 rounded p-2.5 transition">
+                <div class="text-sky-300 font-semibold text-[11px] leading-snug">📰 ${art.title}</div>
+                <div class="text-[9px] text-slate-400 mt-1">Swath Sector: ${art.tag} &bull; ${art.pubDate} &bull; Tap to open report</div>
+            </a>`;
+        });
+        newsContainer.innerHTML = html;
+    } else {
+        newsContainer.innerHTML = `<div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Monitoring regional broadcast feeds across ${countries.join(', ') || 'swath'}.</div>`;
     }
 }
 
-async function fetchPublicInterest(country, state, city, informative, admin, scanId) {
+async function fetchSwathPublicInterest(countries, states, cities, informative, admin, scanId) {
     const container = document.getElementById('reg-interest');
     let html = '';
 
-    const tags = [];
-    admin.forEach(a => { if (a.name && a.description) tags.push(`${a.name} (${a.description})`); });
-    informative.forEach(i => { if (i.name && i.description && !i.name.includes('UTC')) tags.push(`${i.name} — ${i.description}`); });
+    // 1. Deduplicated Geopolitical & Ecological Zones across the entire 5-point swath
+    const tagSet = new Set();
+    admin.forEach(a => {
+        if (a.name && a.description && !a.name.includes('UTC')) {
+            tagSet.add(`${a.name} (${a.description})`);
+        }
+    });
+    informative.forEach(i => {
+        if (i.name && i.description && !i.name.includes('UTC') && !i.name.includes('Century')) {
+            tagSet.add(`${i.name} — ${i.description}`);
+        }
+    });
 
-    if (tags.length > 0) {
+    const uniqueTags = Array.from(tagSet);
+    if (uniqueTags.length > 0) {
         html += `
         <div class="bg-slate-900/60 border border-slate-800 rounded p-2.5">
-            <div class="text-[10px] font-bold text-amber-300 uppercase mb-1">Geopolitical & Ecological Zones in Swath</div>
-            <div class="text-[11px] text-slate-300 leading-relaxed">${tags.slice(0, 5).join(' &bull; ')}</div>
+            <div class="text-[10px] font-bold text-amber-300 uppercase mb-1">Geopolitical, Administrative & Ecological Zones in Swath</div>
+            <div class="text-[11px] text-slate-300 leading-relaxed">${uniqueTags.slice(0, 8).join(' &bull; ')}</div>
         </div>`;
     }
 
-    const searchTarget = `${state || city} ${country}`.trim();
-    if (searchTarget) {
+    // 2. Query Wikipedia Search for Economy, Public Interest & Strategic Profile across covered states/countries
+    const searchQuery = countries.length > 0 ? `${states.slice(0, 2).join(' ')} ${countries.slice(0, 2).join(' ')} economy geography`.trim() : '';
+    if (searchQuery) {
         try {
-            const wRes = await fetch(API_ENDPOINTS.WIKI_SEARCH(searchTarget));
+            const wRes = await fetch(API_ENDPOINTS.WIKI_SEARCH(searchQuery));
             const wData = await wRes.json();
             if (scanId !== currentScanId) return;
 
             if (wData.query && wData.query.search && wData.query.search.length > 0) {
-                wData.query.search.slice(0, 3).forEach(s => {
-                    const cleanSnippet = s.snippet.replace(/<\/?[^>]+(>|$)/g, "");
-                    html += `
-                    <div class="bg-slate-900/50 border border-slate-800/80 rounded p-2.5">
-                        <div class="font-bold text-amber-400 text-[11px]">🔍 Public Interest: ${s.title}</div>
-                        <div class="text-[11px] text-slate-300 mt-0.5 leading-snug">${cleanSnippet}...</div>
-                    </div>`;
+                const seen = new Set();
+                wData.query.search.slice(0, 4).forEach(s => {
+                    if (!seen.has(s.title)) {
+                        seen.add(s.title);
+                        const cleanSnippet = s.snippet.replace(/<\/?[^>]+(>|$)/g, "");
+                        html += `
+                        <div class="bg-slate-900/50 border border-slate-800/80 rounded p-2.5">
+                            <div class="font-bold text-amber-400 text-[11px]">🔍 Public Interest: ${s.title}</div>
+                            <div class="text-[11px] text-slate-300 mt-0.5 leading-snug">${cleanSnippet}...</div>
+                        </div>`;
+                    }
                 });
             }
         } catch(e) {}
@@ -608,7 +782,7 @@ async function fetchPublicInterest(country, state, city, informative, admin, sca
     }
 }
 
-async function checkFootprintConflicts(lat, lon, radiusKm, countryName, scanId) {
+async function checkFootprintConflicts(lat, lon, radiusKm, countriesList, scanId) {
     const container = document.getElementById('reg-conflicts');
     let alertsHTML = '';
 
@@ -624,20 +798,22 @@ async function checkFootprintConflicts(lat, lon, radiusKm, countryName, scanId) 
         }
     });
 
-    if (countryName) {
-        try {
-            const rwRes = await fetch(API_ENDPOINTS.RELIEFWEB_COUNTRY(countryName));
-            const rwData = await rwRes.json();
-            if (rwData.data && rwData.data.length > 0) {
-                rwData.data.forEach(rep => {
+    if (countriesList && countriesList.length > 0) {
+        const rwPromises = countriesList.slice(0, 2).map(c =>
+            fetch(API_ENDPOINTS.RELIEFWEB_COUNTRY(c)).then(r => r.json()).then(d => ({ country: c, data: d.data || [] })).catch(() => null)
+        );
+        const rwResults = await Promise.allSettled(rwPromises);
+        rwResults.forEach(res => {
+            if (res.status === 'fulfilled' && res.value && res.value.data.length > 0) {
+                res.value.data.slice(0, 2).forEach(rep => {
                     alertsHTML += `
                     <div class="bg-amber-950/30 border border-amber-500/30 rounded p-2.5">
-                        <div class="font-bold text-amber-400">⚠️ UN Humanitarian / Security Report (${countryName})</div>
+                        <div class="font-bold text-amber-400">⚠️ UN Humanitarian / Security Report (${res.value.country})</div>
                         <div class="text-slate-200 mt-0.5">${rep.fields.title}</div>
                     </div>`;
                 });
             }
-        } catch(e) {}
+        });
     }
 
     if (scanId !== currentScanId) return;
@@ -649,62 +825,84 @@ async function checkFootprintConflicts(lat, lon, radiusKm, countryName, scanId) 
     }
 }
 
-async function fetchTopLandmarks(lat, lon, fallbackRegion, informative, admin, scanId) {
+async function fetchSwathLandmarks(samplePoints, fallbackRegion, informative, scanId) {
     const wikiContainer = document.getElementById('wiki-data');
     try {
-        const wikiRes = await fetch(API_ENDPOINTS.WIKI_GEO(lat, lon, 10000));
-        const wikiData = await wikiRes.json();
+        // Query Wikipedia Geosearch at all 5 sample points across the satellite footprint concurrently!
+        const geoPromises = samplePoints.map(pt =>
+            fetch(API_ENDPOINTS.WIKI_GEO(pt.lat, pt.lon, 10000))
+                .then(r => r.json())
+                .then(d => ({ sector: pt.label, items: (d.query && d.query.geosearch) ? d.query.geosearch : [] }))
+                .catch(() => ({ sector: pt.label, items: [] }))
+        );
+
+        const geoResults = await Promise.allSettled(geoPromises);
         if (scanId !== currentScanId) return;
 
-        let items = (wikiData.query && wikiData.query.geosearch) ? wikiData.query.geosearch : [];
+        const seenPlaces = new Set();
+        const placesList = [];
 
-        if (items.length > 0) {
+        geoResults.forEach(r => {
+            if (r.status === 'fulfilled' && r.value.items) {
+                r.value.items.forEach(item => {
+                    if (!seenPlaces.has(item.title)) {
+                        seenPlaces.add(item.title);
+                        placesList.push({
+                            title: item.title,
+                            badge: `${r.value.sector} (${(item.dist / 1000).toFixed(1)} km)`
+                        });
+                    }
+                });
+            }
+        });
+
+        // Also supplement with regional cities/landmarks if sparse
+        if (placesList.length < 4 && fallbackRegion) {
+            try {
+                const searchRes = await fetch(API_ENDPOINTS.WIKI_SEARCH(`cities OR landmarks OR national parks in ${fallbackRegion}`));
+                const searchData = await searchRes.json();
+                if (searchData.query && searchData.query.search) {
+                    searchData.query.search.slice(0, 5).forEach(s => {
+                        if (!seenPlaces.has(s.title)) {
+                            seenPlaces.add(s.title);
+                            placesList.push({
+                                title: s.title,
+                                badge: `Swath Landmark (${fallbackRegion})`
+                            });
+                        }
+                    });
+                }
+            } catch(e) {}
+        }
+
+        // Add clean natural features (filtering out timezone strings like "Africa/Windhoek" or "Africa continent")
+        const bannedWords = ['time zone', 'continent', 'century', 'utc'];
+        informative.forEach(inf => {
+            const desc = (inf.description || '').toLowerCase();
+            if (inf.name && !seenPlaces.has(inf.name) && !inf.name.includes('/') && !bannedWords.some(b => desc.includes(b))) {
+                seenPlaces.add(inf.name);
+                placesList.push({
+                    title: inf.name,
+                    badge: inf.description || 'Geographic Feature'
+                });
+            }
+        });
+
+        if (scanId !== currentScanId) return;
+
+        if (placesList.length > 0) {
             let wHtml = `<div class="grid grid-cols-1 gap-1.5">`;
-            items.forEach(item => {
-                const distKm = (item.dist / 1000).toFixed(1);
+            placesList.slice(0, 7).forEach(p => {
                 wHtml += `
                 <div class="bg-slate-900/60 border border-slate-800 rounded p-2 flex justify-between items-center">
-                    <span class="font-semibold text-emerald-300">📍 ${item.title}</span>
-                    <span class="text-[10px] text-slate-400">${distKm} km from center</span>
+                    <span class="font-semibold text-emerald-300">📍 ${p.title}</span>
+                    <span class="text-[10px] text-slate-400">${p.badge}</span>
                 </div>`;
             });
             wHtml += `</div>`;
             wikiContainer.innerHTML = wHtml;
-            return;
-        }
-
-        let fallbackHTML = `<div class="grid grid-cols-1 gap-1.5">`;
-        let count = 0;
-
-        if (fallbackRegion) {
-            const searchRes = await fetch(API_ENDPOINTS.WIKI_SEARCH(`landmarks OR mountains OR cities in ${fallbackRegion}`));
-            const searchData = await searchRes.json();
-            if (searchData.query && searchData.query.search) {
-                searchData.query.search.slice(0, 4).forEach(s => {
-                    count++;
-                    fallbackHTML += `
-                    <div class="bg-slate-900/60 border border-slate-800 rounded p-2 flex justify-between items-center">
-                        <span class="font-semibold text-emerald-300">📍 ${s.title}</span>
-                        <span class="text-[10px] text-slate-400">Regional Landmark (${fallbackRegion})</span>
-                    </div>`;
-                });
-            }
-        }
-
-        informative.slice(0, 3).forEach(inf => {
-            if (inf.name) {
-                count++;
-                fallbackHTML += `
-                <div class="bg-slate-900/60 border border-slate-800 rounded p-2 flex justify-between items-center">
-                    <span class="font-semibold text-sky-300">🗺️ ${inf.name}</span>
-                    <span class="text-[10px] text-slate-400">${inf.description || 'Geographic Feature'}</span>
-                </div>`;
-            }
-        });
-
-        fallbackHTML += `</div>`;
-        if (scanId === currentScanId) {
-            wikiContainer.innerHTML = count > 0 ? fallbackHTML : `<div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Uninhabited terrain in ${fallbackRegion || 'sector'}.</div>`;
+        } else {
+            wikiContainer.innerHTML = `<div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Open terrain across ${fallbackRegion || 'swath'}.</div>`;
         }
     } catch(e) {
         if (scanId === currentScanId) {
@@ -737,7 +935,6 @@ function parkSatelliteAt(lat, lon) {
     satMarker.setLatLng([lat, lon]);
     satCircle.setLatLng([lat, lon]);
 
-    // Position satellite immediately using unified spherical formula
     const newPos = latLonToWorldPosition(lockedLat, lockedLon, orbitRadius, earthMesh.rotation.y);
     satGroup.position.copy(newPos);
     satGroup.lookAt(0,0,0);
@@ -776,10 +973,10 @@ const sunLight = new THREE.DirectionalLight(0xffffff, 1.35);
 sunLight.position.set(5, 2, 3);
 scene.add(sunLight);
 
-// SMART ADAPTIVE SATELLITE SPOTLIGHT (Night-only illumination, zero daytime glare)
+// SMART ADAPTIVE SATELLITE SPOTLIGHT (Strictly night-side only: 0 intensity on daytime & twilight regions!)
 const satSpotLight = new THREE.SpotLight(0xfffbeb, 0.0);
 satSpotLight.angle = swathRadius * 0.72;
-satSpotLight.penumbra = 0.45;
+satSpotLight.penumbra = 0.5;
 satSpotLight.decay = 0;
 satSpotLight.distance = 25;
 scene.add(satSpotLight);
@@ -794,8 +991,8 @@ const earthMat = new THREE.MeshPhongMaterial({
     map: earthDayTex,
     bumpMap: earthBumpTex,
     bumpScale: 0.012,
-    specular: new THREE.Color(0x1e293b),
-    shininess: 8
+    specular: new THREE.Color(0x111827),
+    shininess: 5
 });
 const earthMesh = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 64), earthMat);
 scene.add(earthMesh);
@@ -1060,7 +1257,6 @@ function animate() {
         coneMesh.position.copy(satGroup.position); coneMesh.lookAt(0,0,0);
         ringMesh.position.copy(satGroup.position).normalize().multiplyScalar(1.003); ringMesh.lookAt(0,0,0); 
 
-        // Use exact inverse spherical mapping so HUD Lat/Lon matches the 3D position 1:1
         const coords = worldPositionToLatLon(satGroup.position, earthMesh.rotation.y);
         const lat = coords.lat;
         const lon = coords.lon;
@@ -1069,14 +1265,12 @@ function animate() {
         document.getElementById('hud-lon').textContent = lon.toFixed(2);
         satMarker.setLatLng([lat, lon]); satCircle.setLatLng([lat, lon]);
 
-        // Fast 3.5-second auto-refresh while Ground Data tab is open
         const now = Date.now();
-        if (isDockExpanded && currentTab === 'weather' && now - lastScannedTime > 3500) {
+        if (isDockExpanded && currentTab === 'weather' && now - lastScannedTime > 4000) {
             lastScannedTime = now;
             fetchSubSatData(lat, lon);
         }
     } else {
-        // Exact forward spherical mapping: locks satellite in place with ZERO jump when toggled!
         const lockedPos = latLonToWorldPosition(lockedLat, lockedLon, orbitRadius, earthMesh.rotation.y);
         satGroup.position.copy(lockedPos);
         satGroup.lookAt(0,0,0);
@@ -1085,15 +1279,17 @@ function animate() {
         ringMesh.position.copy(satGroup.position).normalize().multiplyScalar(1.003); ringMesh.lookAt(0,0,0); 
     }
 
-    // SMART DAY/NIGHT ADAPTIVE ILLUMINATION
+    // STRICT NIGHT-ONLY ADAPTIVE ILLUMINATION:
+    // Spotlight stays at 0.0 intensity on the entire day side and twilight border (sunAlignment > -0.05)
+    // Only turns on in true night shadow (sunAlignment < -0.05) with gentle intensity (0.95 max) so it never over-lights!
     const satNormal = satGroup.position.clone().normalize();
     const sunAlignment = satNormal.dot(sunDirVector);
-    const nightFactor = Math.max(0, Math.min(1, (0.2 - sunAlignment) / 0.7));
-    satSpotLight.intensity = nightFactor * 1.35;
+    const nightFactor = Math.max(0, Math.min(1, (-0.05 - sunAlignment) / 0.55));
+    satSpotLight.intensity = nightFactor * 0.95;
     satSpotLight.position.copy(satGroup.position);
     satSpotLight.target.position.set(0, 0, 0);
     const coneDist = Math.max(0.18, orbitRadius - 1.0);
-    satSpotLight.angle = Math.atan2(swathRadius * 1.08, coneDist);
+    satSpotLight.angle = Math.atan2(swathRadius * 1.05, coneDist);
 
     navBeacon.visible = Math.floor(Date.now() / 500) % 2 === 0;
 

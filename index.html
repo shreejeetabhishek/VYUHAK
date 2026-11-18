@@ -90,57 +90,57 @@
             </div>
         </div>
         
-        <!-- Tab: Ground Data (Complete Regional Surveillance Dossier) -->
+        <!-- Tab: Ground Data (Multi-Point Full Swath Surveillance Dossier) -->
         <div id="tab-weather" class="tab-content hide-scrollbar space-y-5 pb-10">
             <!-- Header & Scan Button -->
             <div class="flex justify-between items-center border-b border-slate-700 pb-2">
                 <div>
-                    <h3 class="text-[11px] font-bold text-sky-400 tracking-widest uppercase">Target Footprint Dossier</h3>
-                    <div id="weather-loc" class="text-[10px] text-emerald-400 font-mono">Scanning coordinates...</div>
+                    <h3 class="text-[11px] font-bold text-sky-400 tracking-widest uppercase">Full Satellite Swath Dossier</h3>
+                    <div id="weather-loc" class="text-[10px] text-emerald-400 font-mono">Scanning multi-point footprint...</div>
                 </div>
-                <button onclick="scanCurrentFootprint()" class="text-[10px] bg-emerald-900/50 hover:bg-emerald-700/50 text-emerald-300 px-3 py-1.5 rounded font-bold border border-emerald-500/30">Scan Area Now</button>
+                <button onclick="scanCurrentFootprint()" class="text-[10px] bg-emerald-900/50 hover:bg-emerald-700/50 text-emerald-300 px-3 py-1.5 rounded font-bold border border-emerald-500/30">Scan Swath Now</button>
             </div>
 
-            <!-- 1. Territory, Population & Economy -->
+            <!-- 1. Multi-Point Territory, Population & Economy Across Swath -->
             <div>
-                <h4 class="text-[10px] font-bold text-slate-400 tracking-widest mb-2 uppercase">1. Territory, Population & Economy</h4>
+                <h4 class="text-[10px] font-bold text-slate-400 tracking-widest mb-2 uppercase">1. All Countries & Regions Inside Satellite Footprint</h4>
                 <div id="geo-data" class="text-[12px] text-slate-200 leading-relaxed bg-slate-900/60 p-3 border border-slate-800 rounded-lg mb-2">
-                    Locking onto satellite footprint...
+                    Locking onto 5-point satellite footprint (Center, North, South, East, West)...
                 </div>
                 <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
-                        <div class="text-[9px] text-slate-400 uppercase">Country Population</div>
+                        <div class="text-[9px] text-slate-400 uppercase" id="lbl-pop">Swath Countries Pop.</div>
                         <div id="reg-pop" class="text-sm font-bold text-white mt-0.5">--</div>
                     </div>
                     <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
-                        <div class="text-[9px] text-slate-400 uppercase">Capital City</div>
+                        <div class="text-[9px] text-slate-400 uppercase" id="lbl-cap">Capitals in Swath</div>
                         <div id="reg-cap" class="text-sm font-bold text-sky-300 mt-0.5">--</div>
                     </div>
                     <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
-                        <div class="text-[9px] text-slate-400 uppercase">Currency / Economy</div>
+                        <div class="text-[9px] text-slate-400 uppercase">Currencies / Econ</div>
                         <div id="reg-cur" class="text-sm font-bold text-emerald-400 mt-0.5">--</div>
                     </div>
                     <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
-                        <div class="text-[9px] text-slate-400 uppercase">Surface Area</div>
+                        <div class="text-[9px] text-slate-400 uppercase">Swath Scan Area</div>
                         <div id="reg-area" class="text-sm font-bold text-purple-300 mt-0.5">--</div>
                     </div>
                     <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
-                        <div class="text-[9px] text-slate-400 uppercase">Pop. Density</div>
+                        <div class="text-[9px] text-slate-400 uppercase">Avg. Pop. Density</div>
                         <div id="reg-dens" class="text-sm font-bold text-pink-300 mt-0.5">--</div>
                     </div>
                     <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
-                        <div class="text-[9px] text-slate-400 uppercase">Local Timezone</div>
+                        <div class="text-[9px] text-slate-400 uppercase">Timezones Covered</div>
                         <div id="reg-tz" class="text-sm font-bold text-amber-300 mt-0.5">--</div>
                     </div>
                 </div>
             </div>
 
-            <!-- 2. Live Weather & Atmospheric Conditions -->
+            <!-- 2. Live Weather Across Footprint -->
             <div>
-                <h4 class="text-[10px] font-bold text-slate-400 tracking-widest mb-2 uppercase">2. Live Weather in Footprint</h4>
+                <h4 class="text-[10px] font-bold text-slate-400 tracking-widest mb-2 uppercase">2. Live Weather Across Footprint (Center & Swath Range)</h4>
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     <div class="bg-slate-900/50 border border-slate-700/50 rounded p-2.5">
-                        <div class="text-[9px] text-slate-400">Temperature</div>
+                        <div class="text-[9px] text-slate-400">Temperature (Swath)</div>
                         <div id="w-temp" class="text-base font-bold text-amber-400">-- &deg;C</div>
                     </div>
                     <div class="bg-slate-900/50 border border-slate-700/50 rounded p-2.5">
@@ -158,35 +158,35 @@
                 </div>
             </div>
 
-            <!-- 3. Wars, Conflicts, Emergencies & Disasters in Region -->
+            <!-- 3. Wars, Conflicts, Emergencies & Disasters in Swath -->
             <div>
-                <h4 class="text-[10px] font-bold text-red-400 tracking-widest mb-2 uppercase">3. Active Conflicts, Disasters & Emergencies (In Swath)</h4>
+                <h4 class="text-[10px] font-bold text-red-400 tracking-widest mb-2 uppercase">3. Active Conflicts, Disasters & Emergencies (Full Swath)</h4>
                 <div id="reg-conflicts" class="space-y-2 text-[11px]">
                     <div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Scanning satellite footprint for active alerts...</div>
                 </div>
             </div>
 
-            <!-- 4. Regional News, Politics & Public Interest -->
+            <!-- 4. Regional News Across Swath -->
             <div>
-                <h4 class="text-[10px] font-bold text-sky-400 tracking-widest mb-2 uppercase">4. Real-Time Regional News & Public Interest</h4>
+                <h4 class="text-[10px] font-bold text-sky-400 tracking-widest mb-2 uppercase">4. Real-Time News Across Covered Regions</h4>
                 <div id="reg-news" class="space-y-2 text-[11px]">
-                    <div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Fetching live regional news and public interest stories...</div>
+                    <div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Fetching live regional news across swath...</div>
                 </div>
             </div>
 
-            <!-- 5. Public Interest Topics & Cultural/Strategic Pulse -->
+            <!-- 5. Public Interest Topics Across Swath -->
             <div>
-                <h4 class="text-[10px] font-bold text-amber-400 tracking-widest mb-2 uppercase">5. Regional Public Interest & Strategic Dossier</h4>
+                <h4 class="text-[10px] font-bold text-amber-400 tracking-widest mb-2 uppercase">5. Public Interest & Strategic Dossier (Swath-Wide)</h4>
                 <div id="reg-interest" class="space-y-2 text-[11px] text-slate-300">
                     <div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Analyzing regional public interest topics...</div>
                 </div>
             </div>
 
-            <!-- 6. Top Places, Landmarks & Infrastructure -->
+            <!-- 6. Top Places, Cities & Landmarks Across Entire Swath -->
             <div>
-                <h4 class="text-[10px] font-bold text-emerald-400 tracking-widest mb-2 uppercase">6. Top Places, Cities & Landmarks in Swath</h4>
+                <h4 class="text-[10px] font-bold text-emerald-400 tracking-widest mb-2 uppercase">6. Major Cities, Places & Landmarks Across Entire Swath</h4>
                 <div id="wiki-data" class="space-y-2 text-[11px] text-slate-300">
-                    <div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Scanning surface for notable places...</div>
+                    <div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Scanning full footprint for cities and landmarks...</div>
                 </div>
             </div>
         </div>

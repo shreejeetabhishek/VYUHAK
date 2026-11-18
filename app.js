@@ -27,8 +27,14 @@ let isGeoLocked = false;
 let lockedLat = 20.84;
 let lockedLon = 85.10;
 
+function calcOrbitRadius(km) {
+    // Guarantees a clear visual gap above the Earth's surface (minimum 1.32 radius at 400km)
+    return 1.28 + (parseFloat(km) / 6371) * 0.9;
+}
+
 let orbitTime = 0;
-let orbitRadius = 1.06; // Start at 400km
+let currentAltitudeKm = 1200; // Start with clear separation above Earth
+let orbitRadius = calcOrbitRadius(currentAltitudeKm);
 let orbitSpeed = 0.003;
 let orbitInclination = 45; // degrees
 let swathRadius = 0.25; 
@@ -77,6 +83,7 @@ function toggleGeoLock() {
         ind.textContent = 'ON'; ind.classList.replace('text-slate-400', 'text-sky-300');
         document.getElementById('hud-sat-name').textContent = 'VK-Hover-02';
         document.getElementById('hud-vel').textContent = '0.00';
+        if (orbitLineMesh) orbitLineMesh.visible = false; // Hide orbit line when static
         playSound('lock');
         
         lockedLat = parseFloat(document.getElementById('hud-lat').textContent);
@@ -86,6 +93,7 @@ function toggleGeoLock() {
         btn.classList.remove('bg-sky-700/50', 'border-sky-400');
         ind.textContent = 'OFF'; ind.classList.replace('text-sky-300', 'text-slate-400');
         document.getElementById('hud-sat-name').textContent = 'VK-Tracker-01';
+        if (orbitLineMesh) orbitLineMesh.visible = true; // Restore orbit line when orbiting
         
         const speedVal = document.getElementById('speed-slider').value;
         updateSpeed(speedVal); 
@@ -145,7 +153,6 @@ async function fetchLiveIntel(force = false) {
     let alertCount = 0;
 
     try {
-        // 1. Earthquakes
         try {
             const eqRes = await fetch(API_ENDPOINTS.EARTHQUAKES);
             const eqData = await eqRes.json();
@@ -169,7 +176,6 @@ async function fetchLiveIntel(force = false) {
             }
         } catch(e) {}
 
-        // 2. Wildfires, Storms & Environmental Events (NASA EONET)
         try {
             const eoRes = await fetch(API_ENDPOINTS.EONET);
             const eoData = await eoRes.json();
@@ -196,7 +202,6 @@ async function fetchLiveIntel(force = false) {
             }
         } catch(e) {}
 
-        // 3. Wars, Conflicts & Humanitarian Disasters (UN ReliefWeb)
         try {
             const rwRes = await fetch(API_ENDPOINTS.RELIEFWEB_GLOBAL);
             const rwData = await rwRes.json();
@@ -222,7 +227,6 @@ async function fetchLiveIntel(force = false) {
             }
         } catch(e) {}
 
-        // 4. Breaking World News
         try {
             const newsRes = await fetch(API_ENDPOINTS.NEWS_GLOBAL);
             const newsData = await newsRes.json();
@@ -308,7 +312,6 @@ async function fetchSubSatData(lat, lon, force = false) {
         const ocean = geoData.localityInfo && geoData.localityInfo.informative ? geoData.localityInfo.informative[0].name : 'International Waters';
 
         if (!ctry) {
-            // Over Ocean
             document.getElementById('geo-data').innerHTML = `
                 <div class="text-sky-400 font-bold text-sm">🌊 Maritime / Oceanic Sector: ${ocean}</div>
                 <div class="text-slate-300 text-xs mt-1">The satellite footprint is currently over open water. Monitoring maritime weather and seismic activity.</div>
@@ -321,11 +324,9 @@ async function fetchSubSatData(lat, lon, force = false) {
             fetchRegionalNews(ocean);
             checkFootprintConflicts(numLat, numLon, swathKm, "");
         } else {
-            // Over Land
             let summaryText = `The satellite is scanning <strong class="text-emerald-400">${city ? city + ', ' : ''}${state ? state + ', ' : ''}${ctry}</strong>.`;
             document.getElementById('geo-data').innerHTML = `<div class="mb-1">${summaryText}</div><div id="region-bio" class="text-[11px] text-slate-400 mt-1"></div>`;
 
-            // Fetch Country Population, Capital, Currency via RestCountries API
             if (ctryCode) {
                 try {
                     const cRes = await fetch(API_ENDPOINTS.COUNTRY_INFO(ctryCode));
@@ -346,7 +347,6 @@ async function fetchSubSatData(lat, lon, force = false) {
                 } catch(e) {}
             }
 
-            // Fetch Wikipedia Regional Summary (Public Interest / Overview)
             const targetPlace = city || state || ctry;
             try {
                 const sumRes = await fetch(API_ENDPOINTS.WIKI_SUMMARY(targetPlace));
@@ -358,15 +358,11 @@ async function fetchSubSatData(lat, lon, force = false) {
                 }
             } catch(e) {}
 
-            // Fetch Live Regional News & Public Interest
             const newsQuery = `${state || city} ${ctry}`.trim();
             fetchRegionalNews(newsQuery, ctry);
-
-            // Check Conflicts & Disasters in Footprint + Country
             checkFootprintConflicts(numLat, numLon, swathKm, ctry);
         }
 
-        // 5. Fetch Top Places & Landmarks (Wikipedia Geosearch + OpenStreetMapfallback)
         fetchTopLandmarks(numLat, numLon, state || ctry);
 
     } catch(e) {
@@ -388,7 +384,7 @@ async function fetchRegionalNews(query, fallbackCountry = '') {
         if (data.items && data.items.length > 0) {
             let html = '';
             data.items.slice(0, 4).forEach(item => {
-                const cleanTitle = item.title.replace(/ - .*$/, ''); // strip source suffix
+                const cleanTitle = item.title.replace(/ - .*$/, '');
                 const pubDate = item.pubDate ? item.pubDate.split(' ')[0] : 'Live';
                 html += `
                 <a href="${item.link}" target="_blank" class="block bg-slate-900/60 hover:bg-slate-800/80 border border-slate-700/60 rounded p-2.5 transition">
@@ -409,7 +405,6 @@ async function checkFootprintConflicts(lat, lon, radiusKm, countryName) {
     const container = document.getElementById('reg-conflicts');
     let alertsHTML = '';
 
-    // 1. Check live 3D beacons inside satellite swath radius
     liveIntelData.forEach(item => {
         const dist = getDistanceKm(lat, lon, item.lat, item.lon);
         if (dist <= radiusKm) {
@@ -422,7 +417,6 @@ async function checkFootprintConflicts(lat, lon, radiusKm, countryName) {
         }
     });
 
-    // 2. Query UN ReliefWeb for Country-Specific Conflict / Humanitarian Reports
     if (countryName) {
         try {
             const rwRes = await fetch(API_ENDPOINTS.RELIEFWEB_COUNTRY(countryName));
@@ -496,6 +490,7 @@ function parkSatelliteAt(lat, lon) {
         ind.textContent = 'ON'; ind.classList.replace('text-slate-400', 'text-sky-300');
         document.getElementById('hud-sat-name').textContent = 'VK-Hover-02';
         document.getElementById('hud-vel').textContent = '0.00';
+        if (orbitLineMesh) orbitLineMesh.visible = false; // Hide orbit line when static
     }
     
     document.getElementById('hud-lat').textContent = lat.toFixed(2);
@@ -503,7 +498,6 @@ function parkSatelliteAt(lat, lon) {
     satMarker.setLatLng([lat, lon]);
     satCircle.setLatLng([lat, lon]);
 
-    // Automatically open Ground Data tab to show the full regional output
     const groundTabBtn = document.querySelectorAll('.tab-btn')[1];
     if (!isDockExpanded || currentTab !== 'weather') {
         openTab('weather', groundTabBtn);
@@ -511,7 +505,6 @@ function parkSatelliteAt(lat, lon) {
         fetchSubSatData(lat, lon, true);
     }
 
-    // Point camera so user sees the satellite over the target
     setTimeout(() => {
         const targetCamPos = satGroup.position.clone().multiplyScalar(1.65);
         camera.position.lerp(targetCamPos, 0.5);
@@ -522,7 +515,7 @@ function parkSatelliteAt(lat, lon) {
 // --- 3D ENGINE & PHYSICS ---
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 1.5, window.innerWidth < window.innerHeight ? 4.0 : 2.5);
+camera.position.set(0, 1.6, window.innerWidth < window.innerHeight ? 4.3 : 2.8);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, logarithmicDepthBuffer: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -531,17 +524,34 @@ document.getElementById('globe-viewport').appendChild(renderer.domElement);
 
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true; controls.dampingFactor = 0.05;
-controls.minDistance = 1.1; controls.maxDistance = 12;
+controls.minDistance = 1.15; controls.maxDistance = 12;
 
-scene.add(new THREE.AmbientLight(0xffffff, 0.25));
-const sunLight = new THREE.DirectionalLight(0xffffff, 1.4);
+// Low ambient light so night side is realistically dark, while Sun illuminates day side
+scene.add(new THREE.AmbientLight(0xffffff, 0.08));
+const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
 sunLight.position.set(5, 2, 3);
 scene.add(sunLight);
+
+// SATELLITE FOOTPRINT SUNLIGHT SPOTLIGHT (Illuminates dark/night regions covered by satellite)
+const satSpotLight = new THREE.SpotLight(0xfffbeb, 2.8);
+satSpotLight.angle = swathRadius * 0.72;
+satSpotLight.penumbra = 0.25;
+satSpotLight.decay = 0;
+satSpotLight.distance = 25;
+scene.add(satSpotLight);
+scene.add(satSpotLight.target);
 
 const texLoader = new THREE.TextureLoader();
 const earthDayTex = texLoader.load('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg');
 const earthNightTex = texLoader.load('https://unpkg.com/three-globe/example/img/earth-night.jpg');
-const earthMat = new THREE.MeshPhongMaterial({ color: 0xffffff, map: earthDayTex, shininess: 15 });
+const earthBumpTex = texLoader.load('https://unpkg.com/three-globe/example/img/earth-topology.png');
+const earthMat = new THREE.MeshPhongMaterial({
+    color: 0xffffff,
+    map: earthDayTex,
+    bumpMap: earthBumpTex,
+    bumpScale: 0.012,
+    shininess: 18
+});
 const earthMesh = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 64), earthMat);
 scene.add(earthMesh);
 
@@ -564,20 +574,102 @@ function drawOrbitLine() {
     const orbitLineGeo = new THREE.BufferGeometry().setFromPoints(orbitPoints);
     const orbitLineMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.4 });
     orbitLineMesh = new THREE.Line(orbitLineGeo, orbitLineMat);
+    orbitLineMesh.visible = !isGeoLocked; // Do not show when static
     scene.add(orbitLineMesh);
 }
 drawOrbitLine();
 
+// --- REALISTIC AEROSPACE SATELLITE 3D MODEL ---
 const satGroup = new THREE.Group();
-const busMat = new THREE.MeshStandardMaterial({ color: 0xffd700, roughness: 0.4 });
-satGroup.add(new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.08), busMat));
-const panelMat = new THREE.MeshStandardMaterial({ color: 0x1e3a8a, side: THREE.DoubleSide });
-const panelGeo = new THREE.PlaneGeometry(0.25, 0.08);
-const pL = new THREE.Mesh(panelGeo, panelMat); pL.position.x = -0.15; satGroup.add(pL);
-const pR = new THREE.Mesh(panelGeo, panelMat); pR.position.x = 0.15; satGroup.add(pR);
-const dish = new THREE.Mesh(new THREE.SphereGeometry(0.03, 16, 16, 0, Math.PI), new THREE.MeshStandardMaterial({ color: 0xcccccc }));
-dish.position.z = 0.04; dish.rotateX(Math.PI/2);
-satGroup.add(dish);
+
+// 1. Octagonal Gold Multi-Layer Insulation (MLI) Main Bus
+const foilMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.85, roughness: 0.25 });
+const metalMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9, roughness: 0.2 });
+const darkMetalMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.3 });
+
+const mainBus = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.09, 8), foilMat);
+mainBus.rotation.x = Math.PI / 2;
+satGroup.add(mainBus);
+
+// 2. Forward Payload Module & Optical Sensor Ring (Points toward Earth along -Z)
+const payloadModule = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.026, 0.04, 16), metalMat);
+payloadModule.rotation.x = Math.PI / 2;
+payloadModule.position.z = 0.06;
+satGroup.add(payloadModule);
+
+// Glowing Optical Camera Lens
+const lensGlass = new THREE.Mesh(
+    new THREE.CircleGeometry(0.016, 24),
+    new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
+);
+lensGlass.position.z = 0.081;
+satGroup.add(lensGlass);
+
+// 3. Aft Ion Thruster Nozzle
+const thruster = new THREE.Mesh(new THREE.ConeGeometry(0.015, 0.025, 16), darkMetalMat);
+thruster.rotation.x = Math.PI / 2;
+thruster.position.z = -0.055;
+satGroup.add(thruster);
+
+// 4. High-Gain Parabolic Dish Antenna & Feed Horn (Mounted on top)
+const dishParabolic = new THREE.Mesh(
+    new THREE.SphereGeometry(0.026, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.42),
+    new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.6, roughness: 0.3, side: THREE.DoubleSide })
+);
+dishParabolic.position.set(0, 0.042, 0.01);
+dishParabolic.rotation.x = -Math.PI / 3;
+satGroup.add(dishParabolic);
+
+const feedRod = new THREE.Mesh(new THREE.CylinderGeometry(0.002, 0.002, 0.025, 8), metalMat);
+feedRod.position.set(0, 0.05, 0.02);
+feedRod.rotation.x = Math.PI / 6;
+satGroup.add(feedRod);
+
+// 5. Articulated Dual Solar Arrays with Photovoltaic Grid
+function createSolarWing(side) {
+    const wing = new THREE.Group();
+    // Strut yoke
+    const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.003, 0.22, 8), metalMat);
+    strut.rotation.z = Math.PI / 2;
+    strut.position.x = side * 0.11;
+    wing.add(strut);
+
+    const cellMat = new THREE.MeshStandardMaterial({
+        color: 0x0f2952,
+        emissive: 0x071630,
+        metalness: 0.75,
+        roughness: 0.2,
+        side: THREE.DoubleSide
+    });
+    const frameMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, wireframe: true, transparent: true, opacity: 0.25 });
+
+    // 3 segmented solar panels per wing
+    for (let i = 0; i < 3; i++) {
+        const xPos = side * (0.065 + i * 0.058);
+        const segGeo = new THREE.BoxGeometry(0.052, 0.002, 0.075);
+        const panel = new THREE.Mesh(segGeo, cellMat);
+        panel.position.x = xPos;
+        wing.add(panel);
+
+        const gridFrame = new THREE.Mesh(segGeo, frameMat);
+        gridFrame.position.x = xPos;
+        wing.add(gridFrame);
+    }
+    return wing;
+}
+satGroup.add(createSolarWing(-1));
+satGroup.add(createSolarWing(1));
+
+// 6. Navigation Strobe Beacon
+const navBeacon = new THREE.Mesh(new THREE.SphereGeometry(0.005, 8, 8), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
+navBeacon.position.set(0, -0.032, 0);
+satGroup.add(navBeacon);
+
+// Dedicated point light so the metallic 3D satellite is always clearly visible even in Earth's shadow
+const satKeyLight = new THREE.PointLight(0xffffff, 0.9, 0.8);
+satKeyLight.position.set(0.15, 0.15, -0.15);
+satGroup.add(satKeyLight);
+
 scene.add(satGroup);
 
 let markerMeshes = [];
@@ -638,23 +730,37 @@ map.on('click', function(e) {
     parkSatelliteAt(e.latlng.lat, e.latlng.lng);
 });
 
-let coneMesh, ringMesh;
+let coneMesh, ringMesh, sunPatchMesh;
 function buildLaser() {
     if(coneMesh) scene.remove(coneMesh);
     if(ringMesh) scene.remove(ringMesh);
-    const coneHeight = Math.max(0.06, orbitRadius - 1.0);
-    
-    // Constrain cone visual radius so even at 6700km+ altitude it stays a tight, realistic beam
-    let visualSwath = Math.min(0.45, swathRadius * (1 + (coneHeight * 0.35)));
+    if(sunPatchMesh) scene.remove(sunPatchMesh);
+
+    const coneHeight = Math.max(0.18, orbitRadius - 1.0);
+    let visualSwath = Math.min(0.45, swathRadius * (1 + (coneHeight * 0.25)));
     
     const cGeo = new THREE.ConeGeometry(visualSwath, coneHeight, 32, 1, true);
     cGeo.translate(0, -coneHeight/2, 0);
     cGeo.rotateX(-Math.PI / 2); 
-    coneMesh = new THREE.Mesh(cGeo, new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.18, wireframe: true, depthWrite: false }));
+    coneMesh = new THREE.Mesh(cGeo, new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.16, wireframe: true, depthWrite: false }));
     scene.add(coneMesh);
 
-    ringMesh = new THREE.Mesh(new THREE.RingGeometry(Math.max(0.01, swathRadius - 0.015), swathRadius, 32), new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false }));
+    ringMesh = new THREE.Mesh(new THREE.RingGeometry(Math.max(0.01, swathRadius - 0.014), swathRadius, 48), new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false }));
     scene.add(ringMesh);
+
+    // Warm sunlit illumination disc inside footprint
+    sunPatchMesh = new THREE.Mesh(
+        new THREE.CircleGeometry(swathRadius, 48),
+        new THREE.MeshBasicMaterial({
+            color: 0xfff7ed,
+            transparent: true,
+            opacity: 0.14,
+            blending: THREE.AdditiveBlending,
+            side: THREE.DoubleSide,
+            depthWrite: false
+        })
+    );
+    scene.add(sunPatchMesh);
 }
 buildLaser();
 
@@ -690,7 +796,8 @@ function setOptics(idx) {
 }
 
 function updateAltitude(km) {
-    orbitRadius = 1.0 + (parseFloat(km) / 6371);
+    currentAltitudeKm = parseFloat(km);
+    orbitRadius = calcOrbitRadius(currentAltitudeKm);
     document.getElementById('alt-val').textContent = km + " km";
     document.getElementById('hud-alt').textContent = km;
     const baseSpeed = parseFloat(document.getElementById('speed-slider').value);
@@ -738,7 +845,8 @@ function animate() {
         satGroup.lookAt(0,0,0);
         
         coneMesh.position.copy(satGroup.position); coneMesh.lookAt(0,0,0);
-        ringMesh.position.copy(satGroup.position).normalize().multiplyScalar(1.002); ringMesh.lookAt(0,0,0); 
+        ringMesh.position.copy(satGroup.position).normalize().multiplyScalar(1.003); ringMesh.lookAt(0,0,0); 
+        sunPatchMesh.position.copy(satGroup.position).normalize().multiplyScalar(1.002); sunPatchMesh.lookAt(0,0,0);
 
         lat = (Math.asin(satGroup.position.y / orbitRadius) * 180 / Math.PI);
         lon = ((Math.atan2(satGroup.position.z, satGroup.position.x) * 180 / Math.PI) - (earthMesh.rotation.y * 180 / Math.PI)) % 360;
@@ -748,7 +856,6 @@ function animate() {
         document.getElementById('hud-lon').textContent = lon.toFixed(2);
         satMarker.setLatLng([lat, lon]); satCircle.setLatLng([lat, lon]);
 
-        // Auto-refresh Ground Data every 8 seconds while in Free Orbit if Ground Data tab is open
         const now = Date.now();
         if (isDockExpanded && currentTab === 'weather' && now - lastScannedTime > 8000) {
             lastScannedTime = now;
@@ -768,8 +875,18 @@ function animate() {
         satGroup.lookAt(0,0,0);
         
         coneMesh.position.copy(satGroup.position); coneMesh.lookAt(0,0,0);
-        ringMesh.position.copy(satGroup.position).normalize().multiplyScalar(1.002); ringMesh.lookAt(0,0,0); 
+        ringMesh.position.copy(satGroup.position).normalize().multiplyScalar(1.003); ringMesh.lookAt(0,0,0); 
+        sunPatchMesh.position.copy(satGroup.position).normalize().multiplyScalar(1.002); sunPatchMesh.lookAt(0,0,0);
     }
+
+    // Update Satellite Daylight Spotlight to illuminate night side coverage area
+    satSpotLight.position.copy(satGroup.position);
+    satSpotLight.target.position.set(0, 0, 0);
+    const coneDist = Math.max(0.18, orbitRadius - 1.0);
+    satSpotLight.angle = Math.atan2(swathRadius * 1.15, coneDist);
+
+    // Blink red navigation strobe on satellite
+    navBeacon.visible = Math.floor(Date.now() / 500) % 2 === 0;
 
     document.getElementById('hud-time').textContent = 'UTC ' + new Date().toISOString().substr(11,8);
 

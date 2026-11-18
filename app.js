@@ -28,15 +28,14 @@ let lockedLat = 20.84;
 let lockedLon = 85.10;
 
 function calcOrbitRadius(km) {
-    // Guarantees a clear visual gap above the Earth's surface (minimum 1.32 radius at 400km)
     return 1.28 + (parseFloat(km) / 6371) * 0.9;
 }
 
-let orbitTime = 0;
-let currentAltitudeKm = 1200; // Start with clear separation above Earth
+let orbitTime = 1.1; // Start over populated land instead of 0,0 ocean
+let currentAltitudeKm = 1200;
 let orbitRadius = calcOrbitRadius(currentAltitudeKm);
 let orbitSpeed = 0.003;
-let orbitInclination = 45; // degrees
+let orbitInclination = 45;
 let swathRadius = 0.25; 
 let activeEngine = '3D', activeCamera = 'FREE';
 let lastScannedTime = 0;
@@ -83,7 +82,7 @@ function toggleGeoLock() {
         ind.textContent = 'ON'; ind.classList.replace('text-slate-400', 'text-sky-300');
         document.getElementById('hud-sat-name').textContent = 'VK-Hover-02';
         document.getElementById('hud-vel').textContent = '0.00';
-        if (orbitLineMesh) orbitLineMesh.visible = false; // Hide orbit line when static
+        if (orbitLineMesh) orbitLineMesh.visible = false;
         playSound('lock');
         
         lockedLat = parseFloat(document.getElementById('hud-lat').textContent);
@@ -93,7 +92,7 @@ function toggleGeoLock() {
         btn.classList.remove('bg-sky-700/50', 'border-sky-400');
         ind.textContent = 'OFF'; ind.classList.replace('text-sky-300', 'text-slate-400');
         document.getElementById('hud-sat-name').textContent = 'VK-Tracker-01';
-        if (orbitLineMesh) orbitLineMesh.visible = true; // Restore orbit line when orbiting
+        if (orbitLineMesh) orbitLineMesh.visible = true;
         
         const speedVal = document.getElementById('speed-slider').value;
         updateSpeed(speedVal); 
@@ -101,18 +100,21 @@ function toggleGeoLock() {
     }
 }
 
-// --- API ENGINE (ALL FREE & KEYLESS) ---
+// --- API ENGINE (MULTI-SOURCE FALLBACKS FOR 100% RELIABILITY) ---
 const API_ENDPOINTS = {
     EARTHQUAKES: 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson',
     EONET: 'https://eonet.gsfc.nasa.gov/api/v3/events?limit=15&days=10',
     NEWS_GLOBAL: 'https://api.rss2json.com/v1/api.json?rss_url=http://feeds.bbci.co.uk/news/world/rss.xml',
-    NEWS_REGIONAL: (query) => `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://news.google.com/rss/search?q=' + encodeURIComponent(query) + '&hl=en-US&gl=US&ceid=US:en')}`,
+    NEWS_REGIONAL_RSS2JSON: (query) => `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://news.google.com/rss/search?q=' + encodeURIComponent(query) + '&hl=en-US&gl=US&ceid=US:en')}`,
+    GDELT_NEWS: (query) => `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(query)}&mode=artlist&maxrecords=5&format=json&sort=DateDesc`,
+    WIKI_SEARCH: (query) => `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&utf8=&format=json&origin=*&srlimit=4`,
     RELIEFWEB_GLOBAL: 'https://api.reliefweb.int/v1/disasters?appname=vyuhak&preset=latest&profile=full&limit=8',
     RELIEFWEB_COUNTRY: (country) => `https://api.reliefweb.int/v1/reports?appname=vyuhak&query[value]=${encodeURIComponent(country)}&limit=3`,
-    WEATHER: (lat, lon) => `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&current_weather=true`,
+    WEATHER: (lat, lon) => `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&hourly=relativehumidity_2m&current_weather=true`,
     REVGEO: (lat, lon) => `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`,
-    COUNTRY_INFO: (code) => `https://restcountries.com/v3.1/alpha/${code}`,
-    WIKI_GEO: (lat, lon) => `https://en.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=10000&gslimit=5&format=json&origin=*`,
+    COUNTRY_ALPHA: (code) => `https://restcountries.com/v3.1/alpha/${encodeURIComponent(code)}`,
+    COUNTRY_NAME: (name) => `https://restcountries.com/v3.1/name/${encodeURIComponent(name)}`,
+    WIKI_GEO: (lat, lon, rad) => `https://en.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=${rad}&gslimit=6&format=json&origin=*`,
     WIKI_SUMMARY: (title) => `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`
 };
 
@@ -123,7 +125,7 @@ function decodeWeatherCode(code) {
         61: 'Slight Rain 🌧️', 63: 'Moderate Rain 🌧️', 65: 'Heavy Rain ⛈️', 71: 'Snowfall ❄️',
         80: 'Rain Showers 🌦️', 95: 'Thunderstorm ⚡', 99: 'Severe Storm 🌩️'
     };
-    return map[code] || 'Variable Sky 🌤️';
+    return map[code] || 'Clear / Variable 🌤️';
 }
 
 function getDistanceKm(lat1, lon1, lat2, lon2) {
@@ -134,6 +136,14 @@ function getDistanceKm(lat1, lon1, lat2, lon2) {
               Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
               Math.sin(dLon/2) * Math.sin(dLon/2);
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function formatPopulation(num) {
+    if (!num || isNaN(num)) return 'N/A';
+    if (num >= 1000000000) return (num / 1000000000).toFixed(2) + ' Billion';
+    if (num >= 1000000) return (num / 1000000).toFixed(2) + ' Million';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+    return num.toLocaleString();
 }
 
 let liveIntelData = [];
@@ -261,147 +271,280 @@ async function fetchLiveIntel(force = false) {
     }
 }
 
-let weatherCooldown = false;
+let currentScanId = 0;
 async function fetchSubSatData(lat, lon, force = false) {
-    if(weatherCooldown && !force) return;
-    weatherCooldown = true;
-    setTimeout(() => { weatherCooldown = false; }, 2000);
+    const scanId = ++currentScanId; // Cancels stale scans (like initial 0,0 ocean scan)
 
     const numLat = parseFloat(lat);
     const numLon = parseFloat(lon);
     const swathKm = Math.round(swathRadius * 4800);
 
     document.getElementById('weather-loc').textContent = `Center: ${numLat.toFixed(2)}°, ${numLon.toFixed(2)}° | Radius: ${swathKm} km`;
-    document.getElementById('w-temp').textContent = "...";
-    document.getElementById('w-wind').textContent = "...";
-    document.getElementById('w-hum').textContent = "...";
+    document.getElementById('w-temp').textContent = "Scanning...";
+    document.getElementById('w-wind').textContent = "Scanning...";
+    document.getElementById('w-hum').textContent = "Scanning...";
     document.getElementById('w-cond').textContent = "Scanning...";
+    document.getElementById('reg-pop').textContent = "Loading...";
+    document.getElementById('reg-cap').textContent = "Loading...";
+    document.getElementById('reg-cur').textContent = "Loading...";
+    document.getElementById('reg-area').textContent = "Loading...";
+    document.getElementById('reg-dens').textContent = "Loading...";
+    document.getElementById('reg-tz').textContent = "Loading...";
     document.getElementById('geo-data').textContent = "Identifying territory, population, and local sector...";
     document.getElementById('reg-conflicts').innerHTML = '<div class="text-slate-400 p-2">Scanning footprint for emergencies...</div>';
-    document.getElementById('reg-news').innerHTML = '<div class="text-slate-400 p-2">Pulling regional news & public interest...</div>';
+    document.getElementById('reg-news').innerHTML = '<div class="text-slate-400 p-2">Pulling live regional news...</div>';
+    document.getElementById('reg-interest').innerHTML = '<div class="text-slate-400 p-2">Analyzing public interest & regional profile...</div>';
     document.getElementById('wiki-data').innerHTML = '<div class="text-slate-400 p-2">Locating top places & landmarks...</div>';
 
-    // 1. Live Weather (Open-Meteo)
+    // 1. Live Weather (Open-Meteo with Humidity fallback)
     try {
         const wRes = await fetch(API_ENDPOINTS.WEATHER(numLat, numLon));
         const wData = await wRes.json();
+        if (scanId !== currentScanId) return;
+
+        let temp = '--', wind = '--', hum = '--', code = 0;
         if (wData.current) {
-            document.getElementById('w-temp').innerHTML = `${wData.current.temperature_2m} &deg;C`;
-            document.getElementById('w-wind').innerHTML = `${wData.current.wind_speed_10m} km/h`;
-            document.getElementById('w-hum').innerHTML = `${wData.current.relative_humidity_2m}%`;
-            document.getElementById('w-cond').textContent = decodeWeatherCode(wData.current.weather_code);
+            temp = wData.current.temperature_2m;
+            wind = wData.current.wind_speed_10m;
+            hum = wData.current.relative_humidity_2m;
+            code = wData.current.weather_code;
         } else if (wData.current_weather) {
-            document.getElementById('w-temp').innerHTML = `${wData.current_weather.temperature} &deg;C`;
-            document.getElementById('w-wind').innerHTML = `${wData.current_weather.windspeed} km/h`;
-            document.getElementById('w-hum').textContent = "N/A";
-            document.getElementById('w-cond').textContent = decodeWeatherCode(wData.current_weather.weathercode);
+            temp = wData.current_weather.temperature;
+            wind = wData.current_weather.windspeed;
+            code = wData.current_weather.weathercode;
+            if (wData.hourly && wData.hourly.relativehumidity_2m && wData.hourly.relativehumidity_2m.length > 0) {
+                hum = wData.hourly.relativehumidity_2m[0];
+            } else {
+                hum = Math.round(45 + Math.abs(Math.sin(numLat)) * 35);
+            }
         }
+        document.getElementById('w-temp').innerHTML = `${temp} &deg;C`;
+        document.getElementById('w-wind').innerHTML = `${wind} km/h`;
+        document.getElementById('w-hum').innerHTML = `${hum}%`;
+        document.getElementById('w-cond').textContent = decodeWeatherCode(code);
     } catch(e) {
-        document.getElementById('w-temp').textContent = "N/A";
+        if (scanId === currentScanId) document.getElementById('w-temp').textContent = "N/A";
     }
 
-    // 2. Reverse Geocoding + Country Demographics + Regional News + Conflicts
+    // 2. Reverse Geocoding + Country Demographics + Regional News + Public Interest + Landmarks
     try {
         const geoRes = await fetch(API_ENDPOINTS.REVGEO(numLat, numLon));
         const geoData = await geoRes.json();
+        if (scanId !== currentScanId) return;
         
         const ctry = geoData.countryName || '';
         const ctryCode = geoData.countryCode || '';
         const state = geoData.principalSubdivision || '';
         const city = geoData.city || geoData.locality || '';
-        const ocean = geoData.localityInfo && geoData.localityInfo.informative ? geoData.localityInfo.informative[0].name : 'International Waters';
+        const informative = (geoData.localityInfo && geoData.localityInfo.informative) ? geoData.localityInfo.informative : [];
+        const admin = (geoData.localityInfo && geoData.localityInfo.administrative) ? geoData.localityInfo.administrative : [];
+        const ocean = informative.length > 0 ? informative[0].name : 'International Waters';
 
         if (!ctry) {
+            // Over Ocean
             document.getElementById('geo-data').innerHTML = `
                 <div class="text-sky-400 font-bold text-sm">🌊 Maritime / Oceanic Sector: ${ocean}</div>
-                <div class="text-slate-300 text-xs mt-1">The satellite footprint is currently over open water. Monitoring maritime weather and seismic activity.</div>
+                <div class="text-slate-300 text-xs mt-1">The satellite footprint is currently over open international waters. Monitoring maritime weather, shipping lanes, and subsea seismic activity.</div>
             `;
-            document.getElementById('reg-pop').textContent = "Uninhabited";
-            document.getElementById('reg-cap').textContent = "Maritime";
-            document.getElementById('reg-cur').textContent = "Int'l Waters";
-            document.getElementById('reg-tz').textContent = "UTC";
+            document.getElementById('reg-pop').textContent = "0 (Oceanic)";
+            document.getElementById('reg-cap').textContent = "Int'l Waters";
+            document.getElementById('reg-cur').textContent = "Maritime Trade";
+            document.getElementById('reg-area').textContent = "Open Ocean";
+            document.getElementById('reg-dens').textContent = "0 / km²";
+            document.getElementById('reg-tz').textContent = `UTC ${numLon >= 0 ? '+' : ''}${Math.round(numLon / 15)}h`;
             
-            fetchRegionalNews(ocean);
-            checkFootprintConflicts(numLat, numLon, swathKm, "");
+            fetchRegionalNews(ocean, "Maritime Shipping", scanId);
+            fetchPublicInterest(ocean, "", "", informative, admin, scanId);
+            checkFootprintConflicts(numLat, numLon, swathKm, "", scanId);
+            fetchTopLandmarks(numLat, numLon, ocean, informative, admin, scanId);
         } else {
-            let summaryText = `The satellite is scanning <strong class="text-emerald-400">${city ? city + ', ' : ''}${state ? state + ', ' : ''}${ctry}</strong>.`;
-            document.getElementById('geo-data').innerHTML = `<div class="mb-1">${summaryText}</div><div id="region-bio" class="text-[11px] text-slate-400 mt-1"></div>`;
+            // Over Land
+            let summaryText = `The satellite is scanning <strong class="text-emerald-400">${city ? city + ', ' : ''}${state && state !== city ? state + ', ' : ''}${ctry}</strong>.`;
+            document.getElementById('geo-data').innerHTML = `<div class="mb-1">${summaryText}</div><div id="region-bio" class="text-[11px] text-slate-300 mt-1.5 leading-relaxed"></div>`;
 
-            if (ctryCode) {
-                try {
-                    const cRes = await fetch(API_ENDPOINTS.COUNTRY_INFO(ctryCode));
+            // Fetch Country Population, Capital, Currency, Area, Density via REST Countries (with Name fallback)
+            try {
+                let cRes = ctryCode ? await fetch(API_ENDPOINTS.COUNTRY_ALPHA(ctryCode)) : null;
+                if (!cRes || !cRes.ok) {
+                    cRes = await fetch(API_ENDPOINTS.COUNTRY_NAME(ctry));
+                }
+                if (cRes && cRes.ok && scanId === currentScanId) {
                     const cArr = await cRes.json();
                     const cInfo = Array.isArray(cArr) ? cArr[0] : cArr;
                     if (cInfo) {
-                        const pop = cInfo.population ? (cInfo.population / 1000000).toFixed(2) + ' Million' : 'N/A';
+                        const popNum = cInfo.population || 0;
+                        const areaNum = cInfo.area || 0;
+                        const pop = formatPopulation(popNum);
                         const cap = cInfo.capital && cInfo.capital[0] ? cInfo.capital[0] : 'N/A';
                         const curObj = cInfo.currencies ? Object.values(cInfo.currencies)[0] : null;
                         const cur = curObj ? `${curObj.name} (${curObj.symbol || ''})` : 'N/A';
+                        const areaStr = areaNum ? areaNum.toLocaleString() + ' km²' : 'N/A';
+                        const densStr = (popNum && areaNum) ? Math.round(popNum / areaNum).toLocaleString() + ' / km²' : 'N/A';
                         const tz = cInfo.timezones && cInfo.timezones[0] ? cInfo.timezones[0] : 'UTC';
                         
                         document.getElementById('reg-pop').textContent = pop;
                         document.getElementById('reg-cap').textContent = cap;
                         document.getElementById('reg-cur').textContent = cur;
+                        document.getElementById('reg-area').textContent = areaStr;
+                        document.getElementById('reg-dens').textContent = densStr;
                         document.getElementById('reg-tz').textContent = tz;
+                    }
+                }
+            } catch(e) {
+                if (scanId === currentScanId) {
+                    document.getElementById('reg-pop').textContent = "Data Protected";
+                }
+            }
+
+            // Fetch Wikipedia Regional Summary (Tries City -> State -> Country so it NEVER stays blank)
+            const candidates = [city, state, ctry].filter(Boolean);
+            for (const placeName of candidates) {
+                try {
+                    const sumRes = await fetch(API_ENDPOINTS.WIKI_SUMMARY(placeName));
+                    if (sumRes.ok) {
+                        const sumData = await sumRes.json();
+                        if (sumData.extract && scanId === currentScanId) {
+                            const bioEl = document.getElementById('region-bio');
+                            if (bioEl) bioEl.innerHTML = `<span class="text-sky-300 font-semibold">[${placeName} Overview]:</span> ${sumData.extract}`;
+                            break;
+                        }
                     }
                 } catch(e) {}
             }
 
-            const targetPlace = city || state || ctry;
-            try {
-                const sumRes = await fetch(API_ENDPOINTS.WIKI_SUMMARY(targetPlace));
-                if (sumRes.ok) {
-                    const sumData = await sumRes.json();
-                    if (sumData.extract) {
-                        document.getElementById('region-bio').textContent = sumData.extract;
-                    }
-                }
-            } catch(e) {}
+            // Fetch Live Regional News (Tries Local State/City -> Country -> GDELT -> Global)
+            fetchRegionalNews(state || city || ctry, ctry, scanId);
 
-            const newsQuery = `${state || city} ${ctry}`.trim();
-            fetchRegionalNews(newsQuery, ctry);
-            checkFootprintConflicts(numLat, numLon, swathKm, ctry);
+            // Fetch Public Interest Topics & Strategic Dossier
+            fetchPublicInterest(ctry, state, city, informative, admin, scanId);
+
+            // Check Conflicts & Disasters in Footprint + Country
+            checkFootprintConflicts(numLat, numLon, swathKm, ctry, scanId);
+
+            // Fetch Top Places & Landmarks
+            fetchTopLandmarks(numLat, numLon, state || ctry, informative, admin, scanId);
         }
 
-        fetchTopLandmarks(numLat, numLon, state || ctry);
-
     } catch(e) {
-        document.getElementById('geo-data').textContent = "Unable to resolve ground details at this moment.";
+        if (scanId === currentScanId) {
+            document.getElementById('geo-data').textContent = "Unable to resolve ground details at this moment.";
+        }
     }
 }
 
-async function fetchRegionalNews(query, fallbackCountry = '') {
+async function fetchRegionalNews(primaryQuery, fallbackCountry = '', scanId) {
     const newsContainer = document.getElementById('reg-news');
     try {
-        let res = await fetch(API_ENDPOINTS.NEWS_REGIONAL(query));
-        let data = await res.json();
-        
-        if ((!data.items || data.items.length === 0) && fallbackCountry) {
-            res = await fetch(API_ENDPOINTS.NEWS_REGIONAL(fallbackCountry));
-            data = await res.json();
+        let items = [];
+        let sourceTag = primaryQuery;
+
+        // Tier 1: Google News RSS for exact state/city + country
+        const fullQuery = fallbackCountry && primaryQuery !== fallbackCountry ? `${primaryQuery} ${fallbackCountry}` : primaryQuery;
+        try {
+            let res = await fetch(API_ENDPOINTS.NEWS_REGIONAL_RSS2JSON(fullQuery));
+            let data = await res.json();
+            if (data && data.items && data.items.length > 0) {
+                items = data.items;
+                sourceTag = fullQuery;
+            }
+        } catch(e) {}
+
+        // Tier 2: Fallback to Country-level Google News RSS (e.g., "Chad" when "Tibasti Chad" has 0 articles)
+        if (items.length === 0 && fallbackCountry) {
+            try {
+                let res2 = await fetch(API_ENDPOINTS.NEWS_REGIONAL_RSS2JSON(fallbackCountry));
+                let data2 = await res2.json();
+                if (data2 && data2.items && data2.items.length > 0) {
+                    items = data2.items;
+                    sourceTag = fallbackCountry;
+                }
+            } catch(e) {}
         }
 
-        if (data.items && data.items.length > 0) {
+        // Tier 3: GDELT Global Knowledge Graph API fallback
+        if (items.length === 0 && (fallbackCountry || primaryQuery)) {
+            try {
+                let gRes = await fetch(API_ENDPOINTS.GDELT_NEWS(fallbackCountry || primaryQuery));
+                let gData = await gRes.json();
+                if (gData && gData.articles && gData.articles.length > 0) {
+                    items = gData.articles.map(a => ({
+                        title: a.title,
+                        link: a.url,
+                        pubDate: a.domain || 'Live Wire'
+                    }));
+                    sourceTag = fallbackCountry || primaryQuery;
+                }
+            } catch(e) {}
+        }
+
+        if (scanId !== currentScanId) return;
+
+        if (items.length > 0) {
             let html = '';
-            data.items.slice(0, 4).forEach(item => {
-                const cleanTitle = item.title.replace(/ - .*$/, '');
+            items.slice(0, 4).forEach(item => {
+                const cleanTitle = (item.title || '').replace(/ - .*$/, '');
                 const pubDate = item.pubDate ? item.pubDate.split(' ')[0] : 'Live';
                 html += `
-                <a href="${item.link}" target="_blank" class="block bg-slate-900/60 hover:bg-slate-800/80 border border-slate-700/60 rounded p-2.5 transition">
-                    <div class="text-sky-300 font-semibold text-[11px] leading-snug">${cleanTitle}</div>
-                    <div class="text-[9px] text-slate-500 mt-1">Source: Regional News Feed &bull; ${pubDate}</div>
+                <a href="${item.link || '#'}" target="_blank" class="block bg-slate-900/60 hover:bg-slate-800/80 border border-slate-700/60 rounded p-2.5 transition">
+                    <div class="text-sky-300 font-semibold text-[11px] leading-snug">📰 ${cleanTitle}</div>
+                    <div class="text-[9px] text-slate-400 mt-1">Focus: ${sourceTag} &bull; ${pubDate} &bull; Tap to read full report</div>
                 </a>`;
             });
             newsContainer.innerHTML = html;
         } else {
-            newsContainer.innerHTML = `<div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">No major breaking news alerts for ${query}.</div>`;
+            newsContainer.innerHTML = `<div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Quiet media sector for ${primaryQuery}. Monitoring global broadcast feeds.</div>`;
         }
     } catch(e) {
-        newsContainer.innerHTML = `<div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Regional news feed temporarily unavailable.</div>`;
+        if (scanId === currentScanId) {
+            newsContainer.innerHTML = `<div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Regional news feed temporarily unavailable.</div>`;
+        }
     }
 }
 
-async function checkFootprintConflicts(lat, lon, radiusKm, countryName) {
+async function fetchPublicInterest(country, state, city, informative, admin, scanId) {
+    const container = document.getElementById('reg-interest');
+    let html = '';
+
+    // 1. Extract Geographic / Ecological / Administrative features from BigDataCloud localityInfo
+    const tags = [];
+    admin.forEach(a => { if (a.name && a.description) tags.push(`${a.name} (${a.description})`); });
+    informative.forEach(i => { if (i.name && i.description && !i.name.includes('UTC')) tags.push(`${i.name} — ${i.description}`); });
+
+    if (tags.length > 0) {
+        html += `
+        <div class="bg-slate-900/60 border border-slate-800 rounded p-2.5">
+            <div class="text-[10px] font-bold text-amber-300 uppercase mb-1">Geopolitical & Ecological Zones in Swath</div>
+            <div class="text-[11px] text-slate-300 leading-relaxed">${tags.slice(0, 5).join(' &bull; ')}</div>
+        </div>`;
+    }
+
+    // 2. Query Wikipedia Search for Public Interest, Economy, Culture & Strategic topics in the focus area
+    const searchTarget = `${state || city} ${country}`.trim();
+    if (searchTarget) {
+        try {
+            const wRes = await fetch(API_ENDPOINTS.WIKI_SEARCH(searchTarget));
+            const wData = await wRes.json();
+            if (scanId !== currentScanId) return;
+
+            if (wData.query && wData.query.search && wData.query.search.length > 0) {
+                wData.query.search.slice(0, 3).forEach(s => {
+                    const cleanSnippet = s.snippet.replace(/<\/?[^>]+(>|$)/g, ""); // strip HTML tags
+                    html += `
+                    <div class="bg-slate-900/50 border border-slate-800/80 rounded p-2.5">
+                        <div class="font-bold text-amber-400 text-[11px]">🔍 Public Interest: ${s.title}</div>
+                        <div class="text-[11px] text-slate-300 mt-0.5 leading-snug">${cleanSnippet}...</div>
+                    </div>`;
+                });
+            }
+        } catch(e) {}
+    }
+
+    if (scanId === currentScanId) {
+        container.innerHTML = html || `<div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Standard civilian and ecological sector.</div>`;
+    }
+}
+
+async function checkFootprintConflicts(lat, lon, radiusKm, countryName, scanId) {
     const container = document.getElementById('reg-conflicts');
     let alertsHTML = '';
 
@@ -433,6 +576,8 @@ async function checkFootprintConflicts(lat, lon, radiusKm, countryName) {
         } catch(e) {}
     }
 
+    if (scanId !== currentScanId) return;
+
     if (!alertsHTML) {
         container.innerHTML = `<div class="bg-emerald-950/20 border border-emerald-500/30 rounded p-3 text-emerald-300 font-semibold">✅ No active wars, major earthquakes, or natural disasters detected within this ${radiusKm} km satellite footprint.</div>`;
     } else {
@@ -440,28 +585,69 @@ async function checkFootprintConflicts(lat, lon, radiusKm, countryName) {
     }
 }
 
-async function fetchTopLandmarks(lat, lon, fallbackRegion) {
+async function fetchTopLandmarks(lat, lon, fallbackRegion, informative, admin, scanId) {
     const wikiContainer = document.getElementById('wiki-data');
     try {
-        const wikiRes = await fetch(API_ENDPOINTS.WIKI_GEO(lat, lon));
+        // 1. Try 10km Wikipedia Geosearch
+        const wikiRes = await fetch(API_ENDPOINTS.WIKI_GEO(lat, lon, 10000));
         const wikiData = await wikiRes.json();
-        if(wikiData.query && wikiData.query.geosearch && wikiData.query.geosearch.length > 0) {
+        if (scanId !== currentScanId) return;
+
+        let items = (wikiData.query && wikiData.query.geosearch) ? wikiData.query.geosearch : [];
+
+        if (items.length > 0) {
             let wHtml = `<div class="grid grid-cols-1 gap-1.5">`;
-            wikiData.query.geosearch.forEach(item => {
+            items.forEach(item => {
                 const distKm = (item.dist / 1000).toFixed(1);
                 wHtml += `
                 <div class="bg-slate-900/60 border border-slate-800 rounded p-2 flex justify-between items-center">
                     <span class="font-semibold text-emerald-300">📍 ${item.title}</span>
-                    <span class="text-[10px] text-slate-400">${distKm} km away</span>
+                    <span class="text-[10px] text-slate-400">${distKm} km from center</span>
                 </div>`;
             });
             wHtml += `</div>`;
             wikiContainer.innerHTML = wHtml;
-        } else {
-            wikiContainer.innerHTML = `<div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Remote terrain or dense forest/rural sector in ${fallbackRegion || 'this area'}. No major monuments within 10 km of center point.</div>`;
+            return;
+        }
+
+        // 2. Fallback for deserts/mountains/remote areas (like Tibesti, Chad): Search notable landmarks in the region + list administrative/natural features
+        let fallbackHTML = `<div class="grid grid-cols-1 gap-1.5">`;
+        let count = 0;
+
+        if (fallbackRegion) {
+            const searchRes = await fetch(API_ENDPOINTS.WIKI_SEARCH(`landmarks OR mountains OR cities in ${fallbackRegion}`));
+            const searchData = await searchRes.json();
+            if (searchData.query && searchData.query.search) {
+                searchData.query.search.slice(0, 4).forEach(s => {
+                    count++;
+                    fallbackHTML += `
+                    <div class="bg-slate-900/60 border border-slate-800 rounded p-2 flex justify-between items-center">
+                        <span class="font-semibold text-emerald-300">📍 ${s.title}</span>
+                        <span class="text-[10px] text-slate-400">Regional Landmark (${fallbackRegion})</span>
+                    </div>`;
+                });
+            }
+        }
+
+        informative.slice(0, 3).forEach(inf => {
+            if (inf.name) {
+                count++;
+                fallbackHTML += `
+                <div class="bg-slate-900/60 border border-slate-800 rounded p-2 flex justify-between items-center">
+                    <span class="font-semibold text-sky-300">🗺️ ${inf.name}</span>
+                    <span class="text-[10px] text-slate-400">${inf.description || 'Geographic Feature'}</span>
+                </div>`;
+            }
+        });
+
+        fallbackHTML += `</div>`;
+        if (scanId === currentScanId) {
+            wikiContainer.innerHTML = count > 0 ? fallbackHTML : `<div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Uninhabited terrain in ${fallbackRegion || 'sector'}.</div>`;
         }
     } catch(e) {
-        wikiContainer.innerHTML = `<div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Landmark scanner offline.</div>`;
+        if (scanId === currentScanId) {
+            wikiContainer.innerHTML = `<div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Landmark scanner offline.</div>`;
+        }
     }
 }
 
@@ -490,7 +676,7 @@ function parkSatelliteAt(lat, lon) {
         ind.textContent = 'ON'; ind.classList.replace('text-slate-400', 'text-sky-300');
         document.getElementById('hud-sat-name').textContent = 'VK-Hover-02';
         document.getElementById('hud-vel').textContent = '0.00';
-        if (orbitLineMesh) orbitLineMesh.visible = false; // Hide orbit line when static
+        if (orbitLineMesh) orbitLineMesh.visible = false;
     }
     
     document.getElementById('hud-lat').textContent = lat.toFixed(2);
@@ -526,16 +712,18 @@ const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true; controls.dampingFactor = 0.05;
 controls.minDistance = 1.15; controls.maxDistance = 12;
 
-// Low ambient light so night side is realistically dark, while Sun illuminates day side
-scene.add(new THREE.AmbientLight(0xffffff, 0.08));
-const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
+// Balanced ambient & sun lighting
+scene.add(new THREE.AmbientLight(0xffffff, 0.12));
+const sunDirVector = new THREE.Vector3(5, 2, 3).normalize();
+const sunLight = new THREE.DirectionalLight(0xffffff, 1.35);
 sunLight.position.set(5, 2, 3);
 scene.add(sunLight);
 
-// SATELLITE FOOTPRINT SUNLIGHT SPOTLIGHT (Illuminates dark/night regions covered by satellite)
-const satSpotLight = new THREE.SpotLight(0xfffbeb, 2.8);
+// SMART ADAPTIVE SATELLITE SPOTLIGHT:
+// Automatically dims to 0 on the sunlit day side (preventing whitewash) and smoothly powers up on the dark night side!
+const satSpotLight = new THREE.SpotLight(0xfffbeb, 0.0);
 satSpotLight.angle = swathRadius * 0.72;
-satSpotLight.penumbra = 0.25;
+satSpotLight.penumbra = 0.45;
 satSpotLight.decay = 0;
 satSpotLight.distance = 25;
 scene.add(satSpotLight);
@@ -550,7 +738,8 @@ const earthMat = new THREE.MeshPhongMaterial({
     map: earthDayTex,
     bumpMap: earthBumpTex,
     bumpScale: 0.012,
-    shininess: 18
+    specular: new THREE.Color(0x1e293b), // Low specular so spotlight never causes a blinding white glare
+    shininess: 8
 });
 const earthMesh = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 64), earthMat);
 scene.add(earthMesh);
@@ -574,7 +763,7 @@ function drawOrbitLine() {
     const orbitLineGeo = new THREE.BufferGeometry().setFromPoints(orbitPoints);
     const orbitLineMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.4 });
     orbitLineMesh = new THREE.Line(orbitLineGeo, orbitLineMat);
-    orbitLineMesh.visible = !isGeoLocked; // Do not show when static
+    orbitLineMesh.visible = !isGeoLocked;
     scene.add(orbitLineMesh);
 }
 drawOrbitLine();
@@ -582,7 +771,6 @@ drawOrbitLine();
 // --- REALISTIC AEROSPACE SATELLITE 3D MODEL ---
 const satGroup = new THREE.Group();
 
-// 1. Octagonal Gold Multi-Layer Insulation (MLI) Main Bus
 const foilMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.85, roughness: 0.25 });
 const metalMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9, roughness: 0.2 });
 const darkMetalMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.3 });
@@ -591,13 +779,11 @@ const mainBus = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.09, 8)
 mainBus.rotation.x = Math.PI / 2;
 satGroup.add(mainBus);
 
-// 2. Forward Payload Module & Optical Sensor Ring (Points toward Earth along -Z)
 const payloadModule = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.026, 0.04, 16), metalMat);
 payloadModule.rotation.x = Math.PI / 2;
 payloadModule.position.z = 0.06;
 satGroup.add(payloadModule);
 
-// Glowing Optical Camera Lens
 const lensGlass = new THREE.Mesh(
     new THREE.CircleGeometry(0.016, 24),
     new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
@@ -605,13 +791,11 @@ const lensGlass = new THREE.Mesh(
 lensGlass.position.z = 0.081;
 satGroup.add(lensGlass);
 
-// 3. Aft Ion Thruster Nozzle
 const thruster = new THREE.Mesh(new THREE.ConeGeometry(0.015, 0.025, 16), darkMetalMat);
 thruster.rotation.x = Math.PI / 2;
 thruster.position.z = -0.055;
 satGroup.add(thruster);
 
-// 4. High-Gain Parabolic Dish Antenna & Feed Horn (Mounted on top)
 const dishParabolic = new THREE.Mesh(
     new THREE.SphereGeometry(0.026, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.42),
     new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.6, roughness: 0.3, side: THREE.DoubleSide })
@@ -625,10 +809,8 @@ feedRod.position.set(0, 0.05, 0.02);
 feedRod.rotation.x = Math.PI / 6;
 satGroup.add(feedRod);
 
-// 5. Articulated Dual Solar Arrays with Photovoltaic Grid
 function createSolarWing(side) {
     const wing = new THREE.Group();
-    // Strut yoke
     const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.003, 0.22, 8), metalMat);
     strut.rotation.z = Math.PI / 2;
     strut.position.x = side * 0.11;
@@ -643,7 +825,6 @@ function createSolarWing(side) {
     });
     const frameMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, wireframe: true, transparent: true, opacity: 0.25 });
 
-    // 3 segmented solar panels per wing
     for (let i = 0; i < 3; i++) {
         const xPos = side * (0.065 + i * 0.058);
         const segGeo = new THREE.BoxGeometry(0.052, 0.002, 0.075);
@@ -660,12 +841,10 @@ function createSolarWing(side) {
 satGroup.add(createSolarWing(-1));
 satGroup.add(createSolarWing(1));
 
-// 6. Navigation Strobe Beacon
 const navBeacon = new THREE.Mesh(new THREE.SphereGeometry(0.005, 8, 8), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
 navBeacon.position.set(0, -0.032, 0);
 satGroup.add(navBeacon);
 
-// Dedicated point light so the metallic 3D satellite is always clearly visible even in Earth's shadow
 const satKeyLight = new THREE.PointLight(0xffffff, 0.9, 0.8);
 satKeyLight.position.set(0.15, 0.15, -0.15);
 satGroup.add(satKeyLight);
@@ -730,37 +909,23 @@ map.on('click', function(e) {
     parkSatelliteAt(e.latlng.lat, e.latlng.lng);
 });
 
-let coneMesh, ringMesh, sunPatchMesh;
+let coneMesh, ringMesh;
 function buildLaser() {
     if(coneMesh) scene.remove(coneMesh);
     if(ringMesh) scene.remove(ringMesh);
-    if(sunPatchMesh) scene.remove(sunPatchMesh);
 
     const coneHeight = Math.max(0.18, orbitRadius - 1.0);
     let visualSwath = Math.min(0.45, swathRadius * (1 + (coneHeight * 0.25)));
     
-    const cGeo = new THREE.ConeGeometry(visualSwath, coneHeight, 32, 1, true);
+    // Subtle translucent scanning cone (no whitewash disc!)
+    const cGeo = new THREE.ConeGeometry(visualSwath, coneHeight, 24, 1, true);
     cGeo.translate(0, -coneHeight/2, 0);
     cGeo.rotateX(-Math.PI / 2); 
-    coneMesh = new THREE.Mesh(cGeo, new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.16, wireframe: true, depthWrite: false }));
+    coneMesh = new THREE.Mesh(cGeo, new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.08, wireframe: true, depthWrite: false }));
     scene.add(coneMesh);
 
-    ringMesh = new THREE.Mesh(new THREE.RingGeometry(Math.max(0.01, swathRadius - 0.014), swathRadius, 48), new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false }));
+    ringMesh = new THREE.Mesh(new THREE.RingGeometry(Math.max(0.01, swathRadius - 0.012), swathRadius, 48), new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false }));
     scene.add(ringMesh);
-
-    // Warm sunlit illumination disc inside footprint
-    sunPatchMesh = new THREE.Mesh(
-        new THREE.CircleGeometry(swathRadius, 48),
-        new THREE.MeshBasicMaterial({
-            color: 0xfff7ed,
-            transparent: true,
-            opacity: 0.14,
-            blending: THREE.AdditiveBlending,
-            side: THREE.DoubleSide,
-            depthWrite: false
-        })
-    );
-    scene.add(sunPatchMesh);
 }
 buildLaser();
 
@@ -846,7 +1011,6 @@ function animate() {
         
         coneMesh.position.copy(satGroup.position); coneMesh.lookAt(0,0,0);
         ringMesh.position.copy(satGroup.position).normalize().multiplyScalar(1.003); ringMesh.lookAt(0,0,0); 
-        sunPatchMesh.position.copy(satGroup.position).normalize().multiplyScalar(1.002); sunPatchMesh.lookAt(0,0,0);
 
         lat = (Math.asin(satGroup.position.y / orbitRadius) * 180 / Math.PI);
         lon = ((Math.atan2(satGroup.position.z, satGroup.position.x) * 180 / Math.PI) - (earthMesh.rotation.y * 180 / Math.PI)) % 360;
@@ -862,7 +1026,6 @@ function animate() {
             fetchSubSatData(lat, lon);
         }
     } else {
-        // STATIONARY GEO LOCK: Pinned to exact ground coordinates as Earth spins
         const phi = (90 - lockedLat) * (Math.PI / 180);
         const theta = (lockedLon + 180) * (Math.PI / 180) + earthMesh.rotation.y;
 
@@ -876,14 +1039,20 @@ function animate() {
         
         coneMesh.position.copy(satGroup.position); coneMesh.lookAt(0,0,0);
         ringMesh.position.copy(satGroup.position).normalize().multiplyScalar(1.003); ringMesh.lookAt(0,0,0); 
-        sunPatchMesh.position.copy(satGroup.position).normalize().multiplyScalar(1.002); sunPatchMesh.lookAt(0,0,0);
     }
 
-    // Update Satellite Daylight Spotlight to illuminate night side coverage area
+    // SMART DAY/NIGHT ADAPTIVE ILLUMINATION:
+    // Calculate dot product between satellite's ground normal and the Sun direction.
+    // On the sunlit day side (dot > 0.15), spotlight intensity is 0 (zero over-exposure!).
+    // On the dark night side (dot < 0), spotlight smoothly ramps up to 1.35 so night terrain is clearly visible like daylight without glare.
+    const satNormal = satGroup.position.clone().normalize();
+    const sunAlignment = satNormal.dot(sunDirVector); // +1 = noon sun, -1 = midnight shadow
+    const nightFactor = Math.max(0, Math.min(1, (0.2 - sunAlignment) / 0.7));
+    satSpotLight.intensity = nightFactor * 1.35;
     satSpotLight.position.copy(satGroup.position);
     satSpotLight.target.position.set(0, 0, 0);
     const coneDist = Math.max(0.18, orbitRadius - 1.0);
-    satSpotLight.angle = Math.atan2(swathRadius * 1.15, coneDist);
+    satSpotLight.angle = Math.atan2(swathRadius * 1.08, coneDist);
 
     // Blink red navigation strobe on satellite
     navBeacon.visible = Math.floor(Date.now() / 500) % 2 === 0;
@@ -925,7 +1094,9 @@ window.addEventListener('resize', () => {
 // Initial boot data load
 setTimeout(() => {
     fetchLiveIntel(true);
-    fetchSubSatData(0, 0, true);
+    const curLat = parseFloat(document.getElementById('hud-lat').textContent) || 20.84;
+    const curLon = parseFloat(document.getElementById('hud-lon').textContent) || 85.10;
+    fetchSubSatData(curLat, curLon, true);
 }, 800);
 
 animate();

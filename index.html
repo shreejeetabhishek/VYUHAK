@@ -47,7 +47,7 @@
                 </div>
                 <div>
                     <div class="mb-0.5 opacity-60 text-[9px] uppercase tracking-wider">Looking At (Coordinates)</div>
-                    <div class="text-emerald-400"><span id="hud-lat">0.00</span>&deg;, <span id="hud-lon">0.00</span>&deg;</div>
+                    <div class="text-emerald-400"><span id="hud-lat">20.84</span>&deg;, <span id="hud-lon">85.10</span>&deg;</div>
                 </div>
             </div>
         </div>
@@ -102,9 +102,9 @@
                 <div id="geo-data" class="text-[12px] text-slate-200 leading-relaxed bg-slate-900/60 p-3 border border-slate-800 rounded-lg mb-2">
                     Locking onto satellite footprint...
                 </div>
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
-                        <div class="text-[9px] text-slate-400 uppercase">Population</div>
+                        <div class="text-[9px] text-slate-400 uppercase">Country Population</div>
                         <div id="reg-pop" class="text-sm font-bold text-white mt-0.5">--</div>
                     </div>
                     <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
@@ -112,8 +112,16 @@
                         <div id="reg-cap" class="text-sm font-bold text-sky-300 mt-0.5">--</div>
                     </div>
                     <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
-                        <div class="text-[9px] text-slate-400 uppercase">Currency / Econ</div>
+                        <div class="text-[9px] text-slate-400 uppercase">Currency / Economy</div>
                         <div id="reg-cur" class="text-sm font-bold text-emerald-400 mt-0.5">--</div>
+                    </div>
+                    <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                        <div class="text-[9px] text-slate-400 uppercase">Surface Area</div>
+                        <div id="reg-area" class="text-sm font-bold text-purple-300 mt-0.5">--</div>
+                    </div>
+                    <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                        <div class="text-[9px] text-slate-400 uppercase">Pop. Density</div>
+                        <div id="reg-dens" class="text-sm font-bold text-pink-300 mt-0.5">--</div>
                     </div>
                     <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
                         <div class="text-[9px] text-slate-400 uppercase">Local Timezone</div>
@@ -155,15 +163,23 @@
 
             <!-- 4. Regional News, Politics & Public Interest -->
             <div>
-                <h4 class="text-[10px] font-bold text-sky-400 tracking-widest mb-2 uppercase">4. Regional News, Public Interest & Social Pulse</h4>
+                <h4 class="text-[10px] font-bold text-sky-400 tracking-widest mb-2 uppercase">4. Real-Time Regional News & Public Interest</h4>
                 <div id="reg-news" class="space-y-2 text-[11px]">
-                    <div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Fetching local news and public interest stories...</div>
+                    <div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Fetching live regional news and public interest stories...</div>
                 </div>
             </div>
 
-            <!-- 5. Top Places, Landmarks & Infrastructure -->
+            <!-- 5. Public Interest Topics & Cultural/Strategic Pulse -->
             <div>
-                <h4 class="text-[10px] font-bold text-emerald-400 tracking-widest mb-2 uppercase">5. Top Places & Landmarks Below Satellite</h4>
+                <h4 class="text-[10px] font-bold text-amber-400 tracking-widest mb-2 uppercase">5. Regional Public Interest & Strategic Dossier</h4>
+                <div id="reg-interest" class="space-y-2 text-[11px] text-slate-300">
+                    <div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Analyzing regional public interest topics...</div>
+                </div>
+            </div>
+
+            <!-- 6. Top Places, Landmarks & Infrastructure -->
+            <div>
+                <h4 class="text-[10px] font-bold text-emerald-400 tracking-widest mb-2 uppercase">6. Top Places, Cities & Landmarks in Swath</h4>
                 <div id="wiki-data" class="space-y-2 text-[11px] text-slate-300">
                     <div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Scanning surface for notable places...</div>
                 </div>

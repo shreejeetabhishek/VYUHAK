@@ -44,6 +44,9 @@ function openTab(tabName, btnEl) {
 }
 
 let isGeoLocked = false;
+let lockedLat = 0;
+let lockedLon = 0;
+
 function toggleGeoLock() {
     isGeoLocked = !isGeoLocked;
     const btn = document.getElementById('btn-geo-lock');
@@ -55,14 +58,15 @@ function toggleGeoLock() {
         document.getElementById('hud-sat-name').textContent = 'VK-Hover-02';
         document.getElementById('hud-vel').textContent = '0.00';
         playSound('lock');
-        const curLat = document.getElementById('hud-lat').textContent;
-        const curLon = document.getElementById('hud-lon').textContent;
-        fetchSubSatData(curLat, curLon);
+        
+        lockedLat = parseFloat(document.getElementById('hud-lat').textContent);
+        lockedLon = parseFloat(document.getElementById('hud-lon').textContent);
+        fetchSubSatData(lockedLat, lockedLon);
     } else {
         btn.classList.remove('bg-sky-700/50', 'border-sky-400');
         ind.textContent = 'OFF'; ind.classList.replace('text-sky-300', 'text-slate-400');
         document.getElementById('hud-sat-name').textContent = 'VK-Tracker-01';
-        document.getElementById('hud-vel').textContent = '7.6';
+        updateSpeed(orbitSpeed); 
         playSound('click');
     }
 }
@@ -70,11 +74,11 @@ function toggleGeoLock() {
 // --- API ENGINE ---
 const API_ENDPOINTS = {
     EARTHQUAKES: 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson',
-    EONET: 'https://eonet.gsfc.nasa.gov/api/v3/events?limit=3&days=5',
+    EONET: 'https://eonet.gsfc.nasa.gov/api/v3/events?limit=5&days=7',
     NEWS: 'https://api.rss2json.com/v1/api.json?rss_url=http://feeds.bbci.co.uk/news/world/rss.xml',
-    RELIEFWEB: 'https://api.reliefweb.int/v1/reports?appname=vyuhak&preset=latest&slim=1&limit=3',
+    RELIEFWEB: 'https://api.reliefweb.int/v1/disasters?appname=vyuhak&preset=latest&profile=full&limit=3',
     WEATHER: (lat, lon) => `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`,
-    REVGEO: (lat, lon) => `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10`,
+    REVGEO: (lat, lon) => `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`, // Reliable client-side free API
     WIKI: (lat, lon) => `https://en.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=10000&gslimit=3&format=json&origin=*`
 };
 
@@ -95,7 +99,6 @@ async function fetchLiveIntel() {
     let alertCount = 0;
 
     try {
-        // 1. Earthquakes
         const eqRes = await fetch(API_ENDPOINTS.EARTHQUAKES);
         const eqData = await eqRes.json();
         if (eqData.features && eqData.features.length > 0) {
@@ -112,13 +115,12 @@ async function fetchLiveIntel() {
                     <div>
                         <div class="text-[12px] font-bold text-red-400 mb-1">Earthquake Detected (Magnitude ${mag})</div>
                         <div class="text-[11px] text-slate-200">Near ${place}</div>
-                        <div class="text-[10px] text-slate-500 mt-1">Tap to point satellite here</div>
+                        <div class="text-[10px] text-slate-500 mt-1">Tap to deploy satellite overhead</div>
                     </div>
                 </div>`;
             });
         }
 
-        // 2. Global News (BBC World)
         try {
             const newsRes = await fetch(API_ENDPOINTS.NEWS);
             const newsData = await newsRes.json();
@@ -138,7 +140,6 @@ async function fetchLiveIntel() {
             }
         } catch(e) {}
 
-        // 3. Humanitarian / Geopolitics (ReliefWeb)
         try {
             const rwRes = await fetch(API_ENDPOINTS.RELIEFWEB);
             const rwData = await rwRes.json();
@@ -180,7 +181,7 @@ let weatherCooldown = false;
 async function fetchSubSatData(lat, lon) {
     if(weatherCooldown) return;
     weatherCooldown = true;
-    setTimeout(() => { weatherCooldown = false; }, 5000); 
+    setTimeout(() => { weatherCooldown = false; }, 1500); // 1.5s fast cooldown
 
     document.getElementById('weather-loc').textContent = `${parseFloat(lat).toFixed(1)}, ${parseFloat(lon).toFixed(1)}`;
     document.getElementById('w-temp').textContent = "Scanning...";
@@ -196,16 +197,16 @@ async function fetchSubSatData(lat, lon) {
             document.getElementById('w-wind').innerHTML = `${wData.current_weather.windspeed} km/h`;
         }
 
-        const geoRes = await fetch(API_ENDPOINTS.REVGEO(lat, lon), { headers: { 'Accept-Language': 'en' } });
+        // Reliable Free Reverse Geocoding
+        const geoRes = await fetch(API_ENDPOINTS.REVGEO(lat, lon));
         const geoData = await geoRes.json();
         
-        if (geoData.error) {
+        if (!geoData.countryName) {
             document.getElementById('geo-data').innerHTML = `<span class="text-sky-400 font-bold">Oceanic Sector</span><br>The satellite is currently flying over open water. No sovereign territory detected.`;
         } else {
-            const d = geoData.address;
-            const ctry = d.country || '';
-            const state = d.state || d.region || '';
-            const city = d.city || d.town || d.county || '';
+            const ctry = geoData.countryName || '';
+            const state = geoData.principalSubdivision || '';
+            const city = geoData.locality || geoData.city || '';
             document.getElementById('geo-data').innerHTML = `
                 The satellite is flying over <strong class="text-emerald-400">${ctry}</strong>.<br>
                 Specific region: <span class="text-white">${city || state || 'Unknown limits'}</span>
@@ -215,7 +216,7 @@ async function fetchSubSatData(lat, lon) {
                 const wikiRes = await fetch(API_ENDPOINTS.WIKI(lat, lon));
                 const wikiData = await wikiRes.json();
                 if(wikiData.query && wikiData.query.geosearch && wikiData.query.geosearch.length > 0) {
-                    let wHtml = `<div class="mt-3 text-[10px] text-sky-300 font-bold uppercase">Notable Landmarks Nearby:</div><ul class="list-disc pl-4 mt-1">`;
+                    let wHtml = `<div class="mt-3 text-[11px] text-sky-300 font-bold uppercase">Notable Landmarks Nearby:</div><ul class="list-disc pl-4 mt-1">`;
                     wikiData.query.geosearch.forEach(item => {
                         wHtml += `<li>${item.title}</li>`;
                     });
@@ -231,36 +232,62 @@ async function fetchSubSatData(lat, lon) {
     }
 }
 
+function applyManualCoords() {
+    const lat = parseFloat(document.getElementById('manual-lat').value);
+    const lon = parseFloat(document.getElementById('manual-lon').value);
+    
+    if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+        alert("Please enter valid coordinates (Lat: -90 to 90, Lon: -180 to 180)");
+        return;
+    }
+    parkSatelliteAt(lat, lon);
+}
+
 function parkSatelliteAt(lat, lon) {
     playSound('lock');
-    if(!isGeoLocked) toggleGeoLock(); 
     
-    const phi = (90 - lat) * (Math.PI / 180);
-    const theta = (lon + 180) * (Math.PI / 180);
-
-    const r = orbitRadius;
-    const x = -(r * Math.sin(phi) * Math.cos(theta));
-    const z = (r * Math.sin(phi) * Math.sin(theta));
-    const y = (r * Math.cos(phi));
+    lockedLat = lat;
+    lockedLon = lon;
     
-    satGroup.position.set(x, y, z);
-    satGroup.lookAt(0,0,0);
+    if(!isGeoLocked) {
+        isGeoLocked = true;
+        const btn = document.getElementById('btn-geo-lock');
+        const ind = document.getElementById('lock-indicator');
+        btn.classList.add('bg-sky-700/50', 'border-sky-400');
+        ind.textContent = 'ON'; ind.classList.replace('text-slate-400', 'text-sky-300');
+        document.getElementById('hud-sat-name').textContent = 'VK-Hover-02';
+        document.getElementById('hud-vel').textContent = '0.00';
+    }
     
+    // UI Updates
     document.getElementById('hud-lat').textContent = lat.toFixed(2);
     document.getElementById('hud-lon').textContent = lon.toFixed(2);
     satMarker.setLatLng([lat, lon]);
     satCircle.setLatLng([lat, lon]);
 
+    // Fast Camera Follow
+    if (activeCamera !== 'FREE') {
+        setTimeout(() => {
+            const targetCamPos = satGroup.position.clone().multiplyScalar(1.5);
+            camera.position.copy(targetCamPos);
+            camera.lookAt(satGroup.position);
+        }, 50);
+    }
+    
     fetchSubSatData(lat, lon);
 }
 
 // --- 3D ENGINE & PHYSICS ---
-let orbitTime = 0, orbitRadius = 1.4, orbitSpeed = 0.003, swathRadius = 0.25;
+let orbitTime = 0;
+let orbitRadius = 1.06; // Start at 400km (Earth r=1.0 + 400/6371)
+let orbitSpeed = 0.003;
+let orbitInclination = 45; // degrees
+let swathRadius = 0.25; 
 let activeEngine = '3D', activeCamera = 'FREE';
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 1.5, window.innerWidth < window.innerHeight ? 5.0 : 3.0);
+camera.position.set(0, 1.5, window.innerWidth < window.innerHeight ? 4.0 : 2.5);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, logarithmicDepthBuffer: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -269,7 +296,7 @@ document.getElementById('globe-viewport').appendChild(renderer.domElement);
 
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true; controls.dampingFactor = 0.05;
-controls.minDistance = 1.1; controls.maxDistance = 6;
+controls.minDistance = 1.1; controls.maxDistance = 12;
 
 scene.add(new THREE.AmbientLight(0xffffff, 0.15));
 const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
@@ -288,28 +315,35 @@ scene.add(earthMesh);
 scene.add(new THREE.Mesh(new THREE.SphereGeometry(1.02, 32, 32), new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.15, side: THREE.BackSide, depthWrite: false })));
 
 // --- VISIBLE ORBIT LINE TRACTORY ---
-const orbitPoints = [];
-for (let i = 0; i <= 500; i++) {
-    const t = (i / 500) * Math.PI * 20; 
-    const x = Math.cos(t) * orbitRadius;
-    const z = Math.sin(t) * orbitRadius;
-    const y = Math.sin(t * 0.7) * orbitRadius * 0.4;
-    orbitPoints.push(new THREE.Vector3(x, y, z));
+let orbitLineMesh;
+function drawOrbitLine() {
+    if (orbitLineMesh) scene.remove(orbitLineMesh);
+    const orbitPoints = [];
+    const inclRad = orbitInclination * Math.PI / 180;
+    
+    for (let i = 0; i <= 200; i++) {
+        const t = (i / 200) * Math.PI * 2; 
+        const x = Math.cos(t) * orbitRadius;
+        const z = Math.sin(t) * Math.cos(inclRad) * orbitRadius;
+        const y = Math.sin(t) * Math.sin(inclRad) * orbitRadius;
+        orbitPoints.push(new THREE.Vector3(x, y, z));
+    }
+    const orbitLineGeo = new THREE.BufferGeometry().setFromPoints(orbitPoints);
+    const orbitLineMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.4 });
+    orbitLineMesh = new THREE.Line(orbitLineGeo, orbitLineMat);
+    scene.add(orbitLineMesh);
 }
-const orbitLineGeo = new THREE.BufferGeometry().setFromPoints(orbitPoints);
-const orbitLineMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.3 });
-scene.add(new THREE.Line(orbitLineGeo, orbitLineMat));
+drawOrbitLine();
 
-// Satellite Mesh
 const satGroup = new THREE.Group();
 const busMat = new THREE.MeshStandardMaterial({ color: 0xffd700, roughness: 0.4 });
-satGroup.add(new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.1), busMat));
+satGroup.add(new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.08), busMat));
 const panelMat = new THREE.MeshStandardMaterial({ color: 0x1e3a8a, side: THREE.DoubleSide });
 const panelGeo = new THREE.PlaneGeometry(0.25, 0.08);
 const pL = new THREE.Mesh(panelGeo, panelMat); pL.position.x = -0.15; satGroup.add(pL);
 const pR = new THREE.Mesh(panelGeo, panelMat); pR.position.x = 0.15; satGroup.add(pR);
 const dish = new THREE.Mesh(new THREE.SphereGeometry(0.03, 16, 16, 0, Math.PI), new THREE.MeshStandardMaterial({ color: 0xcccccc }));
-dish.position.z = 0.06; dish.rotateX(Math.PI/2);
+dish.position.z = 0.04; dish.rotateX(Math.PI/2);
 satGroup.add(dish);
 scene.add(satGroup);
 
@@ -322,20 +356,50 @@ function renderIntelMarkers() {
     mapMarkers = [];
 
     liveIntelData.forEach(data => {
+        // Convert to Cartesian (Markers live on rotating earthMesh)
         const phi = (90 - data.lat) * (Math.PI / 180);
         const theta = (data.lon + 180) * (Math.PI / 180);
         const r = 1.0; 
         const x = -(r * Math.sin(phi) * Math.cos(theta));
         const z = (r * Math.sin(phi) * Math.sin(theta));
         const y = (r * Math.cos(phi));
-        const color = data.type === 'eq' ? 0xef4444 : 0xf59e0b;
         
-        const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.1, 8), new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.8 }));
-        pillar.position.set(x, y, z); pillar.lookAt(0,0,0); pillar.rotateX(Math.PI/2); pillar.translateY(0.05);
-        earthMesh.add(pillar); markerMeshes.push(pillar);
+        let color = 0xef4444; // Default red
+        let hexColor = '#ef4444';
+        if (data.type === 'eonet') { color = 0xf59e0b; hexColor = '#f59e0b'; } // Amber
+        if (data.type === 'rw') { color = 0xd946ef; hexColor = '#d946ef'; } // Fuchsia
+        
+        // Render 3D Beacon (Glowing Pillar)
+        const beacon = new THREE.Group();
+        
+        const pGeo = new THREE.CylinderGeometry(0.005, 0.005, 0.15, 8);
+        const pMat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.8 });
+        const pillar = new THREE.Mesh(pGeo, pMat);
+        pillar.translateY(0.075); // Push up so base is at 0
+        beacon.add(pillar);
+        
+        // Add glowing ring at base
+        const ringGeo = new THREE.RingGeometry(0.015, 0.025, 16);
+        const ringMat = new THREE.MeshBasicMaterial({ color: color, side: THREE.DoubleSide, transparent: true, opacity: 0.9 });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.rotateX(Math.PI/2);
+        ring.translateZ(-0.001); // Prevent z-fighting
+        beacon.add(ring);
+        
+        beacon.position.set(x, y, z); 
+        beacon.lookAt(0,0,0); // Orient away from center
+        beacon.rotateX(Math.PI/2); 
+        
+        earthMesh.add(beacon); 
+        markerMeshes.push(beacon);
 
-        const mIcon = L.divIcon({ html: `<div style="width:12px;height:12px;background:${data.type === 'eq' ? '#ef4444' : '#f59e0b'};border-radius:50%;border:2px solid white;"></div>`, className: '', iconSize: [12, 12] });
-        mapMarkers.push(L.marker([data.lat, data.lon], {icon: mIcon}).addTo(map));
+        // Render 2D Map Marker
+        const mIcon = L.divIcon({ html: `<div style="width:12px;height:12px;background:${hexColor};border-radius:50%;border:2px solid white;box-shadow:0 0 8px ${hexColor};"></div>`, className: '', iconSize: [12, 12] });
+        const m = L.marker([data.lat, data.lon], {icon: mIcon}).addTo(map);
+        
+        // Click 2D marker to deploy
+        m.on('click', function() { parkSatelliteAt(data.lat, data.lon); });
+        mapMarkers.push(m);
     });
 }
 
@@ -344,16 +408,26 @@ L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/
 const satMarker = L.marker([0, 0], { icon: L.divIcon({ html: `<div style="width:16px;height:16px;background:#38bdf8;border-radius:50%;border:2px solid white;box-shadow:0 0 10px #38bdf8;"></div>`, className: '', iconSize: [16, 16], iconAnchor: [8, 8] }) }).addTo(map);
 const satCircle = L.circle([0, 0], { radius: 1200000, color: '#38bdf8', weight: 1, fillOpacity: 0.1 }).addTo(map);
 
+map.on('click', function(e) {
+    parkSatelliteAt(e.latlng.lat, e.latlng.lng);
+});
+
 let coneMesh, ringMesh;
 function buildLaser() {
     if(coneMesh) scene.remove(coneMesh);
     if(ringMesh) scene.remove(ringMesh);
     const coneHeight = orbitRadius - 1.0;
-    const cGeo = new THREE.ConeGeometry(swathRadius, coneHeight, 32, 1, true);
+    
+    // Scale cone base (swath) visually if orbit gets very high so it doesn't look ridiculous
+    // At orbitRadius = 1.06 (400km), visual swath is standard. 
+    // At GEO (6.6), visual swath expands if we don't constrain it.
+    let visualSwath = swathRadius * (coneHeight * 1.5); 
+    
+    const cGeo = new THREE.ConeGeometry(visualSwath, coneHeight, 32, 1, true);
     cGeo.translate(0, -coneHeight/2, 0); cGeo.rotateX(-Math.PI / 2); 
     coneMesh = new THREE.Mesh(cGeo, new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.15, wireframe: true, depthWrite: false }));
     scene.add(coneMesh);
-    ringMesh = new THREE.Mesh(new THREE.RingGeometry(swathRadius - 0.015, swathRadius, 32), new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false }));
+    ringMesh = new THREE.Mesh(new THREE.RingGeometry(visualSwath - 0.015, visualSwath, 32), new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false }));
     scene.add(ringMesh);
 }
 buildLaser();
@@ -389,6 +463,27 @@ function setOptics(idx) {
     else { earthMat.map = null; earthMat.color.setHex(0x061120); earthMat.wireframe = true; }
 }
 
+// Sliders and Settings Math
+function updateAltitude(km) {
+    // Earth radius = 6371km. r = 1 + (km / 6371)
+    orbitRadius = 1.0 + (parseFloat(km) / 6371);
+    document.getElementById('alt-val').textContent = km + " km";
+    document.getElementById('hud-alt').textContent = km;
+    
+    // Scale satellite speed down physically as it gets higher (Kepler's third law approximate)
+    const baseSpeed = parseFloat(document.getElementById('speed-slider').value);
+    orbitSpeed = baseSpeed / (orbitRadius * 0.5); 
+    
+    buildLaser();
+    drawOrbitLine();
+}
+
+function updateInclination(deg) {
+    orbitInclination = parseFloat(deg);
+    document.getElementById('inc-val').textContent = deg + "°";
+    drawOrbitLine();
+}
+
 function updateSwath(val) {
     swathRadius = parseFloat(val);
     buildLaser();
@@ -398,8 +493,11 @@ function updateSwath(val) {
 }
 
 function updateSpeed(val) {
-    orbitSpeed = parseFloat(val);
-    const mult = (orbitSpeed / 0.003).toFixed(1);
+    const baseSpeed = parseFloat(val);
+    // Base speed modified by orbit radius altitude
+    orbitSpeed = baseSpeed / (orbitRadius * 0.5);
+    
+    const mult = (baseSpeed / 0.003).toFixed(1);
     document.getElementById('speed-val').textContent = mult + "x " + (mult == 1.0 ? "(Real-time)" : "(Fast)");
 }
 
@@ -408,8 +506,15 @@ function animate() {
     earthMesh.rotation.y += 0.0005;
 
     if (!isGeoLocked) {
+        // FREE ORBIT PHYSICS
         orbitTime += orbitSpeed;
-        satGroup.position.set(Math.cos(orbitTime) * orbitRadius, Math.sin(orbitTime * 0.7) * orbitRadius * 0.4, Math.sin(orbitTime) * orbitRadius);
+        const inclRad = orbitInclination * Math.PI / 180;
+        
+        const x = Math.cos(orbitTime) * orbitRadius;
+        const z = Math.sin(orbitTime) * Math.cos(inclRad) * orbitRadius;
+        const y = Math.sin(orbitTime) * Math.sin(inclRad) * orbitRadius;
+        
+        satGroup.position.set(x, y, z);
         satGroup.lookAt(0,0,0);
         
         coneMesh.position.copy(satGroup.position); coneMesh.lookAt(0,0,0);
@@ -422,19 +527,62 @@ function animate() {
         document.getElementById('hud-lat').textContent = lat; document.getElementById('hud-lon').textContent = lon;
         satMarker.setLatLng([lat, lon]); satCircle.setLatLng([lat, lon]);
         document.getElementById('hud-time').textContent = 'UTC ' + new Date().toISOString().substr(11,8);
+    } else {
+        // GEO STATIONARY PHYSICS (LOCKED TO GROUND)
+        const phi = (90 - lockedLat) * (Math.PI / 180);
+        const earthRotDegrees = (earthMesh.rotation.y * 180 / Math.PI) % 360;
+        const theta = (lockedLon + earthRotDegrees + 180) * (Math.PI / 180);
+
+        const r = orbitRadius;
+        const x = -(r * Math.sin(phi) * Math.cos(theta));
+        const z = (r * Math.sin(phi) * Math.sin(theta));
+        const y = (r * Math.cos(phi));
+        
+        satGroup.position.set(x, y, z);
+        satGroup.lookAt(0,0,0);
+        
+        coneMesh.position.copy(satGroup.position); coneMesh.lookAt(0,0,0);
+        ringMesh.position.copy(satGroup.position).normalize().multiplyScalar(1.002); ringMesh.lookAt(0,0,0); 
     }
 
+    // CAMERA PHYSICS
     if (activeCamera === 'FREE') {
         controls.update();
     } else if (activeCamera === 'CHASE') {
-        const forward = new THREE.Vector3(-Math.sin(orbitTime), Math.cos(orbitTime * 0.7) * 0.4 * 0.7, Math.cos(orbitTime)).normalize();
+        const inclRad = orbitInclination * Math.PI / 180;
+        let forward;
+        
+        if (!isGeoLocked) {
+            forward = new THREE.Vector3(
+                -Math.sin(orbitTime), 
+                Math.cos(orbitTime) * Math.sin(inclRad), 
+                Math.cos(orbitTime) * Math.cos(inclRad)
+            ).normalize();
+        } else {
+            // When locked, look east (direction of rotation)
+            const phi = (90 - lockedLat) * (Math.PI / 180);
+            const earthRotDegrees = (earthMesh.rotation.y * 180 / Math.PI) % 360;
+            const theta = (lockedLon + earthRotDegrees + 180) * (Math.PI / 180);
+            
+            forward = new THREE.Vector3(
+                Math.sin(phi) * Math.sin(theta), 
+                0, 
+                Math.sin(phi) * Math.cos(theta)
+            ).normalize();
+        }
+        
         const up = new THREE.Vector3(0,1,0);
         const right = new THREE.Vector3().crossVectors(forward, up).normalize();
-        const offset = new THREE.Vector3().addScaledVector(forward, -0.6).addScaledVector(up, 0.4).addScaledVector(right, 0.1);
+        
+        // Scale offset based on altitude so we don't clip into satellite at GEO
+        const scale = 1.0 + ((orbitRadius - 1.0) * 0.5);
+        const offset = new THREE.Vector3().addScaledVector(forward, -0.6 * scale).addScaledVector(up, 0.4 * scale).addScaledVector(right, 0.1 * scale);
+        
         camera.position.lerp(satGroup.position.clone().add(offset), 0.1);
         camera.lookAt(satGroup.position);
     } else if (activeCamera === 'NADIR') {
-        camera.position.lerp(satGroup.position.clone().multiplyScalar(1.06), 0.1);
+        // Mount camera on back of satellite looking down
+        camera.position.lerp(satGroup.position.clone().multiplyScalar(1.05), 0.1);
         camera.lookAt(0,0,0);
     }
     renderer.render(scene, camera);

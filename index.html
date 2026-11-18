@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VYUHAK // ORBITAL INTELLIGENCE PROTOCOL</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background-color: #02040a; /* Deep space black */
+            font-family: 'Space Grotesk', sans-serif;
+            color: #e2e8f0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        
+        /* Typography */
+        .mono-telemetry {
+            font-family: 'JetBrains Mono', monospace;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* 3D Viewport */
+        #globe-viewport {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+        }
+
+        /* Obsidian Glassmorphism */
+        .obsidian-glass {
+            background: rgba(6, 11, 20, 0.55);
+            backdrop-filter: blur(22px) saturate(190%);
+            -webkit-backdrop-filter: blur(22px) saturate(190%);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        /* SVG Corner Brackets */
+        .hud-brackets {
+            position: relative;
+        }
+        .hud-brackets::before, .hud-brackets::after {
+            content: '';
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border-color: #38bdf8; /* Sky blue */
+            border-style: solid;
+            transition: all 0.3s ease;
+        }
+        .hud-brackets::before {
+            top: -1px; left: -1px;
+            border-width: 1px 0 0 1px;
+        }
+        .hud-brackets::after {
+            bottom: -1px; right: -1px;
+            border-width: 0 1px 1px 0;
+        }
+
+        /* Top Bar */
+        #top-hud-bar {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            right: 16px;
+            z-index: 10;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            pointer-events: none; /* Let clicks pass through empty space */
+        }
+        
+        .pointer-events-auto { pointer-events: auto; }
+
+        /* Bottom Dock */
+        #bottom-hud-dock {
+            position: absolute;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: calc(100% - 32px);
+            max-width: 600px;
+            z-index: 10;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            pointer-events: auto;
+        }
+
+        /* Scrollbar hiding for clean UI */
+        ::-webkit-scrollbar { display: none; }
+        
+        /* Animations */
+        @keyframes pulse-ring {
+            0% { transform: scale(0.8); opacity: 0.5; }
+            100% { transform: scale(2); opacity: 0; }
+        }
+        .status-led {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: #10b981;
+            box-shadow: 0 0 8px #10b981;
+        }
+        .status-led.recording {
+            background-color: #ef4444;
+            box-shadow: 0 0 8px #ef4444;
+            animation: blink 1s infinite;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 3D WebGL Canvas Container -->
+    <div id="globe-viewport"></div>
+
+    <!-- Central Reticle -->
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 5; pointer-events: none; opacity: 0.4;">
+        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M20 5V15M20 25V35M5 20H15M25 20H35" stroke="#38bdf8" stroke-width="1.5" stroke-linecap="round"/>
+            <circle cx="20" cy="20" r="2" fill="#38bdf8"/>
+        </svg>
+    </div>
+
+    <!-- TOP HUD BAR -->
+    <div id="top-hud-bar">
+        <!-- Left: Brand & Telemetry -->
+        <div class="obsidian-glass hud-brackets pointer-events-auto rounded-md p-4 w-64 md:w-80">
+            <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                    <svg class="w-5 h-5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <h1 class="text-sm font-bold tracking-widest text-sky-400">VYUHAK<span class="text-slate-400 font-normal"> // OSINT</span></h1>
+                </div>
+                <div class="status-led"></div>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-y-2 gap-x-4 text-[10px] uppercase text-slate-400 mono-telemetry mt-3">
+                <div>
+                    <div class="mb-0.5">Sat Callsign</div>
+                    <div class="text-sky-100 text-xs" id="hud-sat-name">VK-SENTINEL-01</div>
+                </div>
+                <div>
+                    <div class="mb-0.5">Optics Mode</div>
+                    <div class="text-amber-400 text-xs font-bold" id="hud-optics">FLIR THERMAL</div>
+                </div>
+                <div>
+                    <div class="mb-0.5">Alt / Vel</div>
+                    <div class="text-slate-200 text-xs"><span id="hud-alt">400</span>km / <span id="hud-vel">7.6</span>kps</div>
+                </div>
+                <div>
+                    <div class="mb-0.5">Nadir Lat/Lon</div>
+                    <div class="text-emerald-400 text-xs"><span id="hud-lat">0.00</span>&deg;, <span id="hud-lon">0.00</span>&deg;</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Actions -->
+        <div class="flex flex-col gap-2 pointer-events-auto">
+            <button onclick="toggleGeoLock()" id="btn-geo-lock" class="obsidian-glass hud-brackets px-4 py-2 rounded-md text-xs font-bold tracking-wide hover:bg-white/10 transition-colors flex items-center justify-between w-32">
+                <span>GEO LOCK</span>
+                <span id="lock-indicator" class="text-slate-500">OFF</span>
+            </button>
+            <button onclick="cycleOptics()" class="obsidian-glass px-4 py-2 rounded-md text-[10px] uppercase tracking-wider text-slate-300 hover:text-white transition-colors text-left flex items-center justify-between">
+                <span>Cycle Optics</span>
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+            </button>
+            <button class="obsidian-glass px-4 py-2 rounded-md text-[10px] uppercase tracking-wider text-slate-300 hover:text-white transition-colors text-left flex justify-between items-center group">
+                <span>Cmd Palette</span>
+                <span class="bg-white/10 px-1.5 py-0.5 rounded text-[8px] group-hover:bg-white/20">&#8984;K</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- BOTTOM HUD DOCK -->
+    <div id="bottom-hud-dock" class="obsidian-glass hud-brackets rounded-t-xl overflow-hidden flex flex-col h-14 cursor-pointer">
+        <!-- Tab Bar (Always Visible) -->
+        <div class="flex border-b border-white/10" onclick="toggleBottomDock(event)">
+            <button class="flex-1 py-4 text-xs font-bold tracking-widest text-sky-400 border-b-2 border-sky-400 bg-sky-900/20">LIVE INTEL</button>
+            <button class="flex-1 py-4 text-xs font-bold tracking-widest text-slate-400 hover:text-slate-200 transition-colors">SENSORS</button>
+            <button class="flex-1 py-4 text-xs font-bold tracking-widest text-slate-400 hover:text-slate-200 transition-colors">MISSION</button>
+        </div>
+        
+        <!-- Expanded Content (Hidden by default) -->
+        <div class="p-4 flex-1 overflow-y-auto hidden" id="dock-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-sm font-bold text-white tracking-widest">ACTIVE SENSOR SWATH</h3>
+                <span class="text-[10px] bg-sky-900/50 text-sky-300 px-2 py-1 rounded mono-telemetry">RADIUS: 1,200 KM</span>
+            </div>
+            
+            <!-- Dummy Intel Feed -->
+            <div class="space-y-2">
+                <div class="bg-red-900/20 border border-red-500/30 rounded p-3 flex gap-3 items-start">
+                    <div class="status-led recording mt-1.5"></div>
+                    <div>
+                        <div class="text-xs font-bold text-red-400 mb-1">USGS SEISMIC ALERT // MAG 5.2</div>
+                        <div class="text-[10px] text-slate-300 mono-telemetry">LOC: 35.68&deg;N, 139.76&deg;E (TOKYO) | T-MINUS 02m 14s</div>
+                    </div>
+                </div>
+                <div class="bg-amber-900/20 border border-amber-500/30 rounded p-3 flex gap-3 items-start">
+                    <div class="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_#f59e0b] mt-1.5"></div>
+                    <div>
+                        <div class="text-xs font-bold text-amber-400 mb-1">NASA EONET // THERMAL ANOMALY</div>
+                        <div class="text-[10px] text-slate-300 mono-telemetry">LOC: 34.05&deg;N, 118.24&deg;W (LA) | WILDFIRE DETECTED</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AUDIO ENGINE (Hidden) -->
+    <script>
+        // --- SYNTHESIZED WEB AUDIO API ENGINE ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playClick() {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.05);
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.05);
+        }
+
+        function playLock() {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+            osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.1);
+            gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 0.05);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.3);
+        }
+
+        // --- UI LOGIC ---
+        let dockOpen = false;
+        function toggleBottomDock(e) {
+            // Only trigger if clicking the tab bar area, not the buttons if they had specific actions
+            const dock = document.getElementById('bottom-hud-dock');
+            const content = document.getElementById('dock-content');
+            dockOpen = !dockOpen;
+            
+            if(dockOpen) {
+                dock.style.height = '40vh'; // Expand
+                setTimeout(() => content.classList.remove('hidden'), 150);
+                playClick();
+            } else {
+                dock.style.height = '3.5rem'; // Collapse (h-14)
+                content.classList.add('hidden');
+                playClick();
+            }
+        }
+
+        let isGeoLocked = false;
+        function toggleGeoLock() {
+            isGeoLocked = !isGeoLocked;
+            const btn = document.getElementById('btn-geo-lock');
+            const ind = document.getElementById('lock-indicator');
+            const satName = document.getElementById('hud-sat-name');
+            const vel = document.getElementById('hud-vel');
+            const alt = document.getElementById('hud-alt');
+
+            if(isGeoLocked) {
+                btn.classList.add('bg-sky-900/40', 'border-sky-400');
+                ind.textContent = 'ON';
+                ind.classList.replace('text-slate-500', 'text-sky-400');
+                satName.textContent = 'VK-GEO-02 [FIXED]';
+                vel.textContent = '0.00';
+                alt.textContent = '35786';
+                playLock();
+            } else {
+                btn.classList.remove('bg-sky-900/40', 'border-sky-400');
+                ind.textContent = 'OFF';
+                ind.classList.replace('text-sky-400', 'text-slate-500');
+                satName.textContent = 'VK-SENTINEL-01';
+                vel.textContent = '7.59';
+                alt.textContent = '400';
+                playClick();
+            }
+        }
+
+        const opticsModes = ['OPTICAL (TRUE COLOR)', 'FLIR THERMAL', 'NVG TACTICAL', 'SAR RADAR'];
+        let opticsIdx = 1; // Start at FLIR
+        function cycleOptics() {
+            opticsIdx = (opticsIdx + 1) % opticsModes.length;
+            const el = document.getElementById('hud-optics');
+            el.textContent = opticsModes[opticsIdx];
+            
+            // Color coding
+            el.className = 'text-xs font-bold ';
+            if(opticsIdx === 0) el.className += 'text-slate-200';
+            else if(opticsIdx === 1) el.className += 'text-amber-400';
+            else if(opticsIdx === 2) el.className += 'text-emerald-400';
+            else el.className += 'text-sky-400';
+            
+            playClick();
+        }
+
+        // Add keyboard shortcut for Cmd/Ctrl + K
+        document.addEventListener('keydown', (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                e.preventDefault();
+                alert("Vyuhak Command Palette Activated (Placeholder)");
+            }
+        });
+
+        // --- THREE.JS 3D EARTH ENGINE ---
+        // Initialize Scene, Camera, Renderer
+        const container = document.getElementById('globe-viewport');
+        const scene = new THREE.Scene();
+        
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 0, 4); // Start further back for boot sequence
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.2); // Low ambient for dark space
+        scene.add(ambientLight);
+        
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        directionalLight.position.set(5, 3, 5); // Sun position
+        scene.add(directionalLight);
+
+        // Earth Setup (Basic textured sphere for prototype)
+        const earthGroup = new THREE.Group();
+        scene.add(earthGroup);
+
+        const earthGeometry = new THREE.SphereGeometry(1, 64, 64);
+        
+        // Use a grid/wireframe hybrid material to simulate the "Tactical SAR" or dark mode look immediately
+        // In production, you'd load NASA textures here using TextureLoader
+        const earthMaterial = new THREE.MeshPhongMaterial({
+            color: 0x061120, // Deep obsidian blue
+            emissive: 0x020813,
+            specular: 0x38bdf8,
+            shininess: 15,
+            wireframe: true,
+            wireframeLinewidth: 1,
+            transparent: true,
+            opacity: 0.8
+        });
+        
+        const earthMesh = new THREE.Mesh(earthGeometry, earthMaterial);
+        earthGroup.add(earthMesh);
+
+        // Atmospheric Glow (Fake Rayleigh scattering)
+        const glowGeometry = new THREE.SphereGeometry(1.03, 32, 32);
+        const glowMaterial = new THREE.MeshBasicMaterial({
+            color: 0x38bdf8,
+            transparent: true,
+            opacity: 0.15,
+            side: THREE.BackSide
+        });
+        const glowMesh = new THREE.Mesh(glowGeometry, glowMaterial);
+        earthGroup.add(glowMesh);
+
+        // Simulated Satellite Marker (Red dot orbiting)
+        const satGeometry = new THREE.SphereGeometry(0.03, 16, 16);
+        const satMaterial = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+        const satMesh = new THREE.Mesh(satGeometry, satMaterial);
+        scene.add(satMesh);
+        
+        // Laser Cone (Swath footprint)
+        const coneGeom = new THREE.ConeGeometry(0.2, 1, 32, 1, true);
+        coneGeom.translate(0, -0.5, 0); // Pivot at top
+        const coneMat = new THREE.MeshBasicMaterial({
+            color: 0x38bdf8,
+            transparent: true,
+            opacity: 0.2,
+            wireframe: true
+        });
+        const coneMesh = new THREE.Mesh(coneGeom, coneMat);
+        scene.add(coneMesh);
+
+        // Orbital Mechanics variables
+        let time = 0;
+        const orbitRadius = 1.3;
+        const orbitSpeed = 0.005;
+
+        // Boot sequence animation
+        let bootPhase = 0;
+
+        // Animation Loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Rotate Earth slowly
+            earthMesh.rotation.y += 0.001;
+
+            if (!isGeoLocked) {
+                // Orbiting Logic
+                time += orbitSpeed;
+                satMesh.position.x = Math.cos(time) * orbitRadius;
+                satMesh.position.z = Math.sin(time) * orbitRadius;
+                satMesh.position.y = Math.sin(time * 0.5) * orbitRadius * 0.5; // Slight inclination
+                
+                // Position Cone under sat, pointing at earth (0,0,0)
+                coneMesh.position.copy(satMesh.position);
+                coneMesh.lookAt(0,0,0);
+                // Rotate cone so base is pointing down (lookAt points Z towards target, cone defaults Y up)
+                coneMesh.rotateX(Math.PI / 2);
+                
+                // Update Telemetry UI
+                const lat = (Math.asin(satMesh.position.y / orbitRadius) * 180 / Math.PI).toFixed(2);
+                const lon = (Math.atan2(satMesh.position.z, satMesh.position.x) * 180 / Math.PI).toFixed(2);
+                document.getElementById('hud-lat').textContent = lat;
+                document.getElementById('hud-lon').textContent = lon;
+            } else {
+                // GEO Lock Logic - stick to one spot relative to earth's rotation
+                // In a real app, you'd parent the satellite to the earth group here.
+            }
+
+            // Simple Boot Dive-in Camera Animation
+            if (bootPhase < 1) {
+                bootPhase += 0.02;
+                // ease out cubic
+                const t = 1 - Math.pow(1 - bootPhase, 3);
+                camera.position.z = 4 - (1.5 * t); // Dive from 4 to 2.5
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // Handle Resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Start
+        animate();
+    </script>
+</body>
+</html>

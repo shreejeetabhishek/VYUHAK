@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>VYUHAK v25 WARP // Seamless Earth, Solar System & Milky Way Intelligence</title>
+    <title>VYUHAK v26 INFINITY // Continuous Earth, Cosmos, Galaxy & Universe Intelligence</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -23,6 +23,20 @@
 
     <!-- Non-blocking Toast Notification -->
     <div id="toast-container"></div>
+
+    <!-- Live Logarithmic Cosmic Scale Bar (Bottom-Left) -->
+    <div id="scale-bar-hud" class="pointer-events-none">
+        <div id="scale-bar-label" class="text-[10px] font-bold text-sky-200 mono-telemetry tracking-wide">12,742 km</div>
+        <div class="scale-bar-line"></div>
+        <div id="scale-bar-realm" class="text-[8px] uppercase tracking-widest text-slate-400 mt-0.5">Earth Orbital Scale</div>
+    </div>
+
+    <!-- Persistent "YOU ARE HERE" 3D-to-2D Callout Pin -->
+    <div id="you-are-here-pin" class="hidden pointer-events-none">
+        <div class="yah-dot"></div>
+        <div class="yah-line"></div>
+        <div class="yah-label">YOU ARE HERE</div>
+    </div>
 
     <!-- ULTRA-COMPACT PREMIUM TOP HUD -->
     <div id="top-hud-container">
@@ -76,6 +90,9 @@
             <button id="btn-galaxy-view" onclick="toggleGalaxyView()" class="quick-pill">
                 <span id="galaxy-dot" class="dot bg-slate-500"></span>Galaxy
             </button>
+            <button id="btn-universe-view" onclick="toggleUniverseView()" class="quick-pill">
+                <span id="universe-dot" class="dot bg-slate-500"></span>Universe
+            </button>
             <button id="btn-radar" onclick="toggleRainRadar()" class="quick-pill hidden">
                 <span id="radar-dot" class="dot bg-slate-500"></span>Radar
             </button>
@@ -115,6 +132,22 @@
                 </div>
                 <div class="mono-telemetry text-right text-[9px] text-sky-200 shrink-0" id="gt-stats">
                     105,700 ly &bull; ~250B Stars
+                </div>
+            </div>
+        </div>
+
+        <!-- Observable Universe & Cosmic Web Bar (Visible ONLY in Universe Mode) -->
+        <div id="universe-bar" class="pointer-events-auto hidden flex flex-col gap-1.5 w-full">
+            <div class="flex items-center gap-1 overflow-x-auto hide-scrollbar pb-0.5" id="universe-chips">
+                <!-- Populated dynamically by JS -->
+            </div>
+            <div class="obsidian-glass rounded-lg px-3 py-2 text-[10px] text-slate-300 flex items-center justify-between gap-2 border border-amber-500/35">
+                <div class="min-w-0">
+                    <span id="ut-name" class="font-bold text-amber-300 uppercase tracking-wider">Observable Universe</span>
+                    <span id="ut-type" class="text-slate-400 ml-1.5">Cosmic Web &amp; CMB Horizon</span>
+                </div>
+                <div class="mono-telemetry text-right text-[9px] text-amber-200 shrink-0" id="ut-stats">
+                    93B ly &bull; ~2T Galaxies
                 </div>
             </div>
         </div>
@@ -426,6 +459,63 @@
                     </div>
                 </div>
             </div><!-- /#galaxy-dossier -->
+
+            <!-- OBSERVABLE UNIVERSE & MULTIVERSE DOSSIER -->
+            <div id="universe-dossier" class="hidden space-y-5">
+                <div class="flex justify-between items-center border-b border-amber-500/30 pb-2">
+                    <div>
+                        <h3 id="ud-title" class="text-xs font-bold text-amber-300 tracking-widest uppercase">OBSERVABLE UNIVERSE // 93B LY</h3>
+                        <div id="ud-subtitle" class="text-[10px] text-sky-300 mono-telemetry">Cosmic Web, CMB Horizon &amp; Multiverse</div>
+                    </div>
+                    <button onclick="focusUniverseRegion('Laniakea')" class="text-[10px] bg-amber-900/50 hover:bg-amber-700/50 text-amber-200 px-3 py-1 rounded font-bold border border-amber-500/30">Home Web</button>
+                </div>
+
+                <div>
+                    <h4 class="text-[10px] font-bold text-slate-400 tracking-widest mb-2 uppercase">1. Cosmological Overview</h4>
+                    <div id="ud-bio" class="text-[11px] text-slate-200 leading-relaxed bg-slate-900/60 p-3 border border-slate-800 rounded-lg">
+                        Loading cosmological dossier...
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="text-[10px] font-bold text-sky-400 tracking-widest mb-2 uppercase">2. Precision Cosmology (Planck / &Lambda;CDM)</h4>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Diameter</div>
+                            <div id="ud-diam" class="text-xs font-bold text-amber-300 mt-0.5 mono-telemetry">93.0B ly</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Age of Universe</div>
+                            <div id="ud-age" class="text-xs font-bold text-sky-300 mt-0.5 mono-telemetry">13.80B yrs</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Hubble Constant</div>
+                            <div id="ud-h0" class="text-xs font-bold text-emerald-300 mt-0.5 mono-telemetry">67.4 km/s/Mpc</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Dark Energy</div>
+                            <div class="text-xs font-bold text-purple-300 mt-0.5 mono-telemetry">68.5%</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Dark Matter</div>
+                            <div class="text-xs font-bold text-indigo-300 mt-0.5 mono-telemetry">26.5%</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Ordinary Matter</div>
+                            <div class="text-xs font-bold text-white mt-0.5 mono-telemetry">5.0% (~2T Galaxies)</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="text-[10px] font-bold text-amber-400 tracking-widest mb-2 uppercase">3. Cosmic Microwave Background (CMB)</h4>
+                    <div class="bg-slate-900/50 border border-amber-500/25 rounded p-3 text-[11px] text-slate-300 space-y-1">
+                        <div><strong class="text-amber-300">Temperature:</strong> 2.7255 K (-270.42 &deg;C)</div>
+                        <div><strong class="text-sky-300">Surface of Last Scattering:</strong> 380,000 years after Big Bang (z &approx; 1100)</div>
+                        <div><strong class="text-emerald-300">Multiverse Note:</strong> Outer bubble universes represent a theoretical cosmological hypothesis — <em>an idea, not a measurement</em>.</div>
+                    </div>
+                </div>
+            </div><!-- /#universe-dossier -->
         </div>
 
         <!-- Tab: Settings -->

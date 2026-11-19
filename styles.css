@@ -135,3 +135,65 @@ input[type=range]::-webkit-slider-thumb { border: 2px solid #02040a; height: 20p
 #scale-warp-veil.active {
     opacity: 1;
 }
+
+.quick-pill.on-gold {
+    border-color: rgba(245, 158, 11, 0.72);
+    background: rgba(146, 64, 14, 0.35);
+    color: #fef3c7;
+}
+
+#scale-bar-hud {
+    position: fixed;
+    left: 12px;
+    bottom: 68px;
+    z-index: 45;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+}
+.scale-bar-line {
+    width: 84px;
+    height: 5px;
+    border-left: 1.5px solid rgba(186, 230, 253, 0.85);
+    border-right: 1.5px solid rgba(186, 230, 253, 0.85);
+    border-bottom: 1.5px solid rgba(186, 230, 253, 0.85);
+    margin-top: 2px;
+}
+
+#you-are-here-pin {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 44;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transform: translate(-50%, -50%);
+    will-change: transform;
+}
+.yah-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #38bdf8;
+    box-shadow: 0 0 10px #38bdf8;
+    border: 1.5px solid #ffffff;
+}
+.yah-line {
+    width: 18px;
+    height: 1px;
+    background: linear-gradient(90deg, #38bdf8, rgba(56, 189, 248, 0.25));
+}
+.yah-label {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: #e0f2fe;
+    background: rgba(6, 11, 20, 0.72);
+    border: 1px solid rgba(56, 189, 248, 0.45);
+    padding: 2px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+}

@@ -202,3 +202,48 @@ input[type=range]::-webkit-slider-thumb { border: 2px solid #02040a; height: 20p
     border-radius: 4px;
     white-space: nowrap;
 }
+
+.scale-pill {
+    flex: 1 1 0;
+    min-width: max-content;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 5px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #cbd5e1;
+    background: rgba(6, 11, 20, 0.82);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+.scale-pill.on {
+    border-color: rgba(56, 189, 248, 0.72);
+    background: rgba(14, 116, 144, 0.34);
+    color: #f0f9ff;
+}
+.scale-pill.on-purple {
+    border-color: rgba(192, 132, 252, 0.72);
+    background: rgba(107, 33, 168, 0.36);
+    color: #f3e8ff;
+}
+.scale-pill.on-indigo {
+    border-color: rgba(129, 140, 248, 0.75);
+    background: rgba(55, 48, 163, 0.38);
+    color: #e0e7ff;
+}
+.scale-pill.on-gold {
+    border-color: rgba(245, 158, 11, 0.75);
+    background: rgba(146, 64, 14, 0.38);
+    color: #fef3c7;
+}
+.scale-pill.on-rose {
+    border-color: rgba(251, 113, 133, 0.75);
+    background: rgba(159, 18, 57, 0.38);
+    color: #ffe4e6;
+}

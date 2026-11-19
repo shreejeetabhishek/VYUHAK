@@ -1,14 +1,12 @@
-# VYUHAK v29 SEQUENCE // Full Multi-Scale Zoom Journey
+# VYUHAK v30 OMNI // Earth, Solar, Galaxy, Universe & Multiverse Intelligence
 
-VYUHAK (*Virtual Yield Uplink & Heuristic Aerospace Kinematics*) is a serverless, mobile-first 3D/2D Earth Observation, Heliocentric Solar System, Volumetric Milky Way Galaxy, and Observable Universe platform.
+VYUHAK (*Virtual Yield Uplink & Heuristic Aerospace Kinematics*) is a serverless, mobile-first 3D/2D orbital intelligence and 5-scale cosmic visualization platform.
 
-## What's Upgraded in v29 SEQUENCE
-- **Full Sequential Multi-Hop Scale Jumps:** Tapping any upper toggle pill (`Cosmos`, `Galaxy`, `Universe`, `Hover`, `ISS`) now visibly travels through **every intermediate scale** instead of skipping them:
-  - `Earth -> Galaxy` travels smoothly through **Earth -> Solar System -> Milky Way** (~4.9s).
-  - `Earth -> Universe` travels smoothly through **Earth -> Solar System -> Milky Way -> Observable Universe** (~6.7s).
-  - `Universe -> Earth` dives smoothly back through **Universe -> Milky Way -> Solar System -> Earth** (~6.7s).
-- **Slower, Majestic Pacing & Continuous Flow:** Tuned departure (`1.35s`), intermediate pass-through (`1.75s` per realm), and arrival (`1.85s`) curves with lighter warp vignette opacity so every zoom-out and zoom-in sequence stays unmistakably visible.
-- **Clean HUD Overlays:** Keeps the `v28` fix hiding the `YOU ARE HERE` callout on Earth view, 2D view, and during scale transitions.
+## What's New in v30 OMNI
+- **Clean Two-Row Mobile-First Top Navigation:**
+  - **Row 1 (5-Scale Cosmic Rail):** `Earth` | `Solar` | `Galaxy` | `Universe` | `Multiverse` — equal-spaced to fit cleanly on mobile screens without horizontal clipping.
+  - **Row 2 (View & Spacecraft Controls):** `3D | 2D` segmented toggle + `Free` camera switch + `Hover` lock + `ISS` live tracker (and `Radar` / `Clouds` weather overlays in 2D mode).
+- **Full 5-Scale Sequential Zoom Engine:** Jumping between any two buttons visibly traverses every intermediate scale in order (`Earth <-> Solar <-> Galaxy <-> Universe <-> Multiverse`), including a seamless physical zoom-out from the Observable Universe CMB Horizon into the surrounding Multiverse bubble cluster.
 
 ## Deployment
 Upload `index.html`, `styles.css`, `app.js`, and `README.md` directly to your GitHub Pages repository.

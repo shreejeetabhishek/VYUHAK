@@ -1,5 +1,5 @@
 // ============================================================================
-// VYUHAK v35 UNIFIED // SEAMLESS NESTED MULTIVERSE PINCH-ZOOM & CAMERA DISTANCE CONTINUITY
+// VYUHAK v36 TARGETED // ANCHOR-TARGETED NESTED PINCH-ZOOM (PINCH INTO HOME ANCHOR ONLY)
 // ============================================================================
 
 // --- 1. AUDIO ENGINE WITH MUTE ---
@@ -444,7 +444,7 @@ function applyScaleDOMAndVisibility(targetScale) {
         dossierTab.textContent = 'Solar Data';
         activeCamera = 'FREE'; camModeIdx = 0;
         document.getElementById('cam-label').textContent = 'Free';
-        controls.minDistance = 1.9;
+        controls.minDistance = 1.25;
         controls.maxDistance = 135;
         fetchLiveSpaceWeather();
     } else if (isGalaxyView) {
@@ -4438,13 +4438,13 @@ function animate() {
     }
 
 
-    // --- SEAMLESS NESTED MULTIVERSE PINCH/SCROLL CONTINUITY (ZERO SNAP / ZERO JUMP!) ---
+    // --- ANCHOR-TARGETED NESTED PINCH/SCROLL CONTINUITY ---
+    // Zooming OUT transitions seamlessly anywhere; zooming IN transitions ONLY when pinching directly into the nested home anchor!
     if (activeEngine === '3D' && !scaleAnim && !flyAnim && activeCamera === 'FREE') {
         const nowMs = performance.now();
         if (nowMs - lastAutoScaleSwitch > 450) {
             const performSeamlessZoomHandoff = (nextScale, toastText, newCamDist) => {
                 lastAutoScaleSwitch = nowMs;
-                // Preserve exact current camera direction & target so pinch/scroll feels like one continuous system!
                 const dir = camera.position.clone().sub(controls.target);
                 if (dir.lengthSq() < 1e-6) dir.set(0, 0.45, 0.9);
                 dir.normalize();
@@ -4456,30 +4456,59 @@ function animate() {
                 if (toastText) showToast(toastText);
             };
 
-            if (!isSolarSystemView && !isGalaxyView && !isUniverseView && !isMultiverseView && camDist > 15.6) {
-                // Zooming OUT from Earth into Solar System: continue smoothly around Earth's visual orbit (11.5)
-                performSeamlessZoomHandoff('COSMOS', 'Solar System Scale', 13.8);
-            } else if (isSolarSystemView && camDist > 122) {
-                // Zooming OUT from Solar System into Milky Way Galaxy
-                performSeamlessZoomHandoff('GALAXY', 'Milky Way Galaxy Scale', 24.0);
-            } else if (isSolarSystemView && camDist < 2.2) {
-                // Zooming IN from Solar System into Earth Orbital View (even if user pinched directly onto Earth!)
-                performSeamlessZoomHandoff('EARTH', 'Earth Orbital Scale', 13.5);
-            } else if (isGalaxyView && camDist > 122) {
-                // Zooming OUT from Milky Way Galaxy into Observable Universe
-                performSeamlessZoomHandoff('UNIVERSE', 'Observable Universe Scale', 18.0);
-            } else if (isGalaxyView && camDist < 3.5) {
-                // Zooming IN from Milky Way Galaxy into Solar System
-                performSeamlessZoomHandoff('COSMOS', 'Solar System Scale', 112.0);
-            } else if (isUniverseView && camDist > 92) {
-                // Zooming OUT from Observable Universe into Multiverse (true same-space zoom!)
-                performSeamlessZoomHandoff('MULTIVERSE', 'Multiverse Scale', 94.0);
-            } else if (isUniverseView && camDist < 4.0) {
-                // Zooming IN from Observable Universe into Milky Way Galaxy
-                performSeamlessZoomHandoff('GALAXY', 'Milky Way Galaxy Scale', 112.0);
-            } else if (isMultiverseView && camDist < 72) {
-                // Zooming IN from Multiverse into Observable Universe (true same-space zoom!)
-                performSeamlessZoomHandoff('UNIVERSE', 'Observable Universe Scale', 70.0);
+            if (!isSolarSystemView && !isGalaxyView && !isUniverseView && !isMultiverseView) {
+                // EARTH VIEW -> Zooming OUT into Solar System
+                if (camDist > 15.6) {
+                    performSeamlessZoomHandoff('COSMOS', 'Solar System Scale', 13.8);
+                }
+            } else if (isSolarSystemView) {
+                // SOLAR VIEW -> Zooming OUT into Milky Way Galaxy
+                if (camDist > 122) {
+                    performSeamlessZoomHandoff('GALAXY', 'Milky Way Galaxy Scale', 24.0);
+                } else {
+                    // Zooming IN -> ONLY enter Earth View if camera is actually pinching into Earth's 3D position!
+                    const earthEntry = cosmosBodiesMap.get('Earth');
+                    if (earthEntry) {
+                        const earthWorld = new THREE.Vector3();
+                        earthEntry.obj.getWorldPosition(earthWorld);
+                        const distToEarth = camera.position.distanceTo(earthWorld);
+                        if (distToEarth < 1.85) {
+                            performSeamlessZoomHandoff('EARTH', 'Earth Orbital Scale', 13.5);
+                        }
+                    }
+                }
+            } else if (isGalaxyView) {
+                // GALAXY VIEW -> Zooming OUT into Observable Universe
+                if (camDist > 122) {
+                    performSeamlessZoomHandoff('UNIVERSE', 'Observable Universe Scale', 18.0);
+                } else if (solarSystemPinObj) {
+                    // Zooming IN -> ONLY enter Solar System if camera is pinching into our Solar System's 3D pin!
+                    const solarWorld = new THREE.Vector3();
+                    solarSystemPinObj.getWorldPosition(solarWorld);
+                    const distToSolar = camera.position.distanceTo(solarWorld);
+                    if (distToSolar < 3.2) {
+                        performSeamlessZoomHandoff('COSMOS', 'Solar System Scale', 112.0);
+                    }
+                }
+            } else if (isUniverseView) {
+                // UNIVERSE VIEW -> Zooming OUT into Multiverse
+                if (camDist > 92) {
+                    performSeamlessZoomHandoff('MULTIVERSE', 'Multiverse Scale', 94.0);
+                } else if (universeHomePin) {
+                    // Zooming IN -> ONLY enter Milky Way Galaxy if camera is pinching into Laniakea / Home Galaxy core!
+                    const homeWorld = new THREE.Vector3();
+                    universeHomePin.getWorldPosition(homeWorld);
+                    const distToHome = camera.position.distanceTo(homeWorld);
+                    if (distToHome < 3.8) {
+                        performSeamlessZoomHandoff('GALAXY', 'Milky Way Galaxy Scale', 112.0);
+                    }
+                }
+            } else if (isMultiverseView) {
+                // MULTIVERSE VIEW -> Zooming IN -> ONLY enter Observable Universe if pinching into Our Universe sphere!
+                const distToOurUniverse = camera.position.length();
+                if (distToOurUniverse < 66.0) {
+                    performSeamlessZoomHandoff('UNIVERSE', 'Observable Universe Scale', 64.0);
+                }
             }
         }
     }

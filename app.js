@@ -1,33 +1,74 @@
-// --- AUDIO ENGINE ---
+// ============================================================================
+// VYUHAK v16 // PHOTOREALISTIC REAL-TIME ORBITAL INTELLIGENCE ENGINE
+// ============================================================================
+
+// --- 1. AUDIO ENGINE WITH MUTE ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let isMuted = false;
+
+function toggleMute() {
+    isMuted = !isMuted;
+    document.getElementById('icon-sound-on').classList.toggle('hidden', isMuted);
+    document.getElementById('icon-sound-off').classList.toggle('hidden', !isMuted);
+    showToast(isMuted ? 'Audio Muted' : 'Audio Enabled');
+}
+
 function playSound(type) {
-    if(audioCtx.state === 'suspended') audioCtx.resume();
+    if (isMuted) return;
+    if (audioCtx.state === 'suspended') audioCtx.resume();
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
-    if(type === 'click') {
+    if (type === 'click') {
         osc.type = 'sine'; osc.frequency.setValueAtTime(800, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.05);
-        gain.gain.setValueAtTime(0.1, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+        gain.gain.setValueAtTime(0.08, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
         osc.start(); osc.stop(audioCtx.currentTime + 0.05);
     } else if (type === 'lock') {
-        osc.type = 'square'; osc.frequency.setValueAtTime(440, audioCtx.currentTime); osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.1);
-        gain.gain.setValueAtTime(0, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0.05, audioCtx.currentTime + 0.05); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+        osc.type = 'square'; osc.frequency.setValueAtTime(440, audioCtx.currentTime); osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.08);
+        gain.gain.setValueAtTime(0, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0.04, audioCtx.currentTime + 0.04); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.25);
     } else if (type === 'alert') {
-        osc.type = 'sawtooth'; osc.frequency.setValueAtTime(220, audioCtx.currentTime); osc.frequency.setValueAtTime(440, audioCtx.currentTime + 0.1);
-        gain.gain.setValueAtTime(0, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 0.05); gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.2);
+        osc.type = 'sawtooth'; osc.frequency.setValueAtTime(220, audioCtx.currentTime); osc.frequency.setValueAtTime(440, audioCtx.currentTime + 0.08);
+        gain.gain.setValueAtTime(0, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0.07, audioCtx.currentTime + 0.04); gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.2);
         osc.start(); osc.stop(audioCtx.currentTime + 0.2);
     }
     osc.connect(gain); gain.connect(audioCtx.destination);
 }
 
-// --- EXACT SPHERICAL COORDINATE CONVERSIONS ---
+function showToast(message) {
+    const container = document.getElementById('toast-container');
+    const el = document.createElement('div');
+    el.className = 'toast-msg';
+    el.textContent = message;
+    container.appendChild(el);
+    setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity 0.3s'; setTimeout(() => el.remove(), 300); }, 2400);
+}
+
+// --- 2. CLIENT-SIDE API CACHE (5-MIN TTL FOR MOBILE PERFORMANCE) ---
+const apiCache = new Map();
+async function cachedFetchJSON(url, ttlMs = 300000) {
+    const now = Date.now();
+    const hit = apiCache.get(url);
+    if (hit && (now - hit.time < ttlMs)) return hit.data;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    apiCache.set(url, { time: now, data });
+    if (apiCache.size > 80) {
+        const firstKey = apiCache.keys().next().value;
+        apiCache.delete(firstKey);
+    }
+    return data;
+}
+
+// --- 3. EXACT SPHERICAL COORDINATE & REAL-TIME SOLAR MATH ---
 function latLonToWorldPosition(latDeg, lonDeg, radius, earthRotationY) {
     const latRad = latDeg * Math.PI / 180;
     const lonRad = (lonDeg * Math.PI / 180) + earthRotationY;
-    const x = radius * Math.cos(latRad) * Math.cos(lonRad);
-    const y = radius * Math.sin(latRad);
-    const z = -radius * Math.cos(latRad) * Math.sin(lonRad);
-    return new THREE.Vector3(x, y, z);
+    return new THREE.Vector3(
+        radius * Math.cos(latRad) * Math.cos(lonRad),
+        radius * Math.sin(latRad),
+        -radius * Math.cos(latRad) * Math.sin(lonRad)
+    );
 }
 
 function worldPositionToLatLon(pos, earthRotationY) {
@@ -38,42 +79,32 @@ function worldPositionToLatLon(pos, earthRotationY) {
     let lonDeg = ((worldLonRad - earthRotationY) * 180 / Math.PI) % 360;
     if (lonDeg < -180) lonDeg += 360;
     if (lonDeg > 180) lonDeg -= 360;
-    const latDeg = latRad * 180 / Math.PI;
-    return { lat: latDeg, lon: lonDeg };
+    return { lat: latRad * 180 / Math.PI, lon: lonDeg };
 }
 
 function latLonToLocalEarthPosition(latDeg, lonDeg, radius) {
     return latLonToWorldPosition(latDeg, lonDeg, radius, 0);
 }
 
-// Compute 5-Point Satellite Swath Grid (Center, North, South, East, West at 55% swath radius)
-function getSwathSamplePoints(centerLat, centerLon, radiusKm) {
-    const sampleDistKm = Math.max(120, radiusKm * 0.55);
-    const dLat = sampleDistKm / 111.0;
-    const cosLat = Math.max(0.2, Math.cos(centerLat * Math.PI / 180));
-    const dLon = sampleDistKm / (111.0 * cosLat);
-
-    const clampLat = (l) => Math.max(-85, Math.min(85, l));
-    const wrapLon = (ln) => {
-        let v = ln % 360;
-        if (v < -180) v += 360;
-        if (v > 180) v -= 360;
-        return v;
-    };
-
-    return [
-        { label: "Center", lat: centerLat, lon: centerLon },
-        { label: "North Sector", lat: clampLat(centerLat + dLat), lon: centerLon },
-        { label: "South Sector", lat: clampLat(centerLat - dLat), lon: centerLon },
-        { label: "East Sector", lat: centerLat, lon: wrapLon(centerLon + dLon) },
-        { label: "West Sector", lat: centerLat, lon: wrapLon(centerLon - dLon) }
-    ];
+// Real-time UTC Sub-Solar Vector (Matches real-world Day/Night right now!)
+function getRealTimeSunDirection(earthRotationY) {
+    const now = new Date();
+    const startOfYear = new Date(Date.UTC(now.getUTCFullYear(), 0, 0));
+    const dayOfYear = Math.floor((now - startOfYear) / 86400000);
+    // Approximate solar declination in degrees
+    const declination = -23.44 * Math.cos((2 * Math.PI / 365) * (dayOfYear + 10));
+    // Sub-solar longitude: at 12:00 UTC sun is at 0 deg lon; moves -15 deg/hour
+    const utcHours = now.getUTCHours() + now.getUTCMinutes() / 60 + now.getUTCSeconds() / 3600;
+    const sunLon = (12 - utcHours) * 15;
+    return latLonToWorldPosition(declination, sunLon, 1.0, earthRotationY).normalize();
 }
 
-// --- STATE VARIABLES ---
+// --- 4. STATE VARIABLES ---
 let isDockExpanded = false;
 let currentTab = 'intel';
 let isGeoLocked = false;
+let isISSMode = false;
+let isRainRadarOn = false;
 let lockedLat = 20.84;
 let lockedLon = 85.10;
 
@@ -84,13 +115,21 @@ function calcOrbitRadius(km) {
 let orbitTime = -1.35;
 let currentAltitudeKm = 1200;
 let orbitRadius = calcOrbitRadius(currentAltitudeKm);
-let orbitSpeed = 0.003;
+let baseOrbitSpeed = 0.035; // Radians per second (slow, realistic glide!)
+let orbitSpeed = baseOrbitSpeed;
 let orbitInclination = 45;
-let swathRadius = 0.25; 
-let activeEngine = '3D', activeCamera = 'FREE';
+let swathRadius = 0.22;
+let activeEngine = '3D';
+const camModes = ['FREE', 'CHASE', 'NADIR'];
+let camModeIdx = 0;
+let activeCamera = 'FREE';
 let lastScannedTime = 0;
 
-// --- EXPANDED GLOBAL SOVEREIGN DEMOGRAPHICS DATABASE (INSTANT 0ms LOOKUP) ---
+// Live ISS State
+let issInterval = null;
+let issTargetLat = 20.0, issTargetLon = 78.0, issCurrentLat = 20.0, issCurrentLon = 78.0;
+let issAltKm = 420, issVelKps = 7.66;
+
 const SOVEREIGN_DB = {
     "IN": { name: "India", pop: 1428627663, cap: "New Delhi", cur: "Indian Rupee (₹)", area: 3287263, tz: "UTC+05:30" },
     "US": { name: "United States", pop: 339996563, cap: "Washington, D.C.", cur: "US Dollar ($)", area: 9372610, tz: "UTC-05:00" },
@@ -103,54 +142,21 @@ const SOVEREIGN_DB = {
     "DE": { name: "Germany", pop: 83294633, cap: "Berlin", cur: "Euro (€)", area: 357114, tz: "UTC+01:00" },
     "AU": { name: "Australia", pop: 26439111, cap: "Canberra", cur: "Australian Dollar ($)", area: 7692024, tz: "UTC+10:00" },
     "CA": { name: "Canada", pop: 40097761, cap: "Ottawa", cur: "Canadian Dollar ($)", area: 9984670, tz: "UTC-05:00" },
-    "NA": { name: "Namibia", pop: 2604172, cap: "Windhoek", cur: "Namibian Dollar (N$)", area: 825615, tz: "UTC+02:00" },
-    "BW": { name: "Botswana", pop: 2675352, cap: "Gaborone", cur: "Botswana Pula (P)", area: 581730, tz: "UTC+02:00" },
-    "AO": { name: "Angola", pop: 36684202, cap: "Luanda", cur: "Angolan Kwanza (Kz)", area: 1246700, tz: "UTC+01:00" },
-    "ZM": { name: "Zambia", pop: 20569737, cap: "Lusaka", cur: "Zambian Kwacha (ZK)", area: 752612, tz: "UTC+02:00" },
-    "ZW": { name: "Zimbabwe", pop: 16665409, cap: "Harare", cur: "ZiG / USD ($)", area: 390757, tz: "UTC+02:00" },
-    "TD": { name: "Chad", pop: 18278568, cap: "N'Djamena", cur: "Central African CFA Franc", area: 1284000, tz: "UTC+01:00" },
-    "NG": { name: "Nigeria", pop: 223804632, cap: "Abuja", cur: "Nigerian Naira (₦)", area: 923768, tz: "UTC+01:00" },
-    "EG": { name: "Egypt", pop: 112716598, cap: "Cairo", cur: "Egyptian Pound (E£)", area: 1002450, tz: "UTC+02:00" },
-    "ZA": { name: "South Africa", pop: 60414495, cap: "Pretoria", cur: "South African Rand (R)", area: 1221037, tz: "UTC+02:00" },
-    "KE": { name: "Kenya", pop: 55100586, cap: "Nairobi", cur: "Kenyan Shilling (KSh)", area: 580367, tz: "UTC+03:00" },
-    "ET": { name: "Ethiopia", pop: 126527060, cap: "Addis Ababa", cur: "Ethiopian Birr (Br)", area: 1104300, tz: "UTC+03:00" },
-    "SD": { name: "Sudan", pop: 48109006, cap: "Khartoum", cur: "Sudanese Pound (SDG)", area: 1886068, tz: "UTC+02:00" },
-    "CD": { name: "DR Congo", pop: 102262808, cap: "Kinshasa", cur: "Congolese Franc (FC)", area: 2344858, tz: "UTC+01:00" },
-    "TZ": { name: "Tanzania", pop: 67438106, cap: "Dodoma", cur: "Tanzanian Shilling (TSh)", area: 945087, tz: "UTC+03:00" },
-    "MA": { name: "Morocco", pop: 37840044, cap: "Rabat", cur: "Moroccan Dirham (MAD)", area: 446550, tz: "UTC+01:00" },
-    "DZ": { name: "Algeria", pop: 45606480, cap: "Algiers", cur: "Algerian Dinar (DA)", area: 2381741, tz: "UTC+01:00" },
-    "LY": { name: "Libya", pop: 6888388, cap: "Tripoli", cur: "Libyan Dinar (LD)", area: 1759540, tz: "UTC+02:00" },
-    "NE": { name: "Niger", pop: 27202843, cap: "Niamey", cur: "West African CFA Franc", area: 1267000, tz: "UTC+01:00" },
-    "ML": { name: "Mali", pop: 23293698, cap: "Bamako", cur: "West African CFA Franc", area: 1240192, tz: "UTC+00:00" },
-    "ID": { name: "Indonesia", pop: 277534122, cap: "Jakarta", cur: "Indonesian Rupiah (Rp)", area: 1904569, tz: "UTC+07:00" },
-    "PK": { name: "Pakistan", pop: 240485658, cap: "Islamabad", cur: "Pakistani Rupee (₨)", area: 881912, tz: "UTC+05:00" },
-    "BD": { name: "Bangladesh", pop: 172954319, cap: "Dhaka", cur: "Bangladeshi Taka (৳)", area: 147570, tz: "UTC+06:00" },
-    "MX": { name: "Mexico", pop: 128455567, cap: "Mexico City", cur: "Mexican Peso ($)", area: 1964375, tz: "UTC-06:00" },
-    "TR": { name: "Turkey", pop: 85816199, cap: "Ankara", cur: "Turkish Lira (₺)", area: 783562, tz: "UTC+03:00" },
-    "IR": { name: "Iran", pop: 89172767, cap: "Tehran", cur: "Iranian Rial (﷼)", area: 1648195, tz: "UTC+03:30" },
-    "SA": { name: "Saudi Arabia", pop: 36947025, cap: "Riyadh", cur: "Saudi Riyal (SR)", area: 2149690, tz: "UTC+03:00" },
-    "AE": { name: "United Arab Emirates", pop: 9516871, cap: "Abu Dhabi", cur: "UAE Dirham (AED)", area: 83600, tz: "UTC+04:00" },
-    "UA": { name: "Ukraine", pop: 36744634, cap: "Kyiv", cur: "Ukrainian Hryvnia (₴)", area: 603500, tz: "UTC+02:00" },
-    "IL": { name: "Israel", pop: 9174520, cap: "Jerusalem", cur: "Israeli New Shekel (₪)", area: 20770, tz: "UTC+02:00" },
-    "AR": { name: "Argentina", pop: 45773884, cap: "Buenos Aires", cur: "Argentine Peso ($)", area: 2780400, tz: "UTC-03:00" },
-    "CL": { name: "Chile", pop: 19629590, cap: "Santiago", cur: "Chilean Peso ($)", area: 756102, tz: "UTC-04:00" },
-    "CO": { name: "Colombia", pop: 52085168, cap: "Bogotá", cur: "Colombian Peso ($)", area: 1141748, tz: "UTC-05:00" },
-    "PE": { name: "Peru", pop: 34352719, cap: "Lima", cur: "Peruvian Sol (S/)", area: 1285216, tz: "UTC-05:00" },
-    "VE": { name: "Venezuela", pop: 28838499, cap: "Caracas", cur: "Venezuelan Bolívar", area: 916445, tz: "UTC-04:00" },
-    "IT": { name: "Italy", pop: 58870762, cap: "Rome", cur: "Euro (€)", area: 301336, tz: "UTC+01:00" },
-    "ES": { name: "Spain", pop: 47519628, cap: "Madrid", cur: "Euro (€)", area: 505992, tz: "UTC+01:00" },
-    "PL": { name: "Poland", pop: 41026067, cap: "Warsaw", cur: "Polish Złoty (zł)", area: 312679, tz: "UTC+01:00" },
-    "KR": { name: "South Korea", pop: 51784059, cap: "Seoul", cur: "South Korean Won (₩)", area: 100210, tz: "UTC+09:00" },
-    "TH": { name: "Thailand", pop: 71801279, cap: "Bangkok", cur: "Thai Baht (฿)", area: 513120, tz: "UTC+07:00" },
-    "VN": { name: "Vietnam", pop: 98858950, cap: "Hanoi", cur: "Vietnamese Đồng (₫)", area: 331212, tz: "UTC+07:00" },
-    "PH": { name: "Philippines", pop: 117337368, cap: "Manila", cur: "Philippine Peso (₱)", area: 342353, tz: "UTC+08:00" },
-    "MY": { name: "Malaysia", pop: 34308525, cap: "Kuala Lumpur", cur: "Malaysian Ringgit (RM)", area: 330803, tz: "UTC+08:00" },
-    "MM": { name: "Myanmar", pop: 54577997, cap: "Naypyidaw", cur: "Myanmar Kyat (K)", area: 676578, tz: "UTC+06:30" },
-    "NP": { name: "Nepal", pop: 30896590, cap: "Kathmandu", cur: "Nepalese Rupee (₨)", area: 147181, tz: "UTC+05:45" },
-    "LK": { name: "Sri Lanka", pop: 21893579, cap: "Colombo / Sri Jayawardenepura", cur: "Sri Lankan Rupee (Rs)", area: 65610, tz: "UTC+05:30" }
+    "TD": { name: "Chad", pop: 18278568, cap: "N'Djamena", cur: "CFA Franc", area: 1284000, tz: "UTC+01:00" },
+    "NG": { name: "Nigeria", pop: 223804632, cap: "Abuja", cur: "Naira (₦)", area: 923768, tz: "UTC+01:00" },
+    "EG": { name: "Egypt", pop: 112716598, cap: "Cairo", cur: "Egyptian Pound", area: 1002450, tz: "UTC+02:00" },
+    "ID": { name: "Indonesia", pop: 277534122, cap: "Jakarta", cur: "Rupiah (Rp)", area: 1904569, tz: "UTC+07:00" },
+    "PK": { name: "Pakistan", pop: 240485658, cap: "Islamabad", cur: "Pakistani Rupee", area: 881912, tz: "UTC+05:00" },
+    "UA": { name: "Ukraine", pop: 36744634, cap: "Kyiv", cur: "Hryvnia (₴)", area: 603500, tz: "UTC+02:00" }
 };
 
-// --- UI LOGIC ---
+// --- 5. UI & DOCK CONTROLS ---
+function toggleDockCollapse() {
+    const dock = document.getElementById('fixed-bottom-dock');
+    isDockExpanded = !isDockExpanded;
+    dock.classList.toggle('expanded', isDockExpanded);
+}
+
 function openTab(tabName, btnEl) {
     playSound('click');
     const dock = document.getElementById('fixed-bottom-dock');
@@ -167,8 +173,8 @@ function openTab(tabName, btnEl) {
     document.getElementById('tab-' + tabName).classList.add('active');
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     btnEl.classList.add('active');
-    if(tabName === 'intel') document.getElementById('intel-badge').classList.add('hidden');
-    if(tabName === 'weather') {
+    if (tabName === 'intel') document.getElementById('intel-badge').classList.add('hidden');
+    if (tabName === 'weather') {
         const curLat = parseFloat(document.getElementById('hud-lat').textContent);
         const curLon = parseFloat(document.getElementById('hud-lon').textContent);
         fetchSubSatData(curLat, curLon, true);
@@ -201,16 +207,18 @@ function updateLockUI(locked) {
         ind.textContent = 'OFF'; ind.classList.replace('text-sky-300', 'text-slate-400');
         topBtn.classList.remove('bg-sky-900/60', 'border-sky-400');
         topInd.textContent = 'OFF'; topInd.classList.replace('text-emerald-400', 'text-slate-400');
-        document.getElementById('hud-sat-name').textContent = 'VK-Tracker-01';
-        if (orbitLineMesh) orbitLineMesh.visible = true;
-        const speedVal = document.getElementById('speed-slider').value;
-        updateSpeed(speedVal);
+        if (!isISSMode) {
+            document.getElementById('hud-sat-name').textContent = 'VK-Tracker-01';
+            if (orbitLineMesh) orbitLineMesh.visible = true;
+            updateSpeed(document.getElementById('speed-slider').value);
+        }
     }
 }
 
 function toggleGeoLock() {
+    if (isISSMode) toggleISSMode(); // Exit ISS live mode if locking manually
     isGeoLocked = !isGeoLocked;
-    if(isGeoLocked) {
+    if (isGeoLocked) {
         const exactCoords = worldPositionToLatLon(satGroup.position, earthMesh.rotation.y);
         lockedLat = exactCoords.lat;
         lockedLon = exactCoords.lon;
@@ -218,28 +226,95 @@ function toggleGeoLock() {
         document.getElementById('hud-lon').textContent = lockedLon.toFixed(2);
         updateLockUI(true);
         playSound('lock');
+        showToast(`Hover Locked at ${lockedLat.toFixed(2)}°, ${lockedLon.toFixed(2)}°`);
         fetchSubSatData(lockedLat, lockedLon, true);
     } else {
+        // ZERO-JUMP UNLOCK: Resume orbit smoothly from current 3D position!
+        const p = satGroup.position;
+        orbitTime = Math.atan2(Math.hypot(p.y, p.z) * (p.z >= 0 ? 1 : -1), p.x);
+        const absLat = Math.abs(lockedLat);
+        if (absLat > orbitInclination) {
+            orbitInclination = Math.min(90, Math.ceil(absLat));
+            document.getElementById('inc-slider').value = orbitInclination;
+            document.getElementById('inc-val').textContent = orbitInclination + "°";
+            drawOrbitLine();
+        }
         updateLockUI(false);
         playSound('click');
+        showToast('Resumed Free Orbit');
     }
 }
 
-// --- API ENGINE (MULTI-POINT FULL SWATH AGGREGATION) ---
+// --- 6. LIVE ISS TRACKING (REAL-WORLD SPACECRAFT) ---
+async function pollLiveISS() {
+    if (!isISSMode) return;
+    try {
+        const res = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
+        const data = await res.json();
+        if (data && typeof data.latitude === 'number') {
+            issTargetLat = data.latitude;
+            issTargetLon = data.longitude;
+            issAltKm = Math.round(data.altitude);
+            issVelKps = (data.velocity / 3600).toFixed(2);
+            document.getElementById('hud-alt').textContent = issAltKm;
+            document.getElementById('hud-vel').textContent = issVelKps;
+            orbitRadius = calcOrbitRadius(issAltKm);
+            buildLaser();
+        }
+    } catch (e) {}
+}
+
+function toggleISSMode() {
+    isISSMode = !isISSMode;
+    const btn = document.getElementById('btn-iss-mode');
+    const ind = document.getElementById('iss-ind');
+
+    if (isISSMode) {
+        if (isGeoLocked) { isGeoLocked = false; updateLockUI(false); }
+        btn.classList.add('bg-amber-900/50', 'border-amber-400');
+        ind.textContent = 'ON'; ind.classList.replace('text-slate-400', 'text-amber-300');
+        document.getElementById('hud-sat-name').textContent = 'ISS (ZARYA LIVE)';
+        if (orbitLineMesh) orbitLineMesh.visible = false;
+        playSound('lock');
+        showToast('Tracking Live International Space Station');
+        pollLiveISS().then(() => {
+            issCurrentLat = issTargetLat;
+            issCurrentLon = issTargetLon;
+            fetchSubSatData(issCurrentLat, issCurrentLon, true);
+        });
+        issInterval = setInterval(pollLiveISS, 4500);
+    } else {
+        clearInterval(issInterval);
+        btn.classList.remove('bg-amber-900/50', 'border-amber-400');
+        ind.textContent = 'OFF'; ind.classList.replace('text-amber-300', 'text-slate-400');
+        document.getElementById('hud-sat-name').textContent = 'VK-Tracker-01';
+        orbitRadius = calcOrbitRadius(currentAltitudeKm);
+        document.getElementById('hud-alt').textContent = currentAltitudeKm;
+        document.getElementById('hud-vel').textContent = '7.3';
+        if (orbitLineMesh) orbitLineMesh.visible = true;
+        buildLaser();
+        playSound('click');
+        showToast('Returned to VK-Tracker-01');
+    }
+}
+
+// --- 7. API ENDPOINTS & DATA EXTRACTION ---
 const API_ENDPOINTS = {
     EARTHQUAKES: 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson',
     EONET: 'https://eonet.gsfc.nasa.gov/api/v3/events?limit=15&days=10',
     NEWS_GLOBAL: 'https://api.rss2json.com/v1/api.json?rss_url=http://feeds.bbci.co.uk/news/world/rss.xml',
     NEWS_REGIONAL_RSS2JSON: (query) => `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://news.google.com/rss/search?q=' + encodeURIComponent(query) + '&hl=en-US&gl=US&ceid=US:en')}`,
     GDELT_NEWS: (query) => `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(query)}&mode=artlist&maxrecords=5&format=json&sort=DateDesc`,
-    WIKI_SEARCH: (query) => `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&utf8=&format=json&origin=*&srlimit=5`,
+    WIKI_SEARCH: (query) => `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&utf8=&format=json&origin=*&srlimit=4`,
     RELIEFWEB_GLOBAL: 'https://api.reliefweb.int/v1/disasters?appname=vyuhak&preset=latest&profile=full&limit=8',
     RELIEFWEB_COUNTRY: (country) => `https://api.reliefweb.int/v1/reports?appname=vyuhak&query[value]=${encodeURIComponent(country)}&limit=3`,
     WEATHER: (lat, lon) => `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&hourly=relativehumidity_2m&current_weather=true`,
+    AIR_QUALITY: (lat, lon) => `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi,pm2_5,uv_index`,
+    GEOCODE: (name) => `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=1&language=en&format=json`,
     REVGEO: (lat, lon) => `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`,
     COUNTRY_ALPHA: (code) => `https://restcountries.com/v3.1/alpha/${encodeURIComponent(code)}?fields=name,population,capital,currencies,area,timezones`,
     COUNTRY_NAME: (name) => `https://restcountries.com/v3.1/name/${encodeURIComponent(name)}?fields=name,population,capital,currencies,area,timezones`,
-    WIKI_GEO: (lat, lon, rad) => `https://en.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=${rad}&gslimit=4&format=json&origin=*`,
+    WIKI_GEO: (lat, lon, rad) => `https://en.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=${rad}&gslimit=6&format=json&origin=*`,
     WIKI_SUMMARY: (title) => `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`
 };
 
@@ -272,16 +347,10 @@ function formatPopulation(num) {
 }
 
 let liveIntelData = [];
-let apiCooldown = false;
-
 async function fetchLiveIntel(force = false) {
-    if(apiCooldown && !force) return;
-    apiCooldown = true;
-    setTimeout(() => { apiCooldown = false; }, 10000); 
-    
     document.getElementById('connection-led').classList.add('recording');
     const feed = document.getElementById('intel-feed');
-    feed.innerHTML = '<div class="text-center p-4 text-[12px] text-sky-400 font-bold loading-pulse">Scanning global networks for breaking events...</div>';
+    if (force) feed.innerHTML = '<div class="skeleton-card h-14 rounded-lg"></div><div class="skeleton-card h-14 rounded-lg"></div>';
     
     liveIntelData = [];
     let newItemsHTML = '';
@@ -289,10 +358,10 @@ async function fetchLiveIntel(force = false) {
 
     try {
         const [eqRes, eoRes, rwRes, newsRes] = await Promise.allSettled([
-            fetch(API_ENDPOINTS.EARTHQUAKES).then(r => r.json()),
-            fetch(API_ENDPOINTS.EONET).then(r => r.json()),
-            fetch(API_ENDPOINTS.RELIEFWEB_GLOBAL).then(r => r.json()),
-            fetch(API_ENDPOINTS.NEWS_GLOBAL).then(r => r.json())
+            cachedFetchJSON(API_ENDPOINTS.EARTHQUAKES, 120000),
+            cachedFetchJSON(API_ENDPOINTS.EONET, 300000),
+            cachedFetchJSON(API_ENDPOINTS.RELIEFWEB_GLOBAL, 300000),
+            cachedFetchJSON(API_ENDPOINTS.NEWS_GLOBAL, 300000)
         ]);
 
         if (eqRes.status === 'fulfilled' && eqRes.value.features) {
@@ -306,9 +375,9 @@ async function fetchLiveIntel(force = false) {
                 <div class="api-item bg-red-900/20 border border-red-500/30 rounded-lg p-3 flex gap-3 items-start cursor-pointer hover:bg-red-900/40 transition" onclick="parkSatelliteAt(${lat}, ${lon})">
                     <div class="text-xl">🌋</div>
                     <div>
-                        <div class="text-[12px] font-bold text-red-400 mb-1">Earthquake (Magnitude ${mag})</div>
+                        <div class="text-[12px] font-bold text-red-400 mb-0.5">Earthquake (Magnitude ${mag})</div>
                         <div class="text-[11px] text-slate-200">${place}</div>
-                        <div class="text-[10px] text-sky-400 mt-1 font-semibold">Tap to lock satellite & view Ground Data &rarr;</div>
+                        <div class="text-[10px] text-sky-400 mt-1 font-semibold">Tap to lock satellite &rarr;</div>
                     </div>
                 </div>`;
             });
@@ -316,20 +385,20 @@ async function fetchLiveIntel(force = false) {
 
         if (eoRes.status === 'fulfilled' && eoRes.value.events) {
             eoRes.value.events.slice(0, 4).forEach(ev => {
-                if(ev.geometry && ev.geometry.length > 0) {
+                if (ev.geometry && ev.geometry.length > 0) {
                     alertCount++;
                     const title = ev.title;
                     const coords = ev.geometry[0].coordinates;
                     let lon = coords[0], lat = coords[1];
-                    if(Array.isArray(lon)) { lon = coords[0][0][0]; lat = coords[0][0][1]; } 
-                    liveIntelData.push({ type: 'eonet', lat, lon, title: title });
+                    if (Array.isArray(lon)) { lon = coords[0][0][0]; lat = coords[0][0][1]; } 
+                    liveIntelData.push({ type: 'eonet', lat, lon, title });
                     newItemsHTML += `
                     <div class="api-item bg-amber-900/20 border border-amber-500/30 rounded-lg p-3 flex gap-3 items-start cursor-pointer hover:bg-amber-900/40 transition" onclick="parkSatelliteAt(${lat}, ${lon})">
                         <div class="text-xl">🔥</div>
                         <div>
-                            <div class="text-[12px] font-bold text-amber-400 mb-1">Active Wildfire / Storm</div>
+                            <div class="text-[12px] font-bold text-amber-400 mb-0.5">Active Wildfire / Storm</div>
                             <div class="text-[11px] text-slate-200">${title}</div>
-                            <div class="text-[10px] text-sky-400 mt-1 font-semibold">Tap to lock satellite & view Ground Data &rarr;</div>
+                            <div class="text-[10px] text-sky-400 mt-1 font-semibold">Tap to lock satellite &rarr;</div>
                         </div>
                     </div>`;
                 }
@@ -338,19 +407,19 @@ async function fetchLiveIntel(force = false) {
 
         if (rwRes.status === 'fulfilled' && rwRes.value.data) {
             rwRes.value.data.slice(0, 4).forEach(d => {
-                if(d.fields && d.fields.primary_country && d.fields.primary_country.location) {
+                if (d.fields && d.fields.primary_country && d.fields.primary_country.location) {
                     alertCount++;
                     const lat = d.fields.primary_country.location.lat;
                     const lon = d.fields.primary_country.location.lon;
                     const title = d.fields.name;
-                    liveIntelData.push({ type: 'rw', lat, lon, title: title });
+                    liveIntelData.push({ type: 'rw', lat, lon, title });
                     newItemsHTML += `
                     <div class="api-item bg-fuchsia-900/20 border border-fuchsia-500/30 rounded-lg p-3 flex gap-3 items-start cursor-pointer hover:bg-fuchsia-900/40 transition" onclick="parkSatelliteAt(${lat}, ${lon})">
                         <div class="text-xl">⚠️</div>
                         <div>
-                            <div class="text-[12px] font-bold text-fuchsia-400 mb-1">Conflict / Humanitarian Crisis</div>
+                            <div class="text-[12px] font-bold text-fuchsia-400 mb-0.5">Conflict / Humanitarian Crisis</div>
                             <div class="text-[11px] text-slate-200">${title}</div>
-                            <div class="text-[10px] text-sky-400 mt-1 font-semibold">Tap to lock satellite & view Ground Data &rarr;</div>
+                            <div class="text-[10px] text-sky-400 mt-1 font-semibold">Tap to lock satellite &rarr;</div>
                         </div>
                     </div>`;
                 }
@@ -364,7 +433,7 @@ async function fetchLiveIntel(force = false) {
                 <div class="api-item bg-blue-900/20 border border-blue-500/30 rounded-lg p-3 flex gap-3 items-start">
                     <div class="text-xl">📰</div>
                     <div>
-                        <div class="text-[12px] font-bold text-blue-400 mb-1">World Headline</div>
+                        <div class="text-[12px] font-bold text-blue-400 mb-0.5">World Headline</div>
                         <div class="text-[11px] text-slate-200">${n.title}</div>
                     </div>
                 </div>`;
@@ -372,15 +441,10 @@ async function fetchLiveIntel(force = false) {
         }
 
         feed.innerHTML = newItemsHTML || '<div class="text-center p-4 text-[12px] text-slate-500">No major global alerts right now.</div>';
-        
         const badge = document.getElementById('intel-badge');
-        if (alertCount > 0) {
-            badge.textContent = alertCount;
-            badge.classList.remove('hidden');
-        }
-        
+        if (alertCount > 0) { badge.textContent = alertCount; badge.classList.remove('hidden'); }
         renderIntelMarkers();
-    } catch(e) {
+    } catch (e) {
         feed.innerHTML = '<div class="text-center p-4 text-[12px] text-red-500 font-bold">Failed to connect to global networks.</div>';
     } finally {
         document.getElementById('connection-led').classList.remove('recording');
@@ -390,31 +454,17 @@ async function fetchLiveIntel(force = false) {
 let currentScanId = 0;
 async function fetchSubSatData(lat, lon, force = false) {
     const scanId = ++currentScanId;
-
     const numLat = parseFloat(lat);
     const numLon = parseFloat(lon);
     const swathKm = Math.round(swathRadius * 4800);
-    const swathAreaKm2 = Math.round(Math.PI * swathKm * swathKm);
 
-    // 5-Point Full Swath Sampling Grid (Center, North, South, East, West)
-    const samplePoints = getSwathSamplePoints(numLat, numLon, swathKm);
-
-    document.getElementById('weather-loc').textContent = `Center: ${numLat.toFixed(2)}°, ${numLon.toFixed(2)}° | Swath Radius: ${swathKm} km (5-Point Array)`;
+    document.getElementById('weather-loc').textContent = `Center: ${numLat.toFixed(2)}°, ${numLon.toFixed(2)}° | Radius: ${swathKm} km`;
     document.getElementById('connection-led').classList.add('recording');
 
-    // Clear stale "0 (Oceanic)" or old metrics immediately when starting a new scan!
-    document.getElementById('reg-pop').textContent = "Scanning...";
-    document.getElementById('reg-cap').textContent = "Scanning...";
-    document.getElementById('reg-cur').textContent = "Scanning...";
-    document.getElementById('reg-area').textContent = `${swathAreaKm2.toLocaleString()} km²`;
-    document.getElementById('reg-dens').textContent = "Scanning...";
-    document.getElementById('reg-tz').textContent = "Scanning...";
-
-    // 1. Fetch Weather + 5-Point Reverse Geocoding in Parallel
-    const weatherPromise = fetch(API_ENDPOINTS.WEATHER(numLat, numLon)).then(r => r.json()).catch(() => null);
-    const multiGeoPromises = Promise.allSettled(
-        samplePoints.map(pt => fetch(API_ENDPOINTS.REVGEO(pt.lat, pt.lon)).then(r => r.json()))
-    );
+    // Parallel Weather + Air Quality + Reverse Geocoding
+    const weatherPromise = cachedFetchJSON(API_ENDPOINTS.WEATHER(numLat.toFixed(2), numLon.toFixed(2)), 180000).catch(() => null);
+    const aqiPromise = cachedFetchJSON(API_ENDPOINTS.AIR_QUALITY(numLat.toFixed(2), numLon.toFixed(2)), 180000).catch(() => null);
+    const geoPromise = cachedFetchJSON(API_ENDPOINTS.REVGEO(numLat.toFixed(2), numLon.toFixed(2)), 300000).catch(() => null);
 
     weatherPromise.then(wData => {
         if (scanId !== currentScanId || !wData) return;
@@ -428,7 +478,7 @@ async function fetchSubSatData(lat, lon, force = false) {
             temp = wData.current_weather.temperature;
             wind = wData.current_weather.windspeed;
             code = wData.current_weather.weathercode;
-            hum = (wData.hourly && wData.hourly.relativehumidity_2m) ? wData.hourly.relativehumidity_2m[0] : Math.round(45 + Math.abs(Math.sin(numLat)) * 35);
+            hum = (wData.hourly && wData.hourly.relativehumidity_2m) ? wData.hourly.relativehumidity_2m[0] : 55;
         }
         document.getElementById('w-temp').innerHTML = `${temp} &deg;C`;
         document.getElementById('w-wind').innerHTML = `${wind} km/h`;
@@ -436,345 +486,207 @@ async function fetchSubSatData(lat, lon, force = false) {
         document.getElementById('w-cond').textContent = decodeWeatherCode(code);
     });
 
-    const geoResults = await multiGeoPromises;
+    aqiPromise.then(aData => {
+        if (scanId !== currentScanId) return;
+        if (aData && aData.current) {
+            const aqi = aData.current.us_aqi ?? '--';
+            const pm25 = aData.current.pm2_5 ?? '--';
+            const uv = aData.current.uv_index ?? '--';
+            const label = aqi <= 50 ? 'Good' : (aqi <= 100 ? 'Moderate' : (aqi <= 150 ? 'Sensitive' : 'Unhealthy'));
+            document.getElementById('w-aqi').textContent = aqi !== '--' ? `${aqi} (${label})` : 'N/A';
+            document.getElementById('w-pm').textContent = `${pm25} µg/m³ | UV ${uv}`;
+        } else {
+            document.getElementById('w-aqi').textContent = 'N/A';
+            document.getElementById('w-pm').textContent = 'N/A';
+        }
+    });
+
+    const geoData = await geoPromise;
     if (scanId !== currentScanId) return;
     document.getElementById('connection-led').classList.remove('recording');
 
-    // Aggregate all countries, states/provinces, cities, oceans across all 5 points in the satellite footprint
-    const countriesMap = new Map(); // code -> name
-    const statesSet = new Set();
-    const citiesSet = new Set();
-    const oceansSet = new Set();
-    const informativeList = [];
-    const adminList = [];
-    const sectorBreakdown = [];
+    if (!geoData) {
+        document.getElementById('geo-data').textContent = "Unable to resolve ground details at this moment.";
+        return;
+    }
 
-    geoResults.forEach((res, idx) => {
-        if (res.status === 'fulfilled' && res.value) {
-            const g = res.value;
-            const ptLabel = samplePoints[idx].label;
-            const cName = g.countryName || '';
-            // CRITICAL FIX: BigDataCloud uses "NA" for Namibia, which JS treats as valid string, ensure uppercase trim
-            const cCode = (g.countryCode || '').trim().toUpperCase();
-            const st = g.principalSubdivision || '';
-            const ct = g.city || g.locality || '';
-            const inf = (g.localityInfo && g.localityInfo.informative) ? g.localityInfo.informative : [];
-            const adm = (g.localityInfo && g.localityInfo.administrative) ? g.localityInfo.administrative : [];
+    const ctry = geoData.countryName || '';
+    const ctryCode = (geoData.countryCode || '').toUpperCase();
+    const state = geoData.principalSubdivision || '';
+    const city = geoData.city || geoData.locality || '';
+    const informative = (geoData.localityInfo && geoData.localityInfo.informative) ? geoData.localityInfo.informative : [];
+    const admin = (geoData.localityInfo && geoData.localityInfo.administrative) ? geoData.localityInfo.administrative : [];
+    const ocean = informative.length > 0 ? informative[0].name : 'International Waters';
 
-            if (cName) {
-                countriesMap.set(cCode || cName, cName);
-                if (st) statesSet.add(st);
-                if (ct && ct !== st) citiesSet.add(ct);
-                sectorBreakdown.push(`<span class="text-slate-400">${ptLabel}:</span> <strong class="text-emerald-300">${ct ? ct + ', ' : ''}${st ? st + ', ' : ''}${cName}</strong>`);
-            } else {
-                const ocName = inf.length > 0 ? inf[0].name : 'Open Ocean';
-                oceansSet.add(ocName);
-                sectorBreakdown.push(`<span class="text-slate-400">${ptLabel}:</span> <strong class="text-sky-300">🌊 ${ocName}</strong>`);
-            }
-
-            inf.forEach(i => informativeList.push(i));
-            adm.forEach(a => adminList.push(a));
-        }
-    });
-
-    const uniqueCountryCodes = Array.from(countriesMap.keys());
-    const uniqueCountries = Array.from(countriesMap.values());
-    const uniqueStates = Array.from(statesSet);
-    const uniqueCities = Array.from(citiesSet);
-    const uniqueOceans = Array.from(oceansSet);
-
-    if (uniqueCountries.length === 0) {
-        // 100% Oceanic Swath
-        const oceanTitle = uniqueOceans.join(', ') || 'International Waters';
+    if (!ctry) {
         document.getElementById('geo-data').innerHTML = `
-            <div class="text-sky-400 font-bold text-sm">🌊 Full Swath Maritime Sector: ${oceanTitle}</div>
-            <div class="text-slate-300 text-xs mt-1">All 5 sensor points inside the ${swathKm} km footprint are over open water. Monitoring maritime weather, shipping lanes, and subsea seismic activity.</div>
+            <div class="text-sky-400 font-bold text-sm">🌊 Maritime / Oceanic Sector: ${ocean}</div>
+            <div class="text-slate-300 text-xs mt-1">Satellite footprint is over open international waters. Monitoring maritime weather and subsea seismic activity.</div>
         `;
-        document.getElementById('reg-pop').textContent = "0 (Maritime Swath)";
+        document.getElementById('reg-pop-label').textContent = "Sector Population";
+        document.getElementById('reg-pop').textContent = "0 (Oceanic)";
         document.getElementById('reg-cap').textContent = "Int'l Waters";
         document.getElementById('reg-cur').textContent = "Maritime Trade";
-        document.getElementById('reg-area').textContent = `${swathAreaKm2.toLocaleString()} km²`;
+        document.getElementById('reg-area').textContent = "Open Ocean";
         document.getElementById('reg-dens').textContent = "0 / km²";
         document.getElementById('reg-tz').textContent = `UTC ${numLon >= 0 ? '+' : ''}${Math.round(numLon / 15)}h`;
-
+        
         Promise.allSettled([
-            fetchSwathNews([oceanTitle, "Maritime Shipping"], [], scanId),
-            fetchSwathPublicInterest([], [], [], informativeList, adminList, scanId),
-            checkFootprintConflicts(numLat, numLon, swathKm, [], scanId),
-            fetchSwathLandmarks(samplePoints, oceanTitle, informativeList, scanId)
+            fetchRegionalNews(ocean, "Maritime Shipping", scanId),
+            fetchPublicInterest(ocean, "", "", informative, admin, scanId),
+            checkFootprintConflicts(numLat, numLon, swathKm, "", scanId),
+            fetchTopLandmarks(numLat, numLon, ocean, informative, admin, scanId)
         ]);
     } else {
-        // Land or Coastal Multi-Country Swath
-        const countriesText = uniqueCountries.join(', ');
-        const statesText = uniqueStates.slice(0, 6).join(', ');
-        const oceanNote = uniqueOceans.length > 0 ? ` + Coastal Waters (<span class="text-sky-300">${uniqueOceans.slice(0, 2).join(', ')}</span>)` : '';
+        let summaryText = `The satellite is scanning <strong class="text-emerald-400">${city ? city + ', ' : ''}${state && state !== city ? state + ', ' : ''}${ctry}</strong>.`;
+        document.getElementById('geo-data').innerHTML = `<div class="mb-1">${summaryText}</div><div id="region-bio" class="text-[11px] text-slate-300 mt-1.5 leading-relaxed"></div>`;
+        document.getElementById('reg-pop-label').textContent = "Country Population";
 
-        document.getElementById('geo-data').innerHTML = `
-            <div class="mb-1.5">
-                <span class="text-[10px] uppercase tracking-wider bg-sky-900/60 text-sky-300 px-2 py-0.5 rounded font-bold">Swath Coverage</span>
-                <span class="ml-1.5">Countries in Footprint: <strong class="text-emerald-400">${countriesText}</strong>${oceanNote}</span>
-            </div>
-            ${statesText ? `<div class="text-[11px] text-slate-300 mb-1.5"><strong>Covered States / Provinces:</strong> ${statesText}</div>` : ''}
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-1 text-[10px] bg-slate-950/60 p-2 rounded border border-slate-800/80 mb-2">
-                ${sectorBreakdown.join('<div></div>')}
-            </div>
-            <div id="region-bio" class="text-[11px] text-slate-300 mt-1.5 leading-relaxed">Loading multi-region overview...</div>
-        `;
+        if (SOVEREIGN_DB[ctryCode]) {
+            const db = SOVEREIGN_DB[ctryCode];
+            document.getElementById('reg-pop').textContent = formatPopulation(db.pop);
+            document.getElementById('reg-cap').textContent = db.cap;
+            document.getElementById('reg-cur').textContent = db.cur;
+            document.getElementById('reg-area').textContent = db.area.toLocaleString() + ' km²';
+            document.getElementById('reg-dens').textContent = Math.round(db.pop / db.area).toLocaleString() + ' / km²';
+            document.getElementById('reg-tz').textContent = db.tz;
+        }
 
-        // Fire Multi-Country Demographics, Bio, Swath News, Public Interest, Conflicts, and Multi-Point Landmarks in Parallel!
         Promise.allSettled([
-            fetchMultiCountryMetrics(uniqueCountryCodes, uniqueCountries, swathAreaKm2, numLon, scanId),
-            fetchRegionBio(uniqueCities[0] || '', uniqueStates[0] || '', uniqueCountries[0], scanId),
-            fetchSwathNews(uniqueStates, uniqueCountries, scanId),
-            fetchSwathPublicInterest(uniqueCountries, uniqueStates, uniqueCities, informativeList, adminList, scanId),
-            checkFootprintConflicts(numLat, numLon, swathKm, uniqueCountries, scanId),
-            fetchSwathLandmarks(samplePoints, uniqueStates[0] || uniqueCountries[0], informativeList, scanId)
+            fetchCountryMetrics(ctryCode, ctry, numLon, scanId),
+            fetchRegionBio(city, state, ctry, scanId),
+            fetchRegionalNews(state || city || ctry, ctry, scanId),
+            fetchPublicInterest(ctry, state, city, informative, admin, scanId),
+            checkFootprintConflicts(numLat, numLon, swathKm, ctry, scanId),
+            fetchTopLandmarks(numLat, numLon, state || ctry, informative, admin, scanId)
         ]);
     }
 }
 
-async function fetchMultiCountryMetrics(codes, names, swathAreaKm2, numLon, scanId) {
-    let totalPop = 0;
-    let totalCountryArea = 0;
-    const capitals = [];
-    const currencies = [];
-    const timezones = [];
-
-    // 1. Instant lookup from SOVEREIGN_DB first
-    const missingCodes = [];
-    codes.forEach((code, idx) => {
-        if (SOVEREIGN_DB[code]) {
-            const db = SOVEREIGN_DB[code];
-            totalPop += db.pop;
-            totalCountryArea += db.area;
-            if (!capitals.includes(db.cap)) capitals.push(db.cap);
-            if (!currencies.includes(db.cur)) currencies.push(db.cur);
-            if (!timezones.includes(db.tz)) timezones.push(db.tz);
-        } else {
-            missingCodes.push({ code, name: names[idx] || code });
-        }
-    });
-
-    // Render instant DB results right away if we have any
-    if (totalPop > 0 && scanId === currentScanId) {
-        document.getElementById('reg-pop').textContent = formatPopulation(totalPop);
-        document.getElementById('reg-cap').textContent = capitals.slice(0, 3).join(' / ');
-        document.getElementById('reg-cur').textContent = currencies.slice(0, 2).join(' / ');
-        document.getElementById('reg-area').textContent = `${swathAreaKm2.toLocaleString()} km² Swath`;
-        document.getElementById('reg-dens').textContent = totalCountryArea > 0 ? `${Math.round(totalPop / totalCountryArea).toLocaleString()} / km²` : 'N/A';
-        document.getElementById('reg-tz').textContent = timezones.slice(0, 2).join(', ');
-    }
-
-    // 2. Fetch any remaining countries from REST Countries API
-    if (missingCodes.length > 0) {
-        const apiResults = await Promise.allSettled(
-            missingCodes.map(async (item) => {
-                let res = await fetch(API_ENDPOINTS.COUNTRY_ALPHA(item.code));
-                if (!res.ok) res = await fetch(API_ENDPOINTS.COUNTRY_NAME(item.name));
-                if (res.ok) return res.json();
-                return null;
-            })
-        );
-
-        apiResults.forEach(r => {
-            if (r.status === 'fulfilled' && r.value) {
-                const cInfo = Array.isArray(r.value) ? r.value[0] : r.value;
-                if (cInfo) {
-                    totalPop += (cInfo.population || 0);
-                    totalCountryArea += (cInfo.area || 0);
-                    const cap = cInfo.capital && cInfo.capital[0] ? cInfo.capital[0] : '';
-                    if (cap && !capitals.includes(cap)) capitals.push(cap);
-                    const curObj = cInfo.currencies ? Object.values(cInfo.currencies)[0] : null;
-                    const cur = curObj ? `${curObj.name} (${curObj.symbol || ''})` : '';
-                    if (cur && !currencies.includes(cur)) currencies.push(cur);
-                    const tz = cInfo.timezones && cInfo.timezones[0] ? cInfo.timezones[0] : '';
-                    if (tz && !timezones.includes(tz)) timezones.push(tz);
-                }
+async function fetchCountryMetrics(ctryCode, ctryName, numLon, scanId) {
+    try {
+        let cArr = null;
+        if (ctryCode) cArr = await cachedFetchJSON(API_ENDPOINTS.COUNTRY_ALPHA(ctryCode), 600000).catch(() => null);
+        if (!cArr) cArr = await cachedFetchJSON(API_ENDPOINTS.COUNTRY_NAME(ctryName), 600000).catch(() => null);
+        if (cArr && scanId === currentScanId) {
+            const cInfo = Array.isArray(cArr) ? cArr[0] : cArr;
+            if (cInfo) {
+                const popNum = cInfo.population || 0;
+                const areaNum = cInfo.area || 0;
+                document.getElementById('reg-pop').textContent = formatPopulation(popNum);
+                document.getElementById('reg-cap').textContent = (cInfo.capital && cInfo.capital[0]) ? cInfo.capital[0] : 'N/A';
+                const curObj = cInfo.currencies ? Object.values(cInfo.currencies)[0] : null;
+                document.getElementById('reg-cur').textContent = curObj ? `${curObj.name} (${curObj.symbol || ''})` : 'N/A';
+                document.getElementById('reg-area').textContent = areaNum ? areaNum.toLocaleString() + ' km²' : 'N/A';
+                document.getElementById('reg-dens').textContent = (popNum && areaNum) ? Math.round(popNum / areaNum).toLocaleString() + ' / km²' : 'N/A';
+                document.getElementById('reg-tz').textContent = (cInfo.timezones && cInfo.timezones[0]) ? cInfo.timezones[0] : `UTC ${numLon >= 0 ? '+' : ''}${Math.round(numLon / 15)}h`;
             }
-        });
-    }
-
-    if (scanId !== currentScanId) return;
-
-    document.getElementById('reg-pop').textContent = totalPop > 0 ? formatPopulation(totalPop) : 'N/A';
-    document.getElementById('reg-cap').textContent = capitals.length > 0 ? capitals.slice(0, 3).join(' / ') : 'N/A';
-    document.getElementById('reg-cur').textContent = currencies.length > 0 ? currencies.slice(0, 2).join(' / ') : 'N/A';
-    document.getElementById('reg-area').textContent = `${swathAreaKm2.toLocaleString()} km² Swath`;
-    document.getElementById('reg-dens').textContent = (totalPop > 0 && totalCountryArea > 0) ? `${Math.round(totalPop / totalCountryArea).toLocaleString()} / km²` : 'N/A';
-    document.getElementById('reg-tz').textContent = timezones.length > 0 ? timezones.slice(0, 2).join(', ') : `UTC ${numLon >= 0 ? '+' : ''}${Math.round(numLon / 15)}h`;
+        }
+    } catch (e) {}
 }
 
 async function fetchRegionBio(city, state, ctry, scanId) {
-    const candidates = [state, ctry, city].filter(Boolean);
+    const candidates = [state ? `${city ? city + ', ' : ''}${state}` : '', state, ctry].filter(Boolean);
     for (const placeName of candidates) {
         try {
-            const sumRes = await fetch(API_ENDPOINTS.WIKI_SUMMARY(placeName));
-            if (sumRes.ok) {
-                const sumData = await sumRes.json();
-                if (sumData.extract && sumData.type !== 'disambiguation' && !sumData.extract.includes('may refer to:') && scanId === currentScanId) {
-                    const bioEl = document.getElementById('region-bio');
-                    if (bioEl) bioEl.innerHTML = `<span class="text-sky-300 font-semibold">[${sumData.title || placeName} Dossier]:</span> ${sumData.extract}`;
-                    return;
-                }
+            const sumData = await cachedFetchJSON(API_ENDPOINTS.WIKI_SUMMARY(placeName), 600000);
+            if (sumData.extract && sumData.type !== 'disambiguation' && !sumData.extract.includes('may refer to:') && scanId === currentScanId) {
+                const bioEl = document.getElementById('region-bio');
+                if (bioEl) bioEl.innerHTML = `<span class="text-sky-300 font-semibold">[${sumData.title || placeName}]:</span> ${sumData.extract}`;
+                return;
             }
-        } catch(e) {}
+        } catch (e) {}
     }
 }
 
-async function fetchSwathNews(states, countries, scanId) {
+async function fetchRegionalNews(primaryQuery, fallbackCountry = '', scanId) {
     const newsContainer = document.getElementById('reg-news');
-    const primaryCountry = countries[0] || '';
-    const primaryState = states[0] || '';
-    const queryList = [];
+    try {
+        let items = [];
+        let sourceTag = primaryQuery;
+        const fullQuery = fallbackCountry && primaryQuery !== fallbackCountry ? `${primaryQuery} ${fallbackCountry}` : primaryQuery;
 
-    if (primaryCountry) queryList.push(primaryCountry);
-    if (countries[1]) queryList.push(countries[1]);
-    if (primaryState && primaryState !== primaryCountry) queryList.push(`${primaryState} ${primaryCountry}`);
+        // Tier 1: GDELT Global Knowledge Graph (Direct, no rate-limit proxy!)
+        try {
+            const gData = await cachedFetchJSON(API_ENDPOINTS.GDELT_NEWS(fullQuery), 300000);
+            if (gData && gData.articles && gData.articles.length > 0) {
+                items = gData.articles.map(a => ({ title: a.title, link: a.url, pubDate: a.domain || 'Live Wire' }));
+                sourceTag = fullQuery;
+            }
+        } catch (e) {}
 
-    let allArticles = [];
-    const seenTitles = new Set();
-
-    // 1. Query Google News RSS + GDELT concurrently for covered countries/states
-    const promises = [];
-    queryList.slice(0, 2).forEach(q => {
-        promises.push(
-            fetch(API_ENDPOINTS.NEWS_REGIONAL_RSS2JSON(q))
-                .then(r => r.json())
-                .then(d => ({ type: 'rss', query: q, items: (d && d.items) ? d.items : [] }))
-                .catch(() => ({ type: 'rss', query: q, items: [] }))
-        );
-        promises.push(
-            fetch(API_ENDPOINTS.GDELT_NEWS(q))
-                .then(r => r.json())
-                .then(d => ({
-                    type: 'gdelt',
-                    query: q,
-                    items: (d && d.articles) ? d.articles.map(a => ({ title: a.title, link: a.url, pubDate: a.domain || 'Live Wire' })) : []
-                }))
-                .catch(() => ({ type: 'gdelt', query: q, items: [] }))
-        );
-    });
-
-    const results = await Promise.allSettled(promises);
-    if (scanId !== currentScanId) return;
-
-    results.forEach(r => {
-        if (r.status === 'fulfilled' && r.value && r.value.items) {
-            r.value.items.forEach(item => {
-                const cleanTitle = (item.title || '').replace(/ - .*$/, '').trim();
-                if (cleanTitle && !seenTitles.has(cleanTitle)) {
-                    seenTitles.add(cleanTitle);
-                    allArticles.push({
-                        title: cleanTitle,
-                        link: item.link || '#',
-                        pubDate: item.pubDate ? item.pubDate.split(' ')[0] : 'Live',
-                        tag: r.value.query
-                    });
-                }
-            });
+        // Tier 2: Google News RSS via rss2json
+        if (items.length === 0) {
+            try {
+                const data = await cachedFetchJSON(API_ENDPOINTS.NEWS_REGIONAL_RSS2JSON(fullQuery), 300000);
+                if (data && data.items && data.items.length > 0) { items = data.items; sourceTag = fullQuery; }
+            } catch (e) {}
         }
-    });
 
-    // 2. Guaranteed Fallback: If RSS2JSON and GDELT are rate-limited or blocked, pull live UN ReliefWeb & Global headlines for the country
-    if (allArticles.length === 0 && primaryCountry) {
-        try {
-            const rwRes = await fetch(API_ENDPOINTS.RELIEFWEB_COUNTRY(primaryCountry));
-            const rwData = await rwRes.json();
-            if (rwData.data && rwData.data.length > 0) {
-                rwData.data.forEach(rep => {
-                    allArticles.push({
-                        title: rep.fields.title,
-                        link: `https://reliefweb.int/node/${rep.id}`,
-                        pubDate: 'UN Dispatch',
-                        tag: primaryCountry
-                    });
-                });
-            }
-        } catch(e) {}
-    }
+        // Tier 3: Country-level GDELT fallback
+        if (items.length === 0 && fallbackCountry) {
+            try {
+                const gData2 = await cachedFetchJSON(API_ENDPOINTS.GDELT_NEWS(fallbackCountry), 300000);
+                if (gData2 && gData2.articles && gData2.articles.length > 0) {
+                    items = gData2.articles.map(a => ({ title: a.title, link: a.url, pubDate: a.domain || 'Live Wire' }));
+                    sourceTag = fallbackCountry;
+                }
+            } catch (e) {}
+        }
 
-    if (allArticles.length === 0) {
-        try {
-            const gNews = await fetch(API_ENDPOINTS.NEWS_GLOBAL).then(r => r.json());
-            if (gNews && gNews.items) {
-                gNews.items.slice(0, 3).forEach(n => {
-                    allArticles.push({
-                        title: n.title,
-                        link: n.link || '#',
-                        pubDate: 'World Desk',
-                        tag: primaryCountry || 'Global Swath'
-                    });
-                });
-            }
-        } catch(e) {}
-    }
+        if (scanId !== currentScanId) return;
 
-    if (scanId !== currentScanId) return;
-
-    if (allArticles.length > 0) {
-        let html = '';
-        allArticles.slice(0, 5).forEach(art => {
-            html += `
-            <a href="${art.link}" target="_blank" class="block bg-slate-900/60 hover:bg-slate-800/80 border border-slate-700/60 rounded p-2.5 transition">
-                <div class="text-sky-300 font-semibold text-[11px] leading-snug">📰 ${art.title}</div>
-                <div class="text-[9px] text-slate-400 mt-1">Swath Sector: ${art.tag} &bull; ${art.pubDate} &bull; Tap to open report</div>
-            </a>`;
-        });
-        newsContainer.innerHTML = html;
-    } else {
-        newsContainer.innerHTML = `<div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Monitoring regional broadcast feeds across ${countries.join(', ') || 'swath'}.</div>`;
+        if (items.length > 0) {
+            let html = '';
+            items.slice(0, 4).forEach(item => {
+                const cleanTitle = (item.title || '').replace(/ - .*$/, '');
+                const pubDate = item.pubDate ? item.pubDate.split(' ')[0] : 'Live';
+                html += `
+                <a href="${item.link || '#'}" target="_blank" class="block bg-slate-900/60 hover:bg-slate-800/80 border border-slate-700/60 rounded p-2.5 transition">
+                    <div class="text-sky-300 font-semibold text-[11px] leading-snug">📰 ${cleanTitle}</div>
+                    <div class="text-[9px] text-slate-400 mt-1">Focus: ${sourceTag} &bull; ${pubDate}</div>
+                </a>`;
+            });
+            newsContainer.innerHTML = html;
+        } else {
+            newsContainer.innerHTML = `<div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Quiet media sector for ${primaryQuery}.</div>`;
+        }
+    } catch (e) {
+        if (scanId === currentScanId) newsContainer.innerHTML = `<div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Regional news feed temporarily unavailable.</div>`;
     }
 }
 
-async function fetchSwathPublicInterest(countries, states, cities, informative, admin, scanId) {
+async function fetchPublicInterest(country, state, city, informative, admin, scanId) {
     const container = document.getElementById('reg-interest');
     let html = '';
+    const tags = [];
+    admin.forEach(a => { if (a.name && a.description) tags.push(`${a.name} (${a.description})`); });
+    informative.forEach(i => { if (i.name && i.description && !i.name.includes('UTC')) tags.push(`${i.name} — ${i.description}`); });
 
-    // 1. Deduplicated Geopolitical & Ecological Zones across the entire 5-point swath
-    const tagSet = new Set();
-    admin.forEach(a => {
-        if (a.name && a.description && !a.name.includes('UTC')) {
-            tagSet.add(`${a.name} (${a.description})`);
-        }
-    });
-    informative.forEach(i => {
-        if (i.name && i.description && !i.name.includes('UTC') && !i.name.includes('Century')) {
-            tagSet.add(`${i.name} — ${i.description}`);
-        }
-    });
-
-    const uniqueTags = Array.from(tagSet);
-    if (uniqueTags.length > 0) {
+    if (tags.length > 0) {
         html += `
         <div class="bg-slate-900/60 border border-slate-800 rounded p-2.5">
-            <div class="text-[10px] font-bold text-amber-300 uppercase mb-1">Geopolitical, Administrative & Ecological Zones in Swath</div>
-            <div class="text-[11px] text-slate-300 leading-relaxed">${uniqueTags.slice(0, 8).join(' &bull; ')}</div>
+            <div class="text-[10px] font-bold text-amber-300 uppercase mb-1">Geopolitical & Ecological Zones</div>
+            <div class="text-[11px] text-slate-300 leading-relaxed">${tags.slice(0, 5).join(' &bull; ')}</div>
         </div>`;
     }
 
-    // 2. Query Wikipedia Search for Economy, Public Interest & Strategic Profile across covered states/countries
-    const searchQuery = countries.length > 0 ? `${states.slice(0, 2).join(' ')} ${countries.slice(0, 2).join(' ')} economy geography`.trim() : '';
-    if (searchQuery) {
+    const searchTarget = `${state || city} ${country}`.trim();
+    if (searchTarget) {
         try {
-            const wRes = await fetch(API_ENDPOINTS.WIKI_SEARCH(searchQuery));
-            const wData = await wRes.json();
+            const wData = await cachedFetchJSON(API_ENDPOINTS.WIKI_SEARCH(searchTarget), 600000);
             if (scanId !== currentScanId) return;
-
             if (wData.query && wData.query.search && wData.query.search.length > 0) {
-                const seen = new Set();
-                wData.query.search.slice(0, 4).forEach(s => {
-                    if (!seen.has(s.title)) {
-                        seen.add(s.title);
-                        const cleanSnippet = s.snippet.replace(/<\/?[^>]+(>|$)/g, "");
-                        html += `
-                        <div class="bg-slate-900/50 border border-slate-800/80 rounded p-2.5">
-                            <div class="font-bold text-amber-400 text-[11px]">🔍 Public Interest: ${s.title}</div>
-                            <div class="text-[11px] text-slate-300 mt-0.5 leading-snug">${cleanSnippet}...</div>
-                        </div>`;
-                    }
+                wData.query.search.slice(0, 3).forEach(s => {
+                    const cleanSnippet = s.snippet.replace(/<\/?[^>]+(>|$)/g, "");
+                    html += `
+                    <div class="bg-slate-900/50 border border-slate-800/80 rounded p-2.5">
+                        <div class="font-bold text-amber-400 text-[11px]">🔍 Public Interest: ${s.title}</div>
+                        <div class="text-[11px] text-slate-300 mt-0.5 leading-snug">${cleanSnippet}...</div>
+                    </div>`;
                 });
             }
-        } catch(e) {}
+        } catch (e) {}
     }
 
     if (scanId === currentScanId) {
@@ -782,7 +694,7 @@ async function fetchSwathPublicInterest(countries, states, cities, informative, 
     }
 }
 
-async function checkFootprintConflicts(lat, lon, radiusKm, countriesList, scanId) {
+async function checkFootprintConflicts(lat, lon, radiusKm, countryName, scanId) {
     const container = document.getElementById('reg-conflicts');
     let alertsHTML = '';
 
@@ -798,133 +710,106 @@ async function checkFootprintConflicts(lat, lon, radiusKm, countriesList, scanId
         }
     });
 
-    if (countriesList && countriesList.length > 0) {
-        const rwPromises = countriesList.slice(0, 2).map(c =>
-            fetch(API_ENDPOINTS.RELIEFWEB_COUNTRY(c)).then(r => r.json()).then(d => ({ country: c, data: d.data || [] })).catch(() => null)
-        );
-        const rwResults = await Promise.allSettled(rwPromises);
-        rwResults.forEach(res => {
-            if (res.status === 'fulfilled' && res.value && res.value.data.length > 0) {
-                res.value.data.slice(0, 2).forEach(rep => {
+    if (countryName) {
+        try {
+            const rwData = await cachedFetchJSON(API_ENDPOINTS.RELIEFWEB_COUNTRY(countryName), 300000);
+            if (rwData.data && rwData.data.length > 0) {
+                rwData.data.forEach(rep => {
                     alertsHTML += `
                     <div class="bg-amber-950/30 border border-amber-500/30 rounded p-2.5">
-                        <div class="font-bold text-amber-400">⚠️ UN Humanitarian / Security Report (${res.value.country})</div>
+                        <div class="font-bold text-amber-400">⚠️ UN Humanitarian / Security Report (${countryName})</div>
                         <div class="text-slate-200 mt-0.5">${rep.fields.title}</div>
                     </div>`;
                 });
             }
-        });
+        } catch (e) {}
     }
 
     if (scanId !== currentScanId) return;
-
-    if (!alertsHTML) {
-        container.innerHTML = `<div class="bg-emerald-950/20 border border-emerald-500/30 rounded p-3 text-emerald-300 font-semibold">✅ No active wars, major earthquakes, or natural disasters detected within this ${radiusKm} km satellite footprint.</div>`;
-    } else {
-        container.innerHTML = alertsHTML;
-    }
+    container.innerHTML = alertsHTML || `<div class="bg-emerald-950/20 border border-emerald-500/30 rounded p-3 text-emerald-300 font-semibold">✅ No active wars, major earthquakes, or disasters detected within this ${radiusKm} km footprint.</div>`;
 }
 
-async function fetchSwathLandmarks(samplePoints, fallbackRegion, informative, scanId) {
+async function fetchTopLandmarks(lat, lon, fallbackRegion, informative, admin, scanId) {
     const wikiContainer = document.getElementById('wiki-data');
     try {
-        // Query Wikipedia Geosearch at all 5 sample points across the satellite footprint concurrently!
-        const geoPromises = samplePoints.map(pt =>
-            fetch(API_ENDPOINTS.WIKI_GEO(pt.lat, pt.lon, 10000))
-                .then(r => r.json())
-                .then(d => ({ sector: pt.label, items: (d.query && d.query.geosearch) ? d.query.geosearch : [] }))
-                .catch(() => ({ sector: pt.label, items: [] }))
-        );
-
-        const geoResults = await Promise.allSettled(geoPromises);
+        const wikiData = await cachedFetchJSON(API_ENDPOINTS.WIKI_GEO(lat.toFixed(2), lon.toFixed(2), 10000), 600000);
         if (scanId !== currentScanId) return;
 
-        const seenPlaces = new Set();
-        const placesList = [];
-
-        geoResults.forEach(r => {
-            if (r.status === 'fulfilled' && r.value.items) {
-                r.value.items.forEach(item => {
-                    if (!seenPlaces.has(item.title)) {
-                        seenPlaces.add(item.title);
-                        placesList.push({
-                            title: item.title,
-                            badge: `${r.value.sector} (${(item.dist / 1000).toFixed(1)} km)`
-                        });
-                    }
-                });
-            }
-        });
-
-        // Also supplement with regional cities/landmarks if sparse
-        if (placesList.length < 4 && fallbackRegion) {
-            try {
-                const searchRes = await fetch(API_ENDPOINTS.WIKI_SEARCH(`cities OR landmarks OR national parks in ${fallbackRegion}`));
-                const searchData = await searchRes.json();
-                if (searchData.query && searchData.query.search) {
-                    searchData.query.search.slice(0, 5).forEach(s => {
-                        if (!seenPlaces.has(s.title)) {
-                            seenPlaces.add(s.title);
-                            placesList.push({
-                                title: s.title,
-                                badge: `Swath Landmark (${fallbackRegion})`
-                            });
-                        }
-                    });
-                }
-            } catch(e) {}
-        }
-
-        // Add clean natural features (filtering out timezone strings like "Africa/Windhoek" or "Africa continent")
-        const bannedWords = ['time zone', 'continent', 'century', 'utc'];
-        informative.forEach(inf => {
-            const desc = (inf.description || '').toLowerCase();
-            if (inf.name && !seenPlaces.has(inf.name) && !inf.name.includes('/') && !bannedWords.some(b => desc.includes(b))) {
-                seenPlaces.add(inf.name);
-                placesList.push({
-                    title: inf.name,
-                    badge: inf.description || 'Geographic Feature'
-                });
-            }
-        });
-
-        if (scanId !== currentScanId) return;
-
-        if (placesList.length > 0) {
+        let items = (wikiData.query && wikiData.query.geosearch) ? wikiData.query.geosearch : [];
+        if (items.length > 0) {
             let wHtml = `<div class="grid grid-cols-1 gap-1.5">`;
-            placesList.slice(0, 7).forEach(p => {
+            items.forEach(item => {
                 wHtml += `
                 <div class="bg-slate-900/60 border border-slate-800 rounded p-2 flex justify-between items-center">
-                    <span class="font-semibold text-emerald-300">📍 ${p.title}</span>
-                    <span class="text-[10px] text-slate-400">${p.badge}</span>
+                    <span class="font-semibold text-emerald-300">📍 ${item.title}</span>
+                    <span class="text-[10px] text-slate-400">${(item.dist / 1000).toFixed(1)} km away</span>
                 </div>`;
             });
-            wHtml += `</div>`;
-            wikiContainer.innerHTML = wHtml;
-        } else {
-            wikiContainer.innerHTML = `<div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Open terrain across ${fallbackRegion || 'swath'}.</div>`;
+            wikiContainer.innerHTML = wHtml + `</div>`;
+            return;
         }
-    } catch(e) {
+
+        let fallbackHTML = `<div class="grid grid-cols-1 gap-1.5">`;
+        let count = 0;
+        if (fallbackRegion) {
+            const searchData = await cachedFetchJSON(API_ENDPOINTS.WIKI_SEARCH(`landmarks OR mountains OR cities in ${fallbackRegion}`), 600000);
+            if (searchData.query && searchData.query.search) {
+                searchData.query.search.slice(0, 4).forEach(s => {
+                    count++;
+                    fallbackHTML += `
+                    <div class="bg-slate-900/60 border border-slate-800 rounded p-2 flex justify-between items-center">
+                        <span class="font-semibold text-emerald-300">📍 ${s.title}</span>
+                        <span class="text-[10px] text-slate-400">${fallbackRegion}</span>
+                    </div>`;
+                });
+            }
+        }
         if (scanId === currentScanId) {
-            wikiContainer.innerHTML = `<div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Landmark scanner offline.</div>`;
+            wikiContainer.innerHTML = count > 0 ? fallbackHTML + `</div>` : `<div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Remote sector in ${fallbackRegion || 'area'}.</div>`;
         }
+    } catch (e) {
+        if (scanId === currentScanId) wikiContainer.innerHTML = `<div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Landmark scanner offline.</div>`;
     }
 }
 
-function applyManualCoords() {
-    const lat = parseFloat(document.getElementById('manual-lat').value);
-    const lon = parseFloat(document.getElementById('manual-lon').value);
-    
-    if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-        alert("Please enter valid coordinates (Lat: -90 to 90, Lon: -180 to 180)");
-        return;
+// Unified Search Bar (City Name OR "lat, lon")
+async function searchAndDeploy() {
+    const raw = document.getElementById('search-location').value.trim();
+    if (!raw) return showToast('Enter a city, country, or lat, lon');
+
+    const coordMatch = raw.match(/^(-?\d+(\.\d+)?)\s*,\s*(-?\d+(\.\d+)?)$/);
+    if (coordMatch) {
+        const lat = parseFloat(coordMatch[1]), lon = parseFloat(coordMatch[3]);
+        if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+            parkSatelliteAt(lat, lon);
+            return;
+        }
     }
-    parkSatelliteAt(lat, lon);
+
+    try {
+        showToast(`Searching "${raw}"...`);
+        const geo = await cachedFetchJSON(API_ENDPOINTS.GEOCODE(raw), 600000);
+        if (geo && geo.results && geo.results.length > 0) {
+            const loc = geo.results[0];
+            parkSatelliteAt(loc.latitude, loc.longitude);
+            showToast(`Deployed over ${loc.name}, ${loc.country || ''}`);
+            if (loc.population) {
+                setTimeout(() => {
+                    document.getElementById('reg-pop-label').textContent = `${loc.name} Population`;
+                    document.getElementById('reg-pop').textContent = formatPopulation(loc.population);
+                }, 400);
+            }
+        } else {
+            showToast('Location not found. Try a larger city or lat, lon.');
+        }
+    } catch (e) {
+        showToast('Search service offline.');
+    }
 }
 
 function parkSatelliteAt(lat, lon) {
+    if (isISSMode) toggleISSMode();
     playSound('lock');
-    
     lockedLat = lat;
     lockedLon = lon;
     isGeoLocked = true;
@@ -953,157 +838,278 @@ function parkSatelliteAt(lat, lon) {
     }, 60);
 }
 
-// --- 3D ENGINE & PHYSICS ---
+// ============================================================================
+// 8. PHOTOREALISTIC 3D EARTH ENGINE (CUSTOM GLSL SHADERS, CLOUDS, STARS)
+// ============================================================================
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 1.6, window.innerWidth < window.innerHeight ? 4.3 : 2.8);
+camera.position.set(0, 1.5, window.innerWidth < window.innerHeight ? 4.4 : 2.9);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, logarithmicDepthBuffer: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75)); // Mobile battery & GPU optimization
 document.getElementById('globe-viewport').appendChild(renderer.domElement);
 
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true; controls.dampingFactor = 0.05;
-controls.minDistance = 1.15; controls.maxDistance = 12;
+controls.minDistance = 1.2; controls.maxDistance = 12;
 
-scene.add(new THREE.AmbientLight(0xffffff, 0.12));
-const sunDirVector = new THREE.Vector3(5, 2, 3).normalize();
-const sunLight = new THREE.DirectionalLight(0xffffff, 1.35);
-sunLight.position.set(5, 2, 3);
+// Deep-Space Starfield (2,200 stars with realistic color temperatures)
+(function createStarfield() {
+    const starGeo = new THREE.BufferGeometry();
+    const starCount = 2200;
+    const positions = new Float32Array(starCount * 3);
+    const colors = new Float32Array(starCount * 3);
+    const palette = [new THREE.Color(0xffffff), new THREE.Color(0xbae6fd), new THREE.Color(0xfef08a), new THREE.Color(0xfed7aa)];
+    for (let i = 0; i < starCount; i++) {
+        const r = 35 + Math.random() * 60;
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
+        positions[i*3] = r * Math.sin(phi) * Math.cos(theta);
+        positions[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
+        positions[i*3+2] = r * Math.cos(phi);
+        const c = palette[Math.floor(Math.random() * palette.length)];
+        colors[i*3] = c.r; colors[i*3+1] = c.g; colors[i*3+2] = c.b;
+    }
+    starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    starGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    const starMat = new THREE.PointsMaterial({ size: 0.14, vertexColors: true, transparent: true, opacity: 0.85, depthWrite: false });
+    scene.add(new THREE.Points(starGeo, starMat));
+})();
+
+// Lighting for Satellite & Standard Objects
+scene.add(new THREE.AmbientLight(0xffffff, 0.2));
+const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
 scene.add(sunLight);
 
-// SMART ADAPTIVE SATELLITE SPOTLIGHT (Strictly night-side only: 0 intensity on daytime & twilight regions!)
-const satSpotLight = new THREE.SpotLight(0xfffbeb, 0.0);
-satSpotLight.angle = swathRadius * 0.72;
-satSpotLight.penumbra = 0.5;
-satSpotLight.decay = 0;
-satSpotLight.distance = 25;
-scene.add(satSpotLight);
-scene.add(satSpotLight.target);
-
+// Load High-Res Earth Textures
 const texLoader = new THREE.TextureLoader();
 const earthDayTex = texLoader.load('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg');
 const earthNightTex = texLoader.load('https://unpkg.com/three-globe/example/img/earth-night.jpg');
-const earthBumpTex = texLoader.load('https://unpkg.com/three-globe/example/img/earth-topology.png');
-const earthMat = new THREE.MeshPhongMaterial({
-    color: 0xffffff,
-    map: earthDayTex,
-    bumpMap: earthBumpTex,
-    bumpScale: 0.012,
-    specular: new THREE.Color(0x111827),
-    shininess: 5
+const earthWaterTex = texLoader.load('https://unpkg.com/three-globe/example/img/earth-water.png');
+const earthCloudsTex = texLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_clouds_1024.png');
+
+// Custom Photorealistic Day/Night + Twilight + Ocean Specular + Night Spotlight Shader
+const earthUniforms = {
+    dayTexture: { value: earthDayTex },
+    nightTexture: { value: earthNightTex },
+    specularTexture: { value: earthWaterTex },
+    sunDir: { value: new THREE.Vector3(1, 0, 0) },
+    satDir: { value: new THREE.Vector3(0, 0, 1) },
+    satSpotCos: { value: Math.cos(0.22) },
+    opticsMode: { value: 0 } // 0=Color, 1=Thermal, 2=NVG
+};
+
+const earthShaderMat = new THREE.ShaderMaterial({
+    uniforms: earthUniforms,
+    vertexShader: `
+        varying vec2 vUv;
+        varying vec3 vWorldNormal;
+        varying vec3 vWorldPos;
+        void main() {
+            vUv = uv;
+            vec4 worldPos = modelMatrix * vec4(position, 1.0);
+            vWorldPos = worldPos.xyz;
+            vWorldNormal = normalize(mat3(modelMatrix) * normal);
+            gl_Position = projectionMatrix * viewMatrix * worldPos;
+        }
+    `,
+    fragmentShader: `
+        uniform sampler2D dayTexture;
+        uniform sampler2D nightTexture;
+        uniform sampler2D specularTexture;
+        uniform vec3 sunDir;
+        uniform vec3 satDir;
+        uniform float satSpotCos;
+        uniform int opticsMode;
+
+        varying vec2 vUv;
+        varying vec3 vWorldNormal;
+        varying vec3 vWorldPos;
+
+        void main() {
+            vec3 N = normalize(vWorldNormal);
+            vec3 L = normalize(sunDir);
+            vec3 V = normalize(cameraPosition - vWorldPos);
+
+            vec3 dayCol = texture2D(dayTexture, vUv).rgb;
+            vec3 nightCol = texture2D(nightTexture, vUv).rgb * 1.45;
+            float waterMask = texture2D(specularTexture, vUv).r;
+
+            float NdotL = dot(N, L);
+            float dayFactor = smoothstep(-0.14, 0.22, NdotL);
+
+            // Ocean specular sun glint on day side
+            vec3 H = normalize(L + V);
+            float spec = pow(max(dot(N, H), 0.0), 32.0) * waterMask * max(NdotL, 0.0) * 0.55;
+
+            // Warm sunset/sunrise twilight band along terminator
+            float twilight = exp(-pow(NdotL * 6.5, 2.0)) * 0.28;
+            vec3 twilightCol = vec3(1.0, 0.42, 0.14) * twilight;
+
+            // Smart Night-Only Satellite Daylight Illumination inside swath
+            float satDot = dot(N, normalize(satDir));
+            float inSwath = smoothstep(satSpotCos - 0.015, satSpotCos + 0.015, satDot);
+            float nightOnly = 1.0 - dayFactor;
+            vec3 satDaylight = dayCol * 0.92 * inSwath * nightOnly;
+
+            vec3 finalCol = mix(nightCol, dayCol * (0.25 + 0.85 * max(NdotL, 0.0)), dayFactor) + twilightCol + vec3(spec) + satDaylight;
+
+            if (opticsMode == 1) { // FLIR Thermal
+                float lum = dot(finalCol, vec3(0.299, 0.587, 0.114));
+                finalCol = mix(vec3(0.05, 0.02, 0.18), vec3(1.0, 0.45, 0.05), lum * 1.4);
+            } else if (opticsMode == 2) { // NVG Tactical
+                float lum = dot(finalCol, vec3(0.299, 0.587, 0.114));
+                finalCol = vec3(0.05, lum * 1.35 + 0.05, 0.08);
+            }
+
+            gl_FragColor = vec4(finalCol, 1.0);
+        }
+    `
 });
-const earthMesh = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 64), earthMat);
+
+const earthWireMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, wireframe: true, transparent: true, opacity: 0.35 });
+const earthMesh = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 64), earthShaderMat);
 scene.add(earthMesh);
 
-scene.add(new THREE.Mesh(new THREE.SphereGeometry(1.02, 32, 32), new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.15, side: THREE.BackSide, depthWrite: false })));
+// Drifting 3D Cloud Layer
+const cloudMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(1.007, 48, 48),
+    new THREE.MeshPhongMaterial({ map: earthCloudsTex, transparent: true, opacity: 0.42, depthWrite: false })
+);
+scene.add(cloudMesh);
 
-// --- VISIBLE ORBIT LINE TRAJECTORY ---
+// Volumetric Fresnel Atmosphere Rim-Glow Shader
+const atmosMat = new THREE.ShaderMaterial({
+    uniforms: { sunDir: earthUniforms.sunDir },
+    vertexShader: `
+        varying vec3 vNormal;
+        varying vec3 vViewDir;
+        void main() {
+            vec4 worldPos = modelMatrix * vec4(position, 1.0);
+            vNormal = normalize(mat3(modelMatrix) * normal);
+            vViewDir = normalize(cameraPosition - worldPos.xyz);
+            gl_Position = projectionMatrix * viewMatrix * worldPos;
+        }
+    `,
+    fragmentShader: `
+        uniform vec3 sunDir;
+        varying vec3 vNormal;
+        varying vec3 vViewDir;
+        void main() {
+            float rim = pow(1.0 - max(dot(vNormal, vViewDir), 0.0), 3.2);
+            float sunSide = smoothstep(-0.35, 0.6, dot(vNormal, normalize(sunDir)));
+            vec3 col = mix(vec3(0.08, 0.25, 0.6), vec3(0.32, 0.72, 1.0), sunSide);
+            gl_FragColor = vec4(col, rim * (0.25 + 0.75 * sunSide));
+        }
+    `,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    side: THREE.FrontSide,
+    depthWrite: false
+});
+scene.add(new THREE.Mesh(new THREE.SphereGeometry(1.032, 48, 48), atmosMat));
+
+// --- VISIBLE ORBIT LINE ---
 let orbitLineMesh;
 function drawOrbitLine() {
     if (orbitLineMesh) scene.remove(orbitLineMesh);
     const orbitPoints = [];
     const inclRad = orbitInclination * Math.PI / 180;
-    
     for (let i = 0; i <= 200; i++) {
-        const t = (i / 200) * Math.PI * 2; 
-        const x = Math.cos(t) * orbitRadius;
-        const z = Math.sin(t) * Math.cos(inclRad) * orbitRadius;
-        const y = Math.sin(t) * Math.sin(inclRad) * orbitRadius;
-        orbitPoints.push(new THREE.Vector3(x, y, z));
+        const t = (i / 200) * Math.PI * 2;
+        orbitPoints.push(new THREE.Vector3(
+            Math.cos(t) * orbitRadius,
+            Math.sin(t) * Math.sin(inclRad) * orbitRadius,
+            Math.sin(t) * Math.cos(inclRad) * orbitRadius
+        ));
     }
-    const orbitLineGeo = new THREE.BufferGeometry().setFromPoints(orbitPoints);
-    const orbitLineMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.4 });
-    orbitLineMesh = new THREE.Line(orbitLineGeo, orbitLineMat);
-    orbitLineMesh.visible = !isGeoLocked;
+    orbitLineMesh = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(orbitPoints),
+        new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.35 })
+    );
+    orbitLineMesh.visible = !isGeoLocked && !isISSMode;
     scene.add(orbitLineMesh);
 }
 drawOrbitLine();
 
-// --- REALISTIC AEROSPACE SATELLITE 3D MODEL ---
+// --- HIGH-DETAIL AEROSPACE SATELLITE 3D MODEL ---
 const satGroup = new THREE.Group();
-
-const foilMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.85, roughness: 0.25 });
-const metalMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9, roughness: 0.2 });
+const foilMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.88, roughness: 0.22 });
+const metalMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9, roughness: 0.18 });
 const darkMetalMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.3 });
 
-const mainBus = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.09, 8), foilMat);
+// Octagonal Gold MLI Bus + Thermal Louvers
+const mainBus = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.095, 8), foilMat);
 mainBus.rotation.x = Math.PI / 2;
 satGroup.add(mainBus);
 
-const payloadModule = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.026, 0.04, 16), metalMat);
-payloadModule.rotation.x = Math.PI / 2;
-payloadModule.position.z = 0.06;
-satGroup.add(payloadModule);
+const radiator = new THREE.Mesh(new THREE.BoxGeometry(0.062, 0.012, 0.04), metalMat);
+radiator.position.set(0, -0.026, -0.01);
+satGroup.add(radiator);
 
-const lensGlass = new THREE.Mesh(
-    new THREE.CircleGeometry(0.016, 24),
-    new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
-);
-lensGlass.position.z = 0.081;
+// Forward Optical Telescope Barrel & Sensor Lens
+const payloadBarrel = new THREE.Mesh(new THREE.CylinderGeometry(0.021, 0.025, 0.045, 16), metalMat);
+payloadBarrel.rotation.x = Math.PI / 2; payloadBarrel.position.z = 0.062;
+satGroup.add(payloadBarrel);
+
+const lensGlass = new THREE.Mesh(new THREE.CircleGeometry(0.016, 24), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+lensGlass.position.z = 0.086;
 satGroup.add(lensGlass);
 
-const thruster = new THREE.Mesh(new THREE.ConeGeometry(0.015, 0.025, 16), darkMetalMat);
-thruster.rotation.x = Math.PI / 2;
-thruster.position.z = -0.055;
+// Aft Ion Thruster + Subtle Blue Plasma Glow
+const thruster = new THREE.Mesh(new THREE.ConeGeometry(0.014, 0.026, 16), darkMetalMat);
+thruster.rotation.x = Math.PI / 2; thruster.position.z = -0.058;
 satGroup.add(thruster);
+const ionGlow = new THREE.Mesh(new THREE.SphereGeometry(0.009, 12, 12), new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.7 }));
+ionGlow.position.z = -0.072;
+satGroup.add(ionGlow);
 
+// Top Parabolic High-Gain Dish + Feed Horn
 const dishParabolic = new THREE.Mesh(
-    new THREE.SphereGeometry(0.026, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.42),
-    new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.6, roughness: 0.3, side: THREE.DoubleSide })
+    new THREE.SphereGeometry(0.027, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.42),
+    new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.65, roughness: 0.25, side: THREE.DoubleSide })
 );
-dishParabolic.position.set(0, 0.042, 0.01);
-dishParabolic.rotation.x = -Math.PI / 3;
+dishParabolic.position.set(0, 0.043, 0.008); dishParabolic.rotation.x = -Math.PI / 3;
 satGroup.add(dishParabolic);
 
-const feedRod = new THREE.Mesh(new THREE.CylinderGeometry(0.002, 0.002, 0.025, 8), metalMat);
-feedRod.position.set(0, 0.05, 0.02);
-feedRod.rotation.x = Math.PI / 6;
+const feedRod = new THREE.Mesh(new THREE.CylinderGeometry(0.002, 0.002, 0.026, 8), metalMat);
+feedRod.position.set(0, 0.052, 0.018); feedRod.rotation.x = Math.PI / 6;
 satGroup.add(feedRod);
 
+// Dual 4-Segment Photovoltaic Solar Wing Arrays
 function createSolarWing(side) {
     const wing = new THREE.Group();
-    const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.003, 0.22, 8), metalMat);
-    strut.rotation.z = Math.PI / 2;
-    strut.position.x = side * 0.11;
+    const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.003, 0.28, 8), metalMat);
+    strut.rotation.z = Math.PI / 2; strut.position.x = side * 0.14;
     wing.add(strut);
 
-    const cellMat = new THREE.MeshStandardMaterial({
-        color: 0x0f2952,
-        emissive: 0x071630,
-        metalness: 0.75,
-        roughness: 0.2,
-        side: THREE.DoubleSide
-    });
+    const cellMat = new THREE.MeshStandardMaterial({ color: 0x0f2952, emissive: 0x071630, metalness: 0.78, roughness: 0.18, side: THREE.DoubleSide });
     const frameMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, wireframe: true, transparent: true, opacity: 0.25 });
 
-    for (let i = 0; i < 3; i++) {
-        const xPos = side * (0.065 + i * 0.058);
-        const segGeo = new THREE.BoxGeometry(0.052, 0.002, 0.075);
-        const panel = new THREE.Mesh(segGeo, cellMat);
-        panel.position.x = xPos;
-        wing.add(panel);
-
-        const gridFrame = new THREE.Mesh(segGeo, frameMat);
-        gridFrame.position.x = xPos;
-        wing.add(gridFrame);
+    for (let i = 0; i < 4; i++) {
+        const xPos = side * (0.062 + i * 0.055);
+        const segGeo = new THREE.BoxGeometry(0.048, 0.002, 0.076);
+        const panel = new THREE.Mesh(segGeo, cellMat); panel.position.x = xPos; wing.add(panel);
+        const grid = new THREE.Mesh(segGeo, frameMat); grid.position.x = xPos; wing.add(grid);
     }
     return wing;
 }
 satGroup.add(createSolarWing(-1));
 satGroup.add(createSolarWing(1));
 
-const navBeacon = new THREE.Mesh(new THREE.SphereGeometry(0.005, 8, 8), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
-navBeacon.position.set(0, -0.032, 0);
-satGroup.add(navBeacon);
+// Dual Navigation Strobes (Red + Green)
+const navBeaconRed = new THREE.Mesh(new THREE.SphereGeometry(0.005, 8, 8), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
+navBeaconRed.position.set(-0.27, 0, 0); satGroup.add(navBeaconRed);
+const navBeaconGreen = new THREE.Mesh(new THREE.SphereGeometry(0.005, 8, 8), new THREE.MeshBasicMaterial({ color: 0x10b981 }));
+navBeaconGreen.position.set(0.27, 0, 0); satGroup.add(navBeaconGreen);
 
-const satKeyLight = new THREE.PointLight(0xffffff, 0.9, 0.8);
+const satKeyLight = new THREE.PointLight(0xffffff, 1.0, 0.9);
 satKeyLight.position.set(0.15, 0.15, -0.15);
 satGroup.add(satKeyLight);
-
 scene.add(satGroup);
 
+// --- 3D EVENT BEACONS (FIXED OUTWARD QUATERNION ORIENTATION) ---
 let markerMeshes = [];
 let mapMarkers = [];
 function renderIntelMarkers() {
@@ -1114,97 +1120,157 @@ function renderIntelMarkers() {
 
     liveIntelData.forEach(data => {
         const localPos = latLonToLocalEarthPosition(data.lat, data.lon, 1.0);
-        
-        let color = 0xef4444;
-        let hexColor = '#ef4444';
+        let color = 0xef4444, hexColor = '#ef4444';
         if (data.type === 'eonet') { color = 0xf59e0b; hexColor = '#f59e0b'; }
         if (data.type === 'rw') { color = 0xd946ef; hexColor = '#d946ef'; }
         
         const beacon = new THREE.Group();
-        const pGeo = new THREE.CylinderGeometry(0.006, 0.006, 0.15, 8);
-        const pMat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.85 });
-        const pillar = new THREE.Mesh(pGeo, pMat);
-        pillar.translateY(0.075);
+        const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.14, 8), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85 }));
+        pillar.position.y = 0.07;
         beacon.add(pillar);
         
-        const ringGeo = new THREE.RingGeometry(0.015, 0.028, 16);
-        const ringMat = new THREE.MeshBasicMaterial({ color: color, side: THREE.DoubleSide, transparent: true, opacity: 0.9 });
-        const ring = new THREE.Mesh(ringGeo, ringMat);
-        ring.rotateX(Math.PI/2);
-        ring.translateZ(-0.001);
+        const ring = new THREE.Mesh(new THREE.RingGeometry(0.014, 0.025, 16), new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, opacity: 0.9 }));
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.y = 0.003;
         beacon.add(ring);
         
-        beacon.position.copy(localPos); 
-        beacon.lookAt(0,0,0);
-        beacon.rotateX(Math.PI/2); 
-        
-        earthMesh.add(beacon); 
+        beacon.position.copy(localPos);
+        beacon.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), localPos.clone().normalize());
+        earthMesh.add(beacon);
         markerMeshes.push(beacon);
 
         const mIcon = L.divIcon({ html: `<div style="width:14px;height:14px;background:${hexColor};border-radius:50%;border:2px solid white;box-shadow:0 0 10px ${hexColor};"></div>`, className: '', iconSize: [14, 14] });
-        const m = L.marker([data.lat, data.lon], {icon: mIcon}).addTo(map);
-        m.on('click', function() { parkSatelliteAt(data.lat, data.lon); });
+        const m = L.marker([data.lat, data.lon], { icon: mIcon }).addTo(map);
+        m.on('click', () => parkSatelliteAt(data.lat, data.lon));
         mapMarkers.push(m);
     });
 }
 
+// --- 2D LEAFLET MAP + RAINVIEWER WEATHER RADAR ---
 const map = L.map('map-viewport', { zoomControl: false, attributionControl: false }).setView([20, 78], 3);
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 17 }).addTo(map);
 const satMarker = L.marker([0, 0], { icon: L.divIcon({ html: `<div style="width:16px;height:16px;background:#38bdf8;border-radius:50%;border:2px solid white;box-shadow:0 0 10px #38bdf8;"></div>`, className: '', iconSize: [16, 16], iconAnchor: [8, 8] }) }).addTo(map);
-const satCircle = L.circle([0, 0], { radius: 1200000, color: '#38bdf8', weight: 1, fillOpacity: 0.1 }).addTo(map);
+const satCircle = L.circle([0, 0], { radius: 1050000, color: '#38bdf8', weight: 1, fillOpacity: 0.1 }).addTo(map);
+map.on('click', e => parkSatelliteAt(e.latlng.lat, e.latlng.lng));
 
-map.on('click', function(e) {
-    parkSatelliteAt(e.latlng.lat, e.latlng.lng);
-});
+let rainRadarLayer = null;
+async function toggleRainRadar() {
+    isRainRadarOn = !isRainRadarOn;
+    const btn = document.getElementById('btn-radar');
+    const ind = document.getElementById('radar-ind');
+    playSound('click');
 
+    if (isRainRadarOn) {
+        btn.classList.add('bg-emerald-900/50', 'border-emerald-400');
+        ind.textContent = 'ON'; ind.classList.replace('text-slate-400', 'text-emerald-300');
+        try {
+            const rvData = await cachedFetchJSON('https://api.rainviewer.com/public/weather-maps.json', 300000);
+            if (rvData && rvData.radar && rvData.radar.past && rvData.radar.past.length > 0) {
+                const latest = rvData.radar.past[rvData.radar.past.length - 1];
+                const tileUrl = `${rvData.host}${latest.path}/256/{z}/{x}/{y}/2/1_1.png`;
+                if (rainRadarLayer) map.removeLayer(rainRadarLayer);
+                rainRadarLayer = L.tileLayer(tileUrl, { opacity: 0.65, maxNativeZoom: 7, maxZoom: 12 }).addTo(map);
+                showToast('Live RainViewer Weather Radar Active');
+            }
+        } catch (e) {
+            showToast('RainViewer Radar temporarily unavailable');
+        }
+    } else {
+        btn.classList.remove('bg-emerald-900/50', 'border-emerald-400');
+        ind.textContent = 'OFF'; ind.classList.replace('text-emerald-300', 'text-slate-400');
+        if (rainRadarLayer) { map.removeLayer(rainRadarLayer); rainRadarLayer = null; }
+        showToast('Rain Radar Disabled');
+    }
+}
+
+// --- CURVED SURFACE SWATH FOOTPRINT & LASER CONE ---
 let coneMesh, ringMesh;
 function buildLaser() {
-    if(coneMesh) scene.remove(coneMesh);
-    if(ringMesh) scene.remove(ringMesh);
+    if (coneMesh) scene.remove(coneMesh);
+    if (ringMesh) scene.remove(ringMesh);
 
     const coneHeight = Math.max(0.18, orbitRadius - 1.0);
-    let visualSwath = Math.min(0.45, swathRadius * (1 + (coneHeight * 0.25)));
-    
-    const cGeo = new THREE.ConeGeometry(visualSwath, coneHeight, 24, 1, true);
-    cGeo.translate(0, -coneHeight/2, 0);
-    cGeo.rotateX(-Math.PI / 2); 
-    coneMesh = new THREE.Mesh(cGeo, new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.08, wireframe: true, depthWrite: false }));
+    const angularRad = swathRadius; // radians on unit sphere
+    const surfaceCircleRadius = Math.sin(angularRad) * 1.004;
+    const surfaceZDist = Math.cos(angularRad) * 1.004;
+
+    const cGeo = new THREE.ConeGeometry(surfaceCircleRadius, orbitRadius - surfaceZDist, 24, 1, true);
+    cGeo.translate(0, -(orbitRadius - surfaceZDist) / 2, 0);
+    cGeo.rotateX(-Math.PI / 2);
+    coneMesh = new THREE.Mesh(cGeo, new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.09, wireframe: true, depthWrite: false }));
     scene.add(coneMesh);
 
-    ringMesh = new THREE.Mesh(new THREE.RingGeometry(Math.max(0.01, swathRadius - 0.012), swathRadius, 48), new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false }));
+    // Curved spherical-cap ring hugging the Earth cleanly
+    const ringPts = [];
+    for (let i = 0; i <= 64; i++) {
+        const a = (i / 64) * Math.PI * 2;
+        ringPts.push(new THREE.Vector3(Math.cos(a) * surfaceCircleRadius, Math.sin(a) * surfaceCircleRadius, surfaceZDist));
+    }
+    ringMesh = new THREE.LineLoop(
+        new THREE.BufferGeometry().setFromPoints(ringPts),
+        new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.85 })
+    );
     scene.add(ringMesh);
+    earthUniforms.satSpotCos.value = Math.cos(angularRad);
 }
 buildLaser();
 
+// --- 3D DOUBLE-CLICK / DOUBLE-TAP RAYCASTER TO DEPLOY ---
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+let lastTapTime = 0;
+renderer.domElement.addEventListener('pointerdown', (e) => {
+    const now = Date.now();
+    if (now - lastTapTime < 320) {
+        pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+        pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        raycaster.setFromCamera(pointer, camera);
+        const hits = raycaster.intersectObject(earthMesh);
+        if (hits.length > 0) {
+            const coords = worldPositionToLatLon(hits[0].point, earthMesh.rotation.y);
+            parkSatelliteAt(coords.lat, coords.lon);
+            showToast(`3D Lock: ${coords.lat.toFixed(2)}°, ${coords.lon.toFixed(2)}°`);
+        }
+    }
+    lastTapTime = now;
+});
+
+// --- UI SWITCHERS ---
 function switchEngine(mode) {
     playSound('click'); activeEngine = mode;
     document.getElementById('globe-viewport').style.display = (mode === '3D') ? 'block' : 'none';
     document.getElementById('map-viewport').style.display = (mode === '2D') ? 'block' : 'none';
-    document.getElementById('cam-controls').style.opacity = (mode === '3D') ? '1' : '0';
-    document.getElementById('btn-3d').className = (mode === '3D') ? 'btn-active px-4 py-2 rounded text-[11px] font-bold' : 'px-4 py-2 rounded text-[11px] font-bold text-slate-400 hover:text-white';
-    document.getElementById('btn-2d').className = (mode === '2D') ? 'btn-active px-4 py-2 rounded text-[11px] font-bold' : 'px-4 py-2 rounded text-[11px] font-bold text-slate-400 hover:text-white';
-    if(mode === '2D') setTimeout(() => map.invalidateSize(), 100);
+    document.getElementById('btn-cam-cycle').classList.toggle('hidden', mode !== '3D');
+    document.getElementById('btn-radar').classList.toggle('hidden', mode !== '2D');
+    document.getElementById('btn-3d').className = (mode === '3D') ? 'btn-active px-3 py-1.5 rounded text-[10px] font-bold' : 'px-3 py-1.5 rounded text-[10px] font-bold text-slate-400 hover:text-white';
+    document.getElementById('btn-2d').className = (mode === '2D') ? 'btn-active px-3 py-1.5 rounded text-[10px] font-bold' : 'px-3 py-1.5 rounded text-[10px] font-bold text-slate-400 hover:text-white';
+    if (mode === '2D') setTimeout(() => map.invalidateSize(), 100);
 }
 
-function switchCamera(mode) {
-    playSound('click'); activeCamera = mode;
-    ['cam-free', 'cam-chase', 'cam-nadir'].forEach(id => document.getElementById(id).className = 'px-4 py-2 rounded text-[11px] font-bold text-slate-400 hover:text-white');
-    document.getElementById(`cam-${mode.toLowerCase()}`).className = 'btn-active px-4 py-2 rounded text-[11px] font-bold';
+function cycleCamera() {
+    playSound('click');
+    camModeIdx = (camModeIdx + 1) % camModes.length;
+    activeCamera = camModes[camModeIdx];
+    const labels = { FREE: 'Free', CHASE: 'Follow', NADIR: 'Look Down' };
+    document.getElementById('cam-label').textContent = labels[activeCamera];
 }
 
-const opticsNames = ['Standard Color', 'Thermal (Heat)', 'Night Vision', 'Radar (Terrain)'];
+const opticsNames = ['Standard Color', 'Thermal (Heat)', 'Night Vision', 'Radar (Wireframe)'];
 function setOptics(idx) {
     playSound('click');
     document.getElementById('hud-optics').textContent = opticsNames[idx];
     document.querySelectorAll('.optics-btn').forEach((btn, i) => {
-        if(i === idx) { btn.classList.add('btn-active'); btn.classList.remove('bg-slate-800/80'); } 
-        else { btn.classList.remove('btn-active'); btn.classList.add('bg-slate-800/80'); }
+        btn.classList.toggle('btn-active', i === idx);
+        btn.classList.toggle('bg-slate-800/80', i !== idx);
     });
-    
-    if (idx === 0) { earthMat.map = earthDayTex; earthMat.color.setHex(0xffffff); earthMat.wireframe = false; }
-    else if (idx === 1) { earthMat.map = earthNightTex; earthMat.color.setHex(0xff5500); earthMat.wireframe = false; }
-    else if (idx === 2) { earthMat.map = earthNightTex; earthMat.color.setHex(0x00ff00); earthMat.wireframe = false; }
-    else { earthMat.map = null; earthMat.color.setHex(0x061120); earthMat.wireframe = true; }
+    if (idx === 3) {
+        earthMesh.material = earthWireMat;
+        cloudMesh.visible = false;
+    } else {
+        earthMesh.material = earthShaderMat;
+        earthUniforms.opticsMode.value = idx;
+        cloudMesh.visible = (idx === 0);
+    }
 }
 
 function updateAltitude(km) {
@@ -1212,8 +1278,7 @@ function updateAltitude(km) {
     orbitRadius = calcOrbitRadius(currentAltitudeKm);
     document.getElementById('alt-val').textContent = km + " km";
     document.getElementById('hud-alt').textContent = km;
-    const baseSpeed = parseFloat(document.getElementById('speed-slider').value);
-    orbitSpeed = baseSpeed / (orbitRadius * 0.5); 
+    updateSpeed(document.getElementById('speed-slider').value);
     buildLaser();
     drawOrbitLine();
 }
@@ -1233,90 +1298,103 @@ function updateSwath(val) {
 }
 
 function updateSpeed(val) {
-    const baseSpeed = parseFloat(val);
-    orbitSpeed = baseSpeed / (orbitRadius * 0.5);
-    const mult = (baseSpeed / 0.003).toFixed(1);
-    document.getElementById('speed-val').textContent = mult + "x " + (mult == 1.0 ? "(Real-time)" : "(Fast)");
+    baseOrbitSpeed = parseFloat(val);
+    orbitSpeed = baseOrbitSpeed / Math.max(0.6, orbitRadius * 0.65);
+    const mult = (baseOrbitSpeed / 0.035).toFixed(1);
+    document.getElementById('speed-val').textContent = mult + "x " + (mult == 1.0 ? "(Realistic)" : "");
 }
+
+// --- 9. FRAME-RATE INDEPENDENT ANIMATION LOOP (THREE.Clock) ---
+const clock = new THREE.Clock();
 
 function animate() {
     requestAnimationFrame(animate);
-    earthMesh.rotation.y += 0.0005;
+    const dt = Math.min(clock.getDelta(), 0.1);
 
-    if (!isGeoLocked) {
-        orbitTime += orbitSpeed;
-        const inclRad = orbitInclination * Math.PI / 180;
-        
-        const x = Math.cos(orbitTime) * orbitRadius;
-        const z = Math.sin(orbitTime) * Math.cos(inclRad) * orbitRadius;
-        const y = Math.sin(orbitTime) * Math.sin(inclRad) * orbitRadius;
-        
-        satGroup.position.set(x, y, z);
+    // Smooth, realistic Earth & Cloud rotation
+    earthMesh.rotation.y += 0.008 * dt;
+    cloudMesh.rotation.y += 0.011 * dt;
+
+    // Real-time UTC Sun position
+    const liveSunDir = getRealTimeSunDirection(earthMesh.rotation.y);
+    earthUniforms.sunDir.value.copy(liveSunDir);
+    sunLight.position.copy(liveSunDir).multiplyScalar(10);
+
+    if (isISSMode) {
+        // Smoothly interpolate toward live ISS coordinates
+        issCurrentLat += (issTargetLat - issCurrentLat) * Math.min(1, dt * 1.5);
+        let dLon = issTargetLon - issCurrentLon;
+        if (dLon > 180) dLon -= 360;
+        if (dLon < -180) dLon += 360;
+        issCurrentLon += dLon * Math.min(1, dt * 1.5);
+
+        const issPos = latLonToWorldPosition(issCurrentLat, issCurrentLon, orbitRadius, earthMesh.rotation.y);
+        satGroup.position.copy(issPos);
         satGroup.lookAt(0,0,0);
-        
-        coneMesh.position.copy(satGroup.position); coneMesh.lookAt(0,0,0);
-        ringMesh.position.copy(satGroup.position).normalize().multiplyScalar(1.003); ringMesh.lookAt(0,0,0); 
+
+        document.getElementById('hud-lat').textContent = issCurrentLat.toFixed(2);
+        document.getElementById('hud-lon').textContent = issCurrentLon.toFixed(2);
+        satMarker.setLatLng([issCurrentLat, issCurrentLon]);
+        satCircle.setLatLng([issCurrentLat, issCurrentLon]);
+    } else if (!isGeoLocked) {
+        orbitTime += orbitSpeed * dt;
+        const inclRad = orbitInclination * Math.PI / 180;
+        satGroup.position.set(
+            Math.cos(orbitTime) * orbitRadius,
+            Math.sin(orbitTime) * Math.sin(inclRad) * orbitRadius,
+            Math.sin(orbitTime) * Math.cos(inclRad) * orbitRadius
+        );
+        satGroup.lookAt(0,0,0);
 
         const coords = worldPositionToLatLon(satGroup.position, earthMesh.rotation.y);
-        const lat = coords.lat;
-        const lon = coords.lon;
-
-        document.getElementById('hud-lat').textContent = lat.toFixed(2);
-        document.getElementById('hud-lon').textContent = lon.toFixed(2);
-        satMarker.setLatLng([lat, lon]); satCircle.setLatLng([lat, lon]);
+        document.getElementById('hud-lat').textContent = coords.lat.toFixed(2);
+        document.getElementById('hud-lon').textContent = coords.lon.toFixed(2);
+        satMarker.setLatLng([coords.lat, coords.lon]);
+        satCircle.setLatLng([coords.lat, coords.lon]);
 
         const now = Date.now();
-        if (isDockExpanded && currentTab === 'weather' && now - lastScannedTime > 4000) {
+        if (isDockExpanded && currentTab === 'weather' && now - lastScannedTime > 4500) {
             lastScannedTime = now;
-            fetchSubSatData(lat, lon);
+            fetchSubSatData(coords.lat, coords.lon);
         }
     } else {
         const lockedPos = latLonToWorldPosition(lockedLat, lockedLon, orbitRadius, earthMesh.rotation.y);
         satGroup.position.copy(lockedPos);
         satGroup.lookAt(0,0,0);
-        
-        coneMesh.position.copy(satGroup.position); coneMesh.lookAt(0,0,0);
-        ringMesh.position.copy(satGroup.position).normalize().multiplyScalar(1.003); ringMesh.lookAt(0,0,0); 
     }
 
-    // STRICT NIGHT-ONLY ADAPTIVE ILLUMINATION:
-    // Spotlight stays at 0.0 intensity on the entire day side and twilight border (sunAlignment > -0.05)
-    // Only turns on in true night shadow (sunAlignment < -0.05) with gentle intensity (0.95 max) so it never over-lights!
-    const satNormal = satGroup.position.clone().normalize();
-    const sunAlignment = satNormal.dot(sunDirVector);
-    const nightFactor = Math.max(0, Math.min(1, (-0.05 - sunAlignment) / 0.55));
-    satSpotLight.intensity = nightFactor * 0.95;
-    satSpotLight.position.copy(satGroup.position);
-    satSpotLight.target.position.set(0, 0, 0);
-    const coneDist = Math.max(0.18, orbitRadius - 1.0);
-    satSpotLight.angle = Math.atan2(swathRadius * 1.05, coneDist);
+    // Align laser cone & curved spherical-cap footprint ring
+    coneMesh.position.copy(satGroup.position);
+    coneMesh.lookAt(0,0,0);
+    ringMesh.lookAt(satGroup.position);
+    earthUniforms.satDir.value.copy(satGroup.position).normalize();
 
-    navBeacon.visible = Math.floor(Date.now() / 500) % 2 === 0;
+    // Blink aerospace navigation strobes
+    const strobe = Math.floor(Date.now() / 550) % 2 === 0;
+    navBeaconRed.visible = strobe;
+    navBeaconGreen.visible = !strobe;
 
     document.getElementById('hud-time').textContent = 'UTC ' + new Date().toISOString().substr(11,8);
 
-    // CAMERA MODES
+    // Camera Modes
     if (activeCamera === 'FREE') {
         controls.update();
     } else if (activeCamera === 'CHASE') {
         const inclRad = orbitInclination * Math.PI / 180;
-        let forward;
-        if (!isGeoLocked) {
-            forward = new THREE.Vector3(-Math.sin(orbitTime), Math.cos(orbitTime) * Math.sin(inclRad), Math.cos(orbitTime) * Math.cos(inclRad)).normalize();
-        } else {
-            forward = new THREE.Vector3(-satGroup.position.z, 0, satGroup.position.x).normalize();
-        }
+        const forward = (!isGeoLocked && !isISSMode)
+            ? new THREE.Vector3(-Math.sin(orbitTime), Math.cos(orbitTime) * Math.sin(inclRad), Math.cos(orbitTime) * Math.cos(inclRad)).normalize()
+            : new THREE.Vector3(-satGroup.position.z, 0, satGroup.position.x).normalize();
         const up = new THREE.Vector3(0,1,0);
         const right = new THREE.Vector3().crossVectors(forward, up).normalize();
         const scale = 1.0 + ((orbitRadius - 1.0) * 0.4);
         const offset = new THREE.Vector3().addScaledVector(forward, -0.6 * scale).addScaledVector(up, 0.35 * scale).addScaledVector(right, 0.1 * scale);
-        
-        camera.position.lerp(satGroup.position.clone().add(offset), 0.1);
+        camera.position.lerp(satGroup.position.clone().add(offset), 0.08);
         camera.lookAt(satGroup.position);
     } else if (activeCamera === 'NADIR') {
-        camera.position.lerp(satGroup.position.clone().multiplyScalar(1.05), 0.1);
+        camera.position.lerp(satGroup.position.clone().multiplyScalar(1.06), 0.1);
         camera.lookAt(0,0,0);
     }
+
     renderer.render(scene, camera);
 }
 
@@ -1324,14 +1402,15 @@ window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-    if(activeEngine === '2D') map.invalidateSize();
+    if (activeEngine === '2D') map.invalidateSize();
 });
 
-// Initial boot data load
+// Boot initialization
+updateSpeed(document.getElementById('speed-slider').value);
 setTimeout(() => {
     fetchLiveIntel(true);
     const coords = worldPositionToLatLon(satGroup.position, earthMesh.rotation.y);
     fetchSubSatData(coords.lat, coords.lon, true);
-}, 400);
+}, 350);
 
 animate();

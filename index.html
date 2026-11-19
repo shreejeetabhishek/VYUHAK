@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>VYUHAK // Orbital Intelligence & Regional Surveillance</title>
+    <title>VYUHAK // Orbital Intelligence & Real-Time Earth Tracker</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -18,21 +18,29 @@
     <div id="globe-viewport"></div>
     <div id="map-viewport"></div>
 
+    <!-- Non-blocking Toast Notification -->
+    <div id="toast-container"></div>
+
+    <!-- TOP HUD -->
     <div id="top-hud-container">
-        <!-- Main Dashboard Panel -->
+        <!-- Main Telemetry Card -->
         <div class="obsidian-glass hud-brackets pointer-events-auto rounded-lg p-3 w-full shrink-0 shadow-lg">
-            <div class="flex items-center justify-between mb-3 border-b border-slate-700/50 pb-2">
+            <div class="flex items-center justify-between mb-2.5 border-b border-slate-700/50 pb-2">
                 <div class="flex items-center gap-2">
                     <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    <h1 class="text-xs font-bold tracking-widest text-sky-400">VYUHAK <span class="text-slate-400 font-normal">Global Tracker</span></h1>
+                    <h1 class="text-xs font-bold tracking-widest text-sky-400">VYUHAK <span class="text-slate-400 font-normal">v16 LIVE</span></h1>
                 </div>
-                <div class="flex items-center gap-3">
-                    <span id="hud-time" class="text-[10px] font-bold text-amber-400">Loading Time...</span>
+                <div class="flex items-center gap-2.5">
+                    <span id="hud-time" class="text-[10px] font-bold text-amber-400 mono-telemetry">UTC --:--:--</span>
+                    <button id="btn-mute" onclick="toggleMute()" class="text-slate-400 hover:text-sky-300 transition p-0.5" title="Toggle Sound">
+                        <svg id="icon-sound-on" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
+                        <svg id="icon-sound-off" class="w-3.5 h-3.5 hidden text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path></svg>
+                    </button>
                     <div id="connection-led" class="status-led"></div>
                 </div>
             </div>
             
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-y-3 gap-x-2 text-[11px] text-slate-300">
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-y-2.5 gap-x-2 text-[11px] text-slate-300">
                 <div>
                     <div class="mb-0.5 opacity-60 text-[9px] uppercase tracking-wider">Active Satellite</div>
                     <div class="text-sky-100 font-bold" id="hud-sat-name">VK-Tracker-01</div>
@@ -43,104 +51,109 @@
                 </div>
                 <div>
                     <div class="mb-0.5 opacity-60 text-[9px] uppercase tracking-wider">Altitude / Speed</div>
-                    <div class="text-slate-200"><span id="hud-alt">1200</span> km / <span id="hud-vel">7.3</span> km/s</div>
+                    <div class="text-slate-200 mono-telemetry"><span id="hud-alt">1200</span> km / <span id="hud-vel">7.3</span> km/s</div>
                 </div>
                 <div>
-                    <div class="mb-0.5 opacity-60 text-[9px] uppercase tracking-wider">Looking At (Coordinates)</div>
-                    <div class="text-emerald-400"><span id="hud-lat">20.84</span>&deg;, <span id="hud-lon">85.10</span>&deg;</div>
+                    <div class="mb-0.5 opacity-60 text-[9px] uppercase tracking-wider">Looking At (Coords)</div>
+                    <div class="text-emerald-400 mono-telemetry"><span id="hud-lat">20.84</span>&deg;, <span id="hud-lon">85.10</span>&deg;</div>
                 </div>
             </div>
         </div>
 
-        <div class="pointer-events-auto flex gap-2 overflow-x-auto hide-scrollbar w-full pb-1">
-            <div class="obsidian-glass rounded flex p-1 shrink-0">
-                <button id="btn-3d" onclick="switchEngine('3D')" class="btn-active px-4 py-2 rounded text-[11px] font-bold">3D Globe</button>
-                <button id="btn-2d" onclick="switchEngine('2D')" class="px-4 py-2 rounded text-[11px] font-bold text-slate-400 hover:text-white">2D Flat Map</button>
+        <!-- Compact Mobile-Friendly Action Bar -->
+        <div class="pointer-events-auto flex flex-wrap items-center gap-1.5 w-full">
+            <div class="obsidian-glass rounded flex p-0.5 shrink-0">
+                <button id="btn-3d" onclick="switchEngine('3D')" class="btn-active px-3 py-1.5 rounded text-[10px] font-bold">3D</button>
+                <button id="btn-2d" onclick="switchEngine('2D')" class="px-3 py-1.5 rounded text-[10px] font-bold text-slate-400 hover:text-white">2D</button>
             </div>
-            <div id="cam-controls" class="obsidian-glass rounded flex p-1 shrink-0">
-                <button id="cam-free" onclick="switchCamera('FREE')" class="btn-active px-4 py-2 rounded text-[11px] font-bold">Free Camera</button>
-                <button id="cam-chase" onclick="switchCamera('CHASE')" class="px-4 py-2 rounded text-[11px] font-bold text-slate-400 hover:text-white">Follow Satellite</button>
-                <button id="cam-nadir" onclick="switchCamera('NADIR')" class="px-4 py-2 rounded text-[11px] font-bold text-slate-400 hover:text-white">Look Down</button>
-            </div>
-            <!-- Quick Stop / Hover Button on Top Bar -->
-            <button id="top-geo-lock" onclick="toggleGeoLock()" class="obsidian-glass rounded px-3.5 py-2 text-[11px] font-bold text-sky-300 border border-sky-500/40 shrink-0 flex items-center gap-1.5">
-                <span>Hover Lock:</span>
-                <span id="top-lock-ind" class="text-slate-400">OFF</span>
+            <button id="btn-cam-cycle" onclick="cycleCamera()" class="obsidian-glass rounded px-3 py-1.5 text-[10px] font-bold text-sky-300 border border-slate-700/60 shrink-0">
+                Cam: <span id="cam-label">Free</span>
+            </button>
+            <button id="top-geo-lock" onclick="toggleGeoLock()" class="obsidian-glass rounded px-3 py-1.5 text-[10px] font-bold text-slate-200 border border-slate-700/60 shrink-0">
+                Hover: <span id="top-lock-ind" class="text-slate-400">OFF</span>
+            </button>
+            <button id="btn-iss-mode" onclick="toggleISSMode()" class="obsidian-glass rounded px-3 py-1.5 text-[10px] font-bold text-amber-300 border border-amber-500/30 shrink-0">
+                ISS Live: <span id="iss-ind" class="text-slate-400">OFF</span>
+            </button>
+            <button id="btn-radar" onclick="toggleRainRadar()" class="obsidian-glass rounded px-3 py-1.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/30 shrink-0 hidden">
+                Rain Radar: <span id="radar-ind" class="text-slate-400">OFF</span>
             </button>
         </div>
     </div>
 
     <!-- BOTTOM DOCK -->
     <div id="fixed-bottom-dock">
-        <div class="flex h-[55px] w-full border-b border-white/5 relative z-10">
-            <button onclick="openTab('intel', this)" class="tab-btn active">Live Global Events <span id="intel-badge" class="ml-1.5 bg-red-500 text-white text-[9px] px-1.5 py-0.5 rounded-full hidden">0</span></button>
+        <div class="flex justify-center pt-1.5 pb-0.5 cursor-pointer" onclick="toggleDockCollapse()">
+            <div class="w-10 h-1 bg-slate-600 rounded-full"></div>
+        </div>
+        <div class="flex h-[48px] w-full border-b border-white/5 relative z-10">
+            <button onclick="openTab('intel', this)" class="tab-btn active">Live Events <span id="intel-badge" class="ml-1.5 bg-red-500 text-white text-[9px] px-1.5 py-0.5 rounded-full hidden">0</span></button>
             <button onclick="openTab('weather', this)" class="tab-btn">Ground Data</button>
             <button onclick="openTab('mission', this)" class="tab-btn">Settings</button>
         </div>
         
-        <!-- Tab: Intel (Global Events) -->
+        <!-- Tab: Live Global Events -->
         <div id="tab-intel" class="tab-content active hide-scrollbar">
-            <div class="flex justify-between items-center mb-4">
+            <div class="flex justify-between items-center mb-3">
                 <h3 class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Global Live Feed</h3>
-                <button onclick="fetchLiveIntel(true)" class="text-[10px] bg-sky-900/50 hover:bg-sky-700/50 text-sky-300 px-3 py-1.5 rounded transition-colors font-bold border border-sky-500/30">Refresh Data</button>
+                <button onclick="fetchLiveIntel(true)" class="text-[10px] bg-sky-900/50 hover:bg-sky-700/50 text-sky-300 px-3 py-1.5 rounded font-bold border border-sky-500/30">Refresh</button>
             </div>
-            
             <div id="intel-feed" class="space-y-3 pb-6">
-                <div class="text-center p-4 text-[12px] text-slate-400">Connecting to global news and emergency networks...</div>
+                <div class="skeleton-card h-14 rounded-lg"></div>
+                <div class="skeleton-card h-14 rounded-lg"></div>
             </div>
         </div>
         
-        <!-- Tab: Ground Data (Multi-Point Full Swath Surveillance Dossier) -->
+        <!-- Tab: Ground Data (Regional Surveillance Dossier) -->
         <div id="tab-weather" class="tab-content hide-scrollbar space-y-5 pb-10">
-            <!-- Header & Scan Button -->
             <div class="flex justify-between items-center border-b border-slate-700 pb-2">
                 <div>
-                    <h3 class="text-[11px] font-bold text-sky-400 tracking-widest uppercase">Full Satellite Swath Dossier</h3>
-                    <div id="weather-loc" class="text-[10px] text-emerald-400 font-mono">Scanning multi-point footprint...</div>
+                    <h3 class="text-[11px] font-bold text-sky-400 tracking-widest uppercase">Target Footprint Dossier</h3>
+                    <div id="weather-loc" class="text-[10px] text-emerald-400 mono-telemetry">Scanning coordinates...</div>
                 </div>
-                <button onclick="scanCurrentFootprint()" class="text-[10px] bg-emerald-900/50 hover:bg-emerald-700/50 text-emerald-300 px-3 py-1.5 rounded font-bold border border-emerald-500/30">Scan Swath Now</button>
+                <button onclick="scanCurrentFootprint()" class="text-[10px] bg-emerald-900/50 hover:bg-emerald-700/50 text-emerald-300 px-3 py-1.5 rounded font-bold border border-emerald-500/30">Scan Now</button>
             </div>
 
-            <!-- 1. Multi-Point Territory, Population & Economy Across Swath -->
+            <!-- 1. Territory, Population & Economy -->
             <div>
-                <h4 class="text-[10px] font-bold text-slate-400 tracking-widest mb-2 uppercase">1. All Countries & Regions Inside Satellite Footprint</h4>
+                <h4 class="text-[10px] font-bold text-slate-400 tracking-widest mb-2 uppercase">1. Territory, Population & Economy</h4>
                 <div id="geo-data" class="text-[12px] text-slate-200 leading-relaxed bg-slate-900/60 p-3 border border-slate-800 rounded-lg mb-2">
-                    Locking onto 5-point satellite footprint (Center, North, South, East, West)...
+                    Locking onto satellite footprint...
                 </div>
                 <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
-                        <div class="text-[9px] text-slate-400 uppercase" id="lbl-pop">Swath Countries Pop.</div>
+                        <div class="text-[9px] text-slate-400 uppercase" id="reg-pop-label">Country Population</div>
                         <div id="reg-pop" class="text-sm font-bold text-white mt-0.5">--</div>
                     </div>
                     <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
-                        <div class="text-[9px] text-slate-400 uppercase" id="lbl-cap">Capitals in Swath</div>
+                        <div class="text-[9px] text-slate-400 uppercase">Capital City</div>
                         <div id="reg-cap" class="text-sm font-bold text-sky-300 mt-0.5">--</div>
                     </div>
                     <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
-                        <div class="text-[9px] text-slate-400 uppercase">Currencies / Econ</div>
+                        <div class="text-[9px] text-slate-400 uppercase">Currency / Econ</div>
                         <div id="reg-cur" class="text-sm font-bold text-emerald-400 mt-0.5">--</div>
                     </div>
                     <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
-                        <div class="text-[9px] text-slate-400 uppercase">Swath Scan Area</div>
+                        <div class="text-[9px] text-slate-400 uppercase">Surface Area</div>
                         <div id="reg-area" class="text-sm font-bold text-purple-300 mt-0.5">--</div>
                     </div>
                     <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
-                        <div class="text-[9px] text-slate-400 uppercase">Avg. Pop. Density</div>
+                        <div class="text-[9px] text-slate-400 uppercase">Pop. Density</div>
                         <div id="reg-dens" class="text-sm font-bold text-pink-300 mt-0.5">--</div>
                     </div>
                     <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
-                        <div class="text-[9px] text-slate-400 uppercase">Timezones Covered</div>
+                        <div class="text-[9px] text-slate-400 uppercase">Local Timezone</div>
                         <div id="reg-tz" class="text-sm font-bold text-amber-300 mt-0.5">--</div>
                     </div>
                 </div>
             </div>
 
-            <!-- 2. Live Weather Across Footprint -->
+            <!-- 2. Live Weather & Air Quality -->
             <div>
-                <h4 class="text-[10px] font-bold text-slate-400 tracking-widest mb-2 uppercase">2. Live Weather Across Footprint (Center & Swath Range)</h4>
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <h4 class="text-[10px] font-bold text-slate-400 tracking-widest mb-2 uppercase">2. Live Weather & Air Quality (AQI)</h4>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     <div class="bg-slate-900/50 border border-slate-700/50 rounded p-2.5">
-                        <div class="text-[9px] text-slate-400">Temperature (Swath)</div>
+                        <div class="text-[9px] text-slate-400">Temperature</div>
                         <div id="w-temp" class="text-base font-bold text-amber-400">-- &deg;C</div>
                     </div>
                     <div class="bg-slate-900/50 border border-slate-700/50 rounded p-2.5">
@@ -155,66 +168,75 @@
                         <div class="text-[9px] text-slate-400">Sky Condition</div>
                         <div id="w-cond" class="text-xs font-bold text-slate-200 mt-1">--</div>
                     </div>
+                    <div class="bg-slate-900/50 border border-slate-700/50 rounded p-2.5">
+                        <div class="text-[9px] text-slate-400">Air Quality (US AQI)</div>
+                        <div id="w-aqi" class="text-sm font-bold text-teal-300 mt-0.5">--</div>
+                    </div>
+                    <div class="bg-slate-900/50 border border-slate-700/50 rounded p-2.5">
+                        <div class="text-[9px] text-slate-400">PM2.5 / UV Index</div>
+                        <div id="w-pm" class="text-xs font-bold text-indigo-300 mt-1">--</div>
+                    </div>
                 </div>
             </div>
 
-            <!-- 3. Wars, Conflicts, Emergencies & Disasters in Swath -->
+            <!-- 3. Active Conflicts & Emergencies -->
             <div>
-                <h4 class="text-[10px] font-bold text-red-400 tracking-widest mb-2 uppercase">3. Active Conflicts, Disasters & Emergencies (Full Swath)</h4>
+                <h4 class="text-[10px] font-bold text-red-400 tracking-widest mb-2 uppercase">3. Active Conflicts, Disasters & Emergencies (In Swath)</h4>
                 <div id="reg-conflicts" class="space-y-2 text-[11px]">
                     <div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Scanning satellite footprint for active alerts...</div>
                 </div>
             </div>
 
-            <!-- 4. Regional News Across Swath -->
+            <!-- 4. Real-Time Regional News -->
             <div>
-                <h4 class="text-[10px] font-bold text-sky-400 tracking-widest mb-2 uppercase">4. Real-Time News Across Covered Regions</h4>
+                <h4 class="text-[10px] font-bold text-sky-400 tracking-widest mb-2 uppercase">4. Real-Time Regional News</h4>
                 <div id="reg-news" class="space-y-2 text-[11px]">
-                    <div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Fetching live regional news across swath...</div>
+                    <div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Fetching live regional news...</div>
                 </div>
             </div>
 
-            <!-- 5. Public Interest Topics Across Swath -->
+            <!-- 5. Public Interest & Strategic Dossier -->
             <div>
-                <h4 class="text-[10px] font-bold text-amber-400 tracking-widest mb-2 uppercase">5. Public Interest & Strategic Dossier (Swath-Wide)</h4>
+                <h4 class="text-[10px] font-bold text-amber-400 tracking-widest mb-2 uppercase">5. Regional Public Interest & Strategic Dossier</h4>
                 <div id="reg-interest" class="space-y-2 text-[11px] text-slate-300">
                     <div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Analyzing regional public interest topics...</div>
                 </div>
             </div>
 
-            <!-- 6. Top Places, Cities & Landmarks Across Entire Swath -->
+            <!-- 6. Top Places & Landmarks -->
             <div>
-                <h4 class="text-[10px] font-bold text-emerald-400 tracking-widest mb-2 uppercase">6. Major Cities, Places & Landmarks Across Entire Swath</h4>
+                <h4 class="text-[10px] font-bold text-emerald-400 tracking-widest mb-2 uppercase">6. Top Places, Cities & Landmarks in Swath</h4>
                 <div id="wiki-data" class="space-y-2 text-[11px] text-slate-300">
-                    <div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Scanning full footprint for cities and landmarks...</div>
+                    <div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Scanning surface for notable places...</div>
                 </div>
             </div>
         </div>
 
-        <!-- Tab: Settings (Mission Controls) -->
+        <!-- Tab: Settings -->
         <div id="tab-mission" class="tab-content hide-scrollbar pb-10">
-            <h3 class="text-[11px] font-bold text-slate-400 tracking-widest mb-3 pb-1 border-b border-slate-700 uppercase">Camera Vision Modes</h3>
-            <div class="grid grid-cols-2 gap-2 mb-6">
-                <button onclick="setOptics(0)" class="optics-btn btn-active py-2.5 text-[11px] border border-slate-600 rounded font-bold text-slate-200">Standard Color (Day)</button>
-                <button onclick="setOptics(1)" class="optics-btn py-2.5 text-[11px] bg-slate-800/80 border border-slate-700 rounded font-bold text-amber-400">Thermal (Heat)</button>
-                <button onclick="setOptics(2)" class="optics-btn py-2.5 text-[11px] bg-slate-800/80 border border-slate-700 rounded font-bold text-emerald-400">Night Vision</button>
-                <button onclick="setOptics(3)" class="optics-btn py-2.5 text-[11px] bg-slate-800/80 border border-slate-700 rounded font-bold text-sky-400">Radar (Terrain)</button>
-            </div>
-            
-            <h3 class="text-[11px] font-bold text-slate-400 tracking-widest mb-3 pb-1 border-b border-slate-700 uppercase">Deploy to Location (Manual Override)</h3>
-            <div class="mb-6">
+            <!-- Unified City / Coordinate Search -->
+            <h3 class="text-[11px] font-bold text-slate-400 tracking-widest mb-2.5 pb-1 border-b border-slate-700 uppercase">Search Any City, Country, or Coordinates</h3>
+            <div class="mb-5">
                 <div class="flex gap-2">
-                    <input type="number" id="manual-lat" placeholder="Latitude (e.g. 20.84)" class="bg-slate-900/80 border border-slate-700 rounded p-2 text-white text-[11px] w-full focus:border-sky-400">
-                    <input type="number" id="manual-lon" placeholder="Longitude (e.g. 85.10)" class="bg-slate-900/80 border border-slate-700 rounded p-2 text-white text-[11px] w-full focus:border-sky-400">
-                    <button onclick="applyManualCoords()" class="bg-sky-600 hover:bg-sky-500 text-white font-bold px-3 py-2 rounded text-[11px] transition shrink-0">DEPLOY</button>
+                    <input type="text" id="search-location" placeholder="e.g. Angul, Tokyo, New York, or 20.84, 85.10" class="bg-slate-900/80 border border-slate-700 rounded p-2.5 text-white text-[11px] w-full focus:border-sky-400 outline-none" onkeydown="if(event.key==='Enter') searchAndDeploy()">
+                    <button onclick="searchAndDeploy()" class="bg-sky-600 hover:bg-sky-500 text-white font-bold px-4 py-2 rounded text-[11px] transition shrink-0">DEPLOY</button>
                 </div>
-                <div class="text-[10px] text-slate-400 mt-2">
-                    Tip: Tap anywhere on the <strong>2D Flat Map</strong> or any event in <strong>Live Global Events</strong> to lock the satellite and inspect full Ground Data.
+                <div class="text-[10px] text-slate-400 mt-1.5">
+                    Tip: <strong>Double-tap anywhere on the 3D Globe</strong> or tap anywhere on the <strong>2D Map</strong> to deploy instantly.
                 </div>
             </div>
 
-            <h3 class="text-[11px] font-bold text-slate-400 tracking-widest mb-3 pb-1 border-b border-slate-700 uppercase">Orbit & Path Settings</h3>
-            
+            <!-- Camera Vision Modes -->
+            <h3 class="text-[11px] font-bold text-slate-400 tracking-widest mb-2.5 pb-1 border-b border-slate-700 uppercase">Camera Vision Modes</h3>
+            <div class="grid grid-cols-2 gap-2 mb-5">
+                <button onclick="setOptics(0)" class="optics-btn btn-active py-2.5 text-[11px] border border-slate-600 rounded font-bold text-slate-200">Standard Color (Real-Time)</button>
+                <button onclick="setOptics(1)" class="optics-btn py-2.5 text-[11px] bg-slate-800/80 border border-slate-700 rounded font-bold text-amber-400">Thermal (Heat)</button>
+                <button onclick="setOptics(2)" class="optics-btn py-2.5 text-[11px] bg-slate-800/80 border border-slate-700 rounded font-bold text-emerald-400">Night Vision</button>
+                <button onclick="setOptics(3)" class="optics-btn py-2.5 text-[11px] bg-slate-800/80 border border-slate-700 rounded font-bold text-sky-400">Radar (Wireframe)</button>
+            </div>
+
+            <!-- Orbit & Path Settings -->
+            <h3 class="text-[11px] font-bold text-slate-400 tracking-widest mb-2.5 pb-1 border-b border-slate-700 uppercase">Orbit & Path Settings</h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                 <div>
                     <div class="flex justify-between text-[10px] text-slate-300 font-bold mb-1 uppercase">
@@ -237,18 +259,18 @@
                     <span>Scanner Swath Size</span>
                     <span id="swath-val" class="text-sky-400">1200 km</span>
                 </div>
-                <input type="range" id="swath-slider" min="0.05" max="0.5" step="0.01" value="0.25" oninput="updateSwath(this.value)">
+                <input type="range" id="swath-slider" min="0.06" max="0.45" step="0.01" value="0.22" oninput="updateSwath(this.value)">
             </div>
 
-            <div class="mb-6">
+            <div class="mb-5">
                 <div class="flex justify-between text-[10px] text-slate-300 font-bold mb-1 uppercase">
-                    <span>Orbit Speed</span>
-                    <span id="speed-val" class="text-sky-400">1.0x (Real-time)</span>
+                    <span>Orbit Speed (Smooth Glide)</span>
+                    <span id="speed-val" class="text-sky-400">1.0x (Realistic)</span>
                 </div>
-                <input type="range" id="speed-slider" min="0.0005" max="0.015" step="0.0005" value="0.003" oninput="updateSpeed(this.value)">
+                <input type="range" id="speed-slider" min="0.005" max="0.35" step="0.005" value="0.035" oninput="updateSpeed(this.value)">
             </div>
             
-            <button onclick="toggleGeoLock()" id="btn-geo-lock" class="w-full py-4 bg-sky-900/30 border border-sky-700/50 rounded-lg text-sm font-bold tracking-wide flex items-center justify-between px-4 mb-8">
+            <button onclick="toggleGeoLock()" id="btn-geo-lock" class="w-full py-3.5 bg-sky-900/30 border border-sky-700/50 rounded-lg text-sm font-bold tracking-wide flex items-center justify-between px-4 mb-6">
                 <span class="text-white">Hover over Current Location</span>
                 <span id="lock-indicator" class="text-slate-400">OFF</span>
             </button>

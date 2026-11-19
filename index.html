@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>VYUHAK v17 // Real-Time Earth, ISS & Solar System Intelligence</title>
+    <title>VYUHAK v18 // Real-Time Earth, ISS & Solar System Intelligence</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -28,7 +28,7 @@
             <div class="flex items-center justify-between mb-2.5 border-b border-slate-700/50 pb-2">
                 <div class="flex items-center gap-2">
                     <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    <h1 class="text-xs font-bold tracking-widest text-sky-400">VYUHAK <span class="text-slate-400 font-normal">v17 COSMOS</span></h1>
+                    <h1 class="text-xs font-bold tracking-widest text-sky-400">VYUHAK <span class="text-slate-400 font-normal">v18 COSMOS</span></h1>
                 </div>
                 <div class="flex items-center gap-2.5">
                     <span id="hud-time" class="text-[10px] font-bold text-amber-400 mono-telemetry">UTC --:--:--</span>
@@ -80,6 +80,9 @@
             </button>
             <button id="btn-radar" onclick="toggleRainRadar()" class="obsidian-glass rounded px-3 py-1.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/30 shrink-0 hidden">
                 Rain Radar: <span id="radar-ind" class="text-slate-400">OFF</span>
+            </button>
+            <button id="btn-2d-clouds" onclick="toggle2DClouds()" class="obsidian-glass rounded px-3 py-1.5 text-[10px] font-bold text-sky-200 border border-sky-400/30 shrink-0 hidden">
+                IR Clouds: <span id="clouds2d-ind" class="text-slate-400">OFF</span>
             </button>
         </div>
     </div>
@@ -225,7 +228,7 @@
                     <button onclick="searchAndDeploy()" class="bg-sky-600 hover:bg-sky-500 text-white font-bold px-4 py-2 rounded text-[11px] transition shrink-0">DEPLOY</button>
                 </div>
                 <div class="text-[10px] text-slate-400 mt-1.5">
-                    Tip: <strong>Double-tap anywhere on the 3D Globe</strong> or tap anywhere on the <strong>2D Map</strong> to deploy instantly.
+                    Tip: <strong>Double-tap with one finger on the 3D Globe</strong> or tap anywhere on the <strong>2D Map</strong> to deploy instantly. Pinch freely with two fingers to zoom.
                 </div>
             </div>
 
@@ -249,7 +252,7 @@
             </div>
 
             <div class="grid grid-cols-2 gap-2 mb-5">
-                <button id="btn-toggle-clouds" onclick="toggleClouds()" class="btn-active py-2 px-2 text-[10px] border border-slate-600 rounded font-bold">Live Clouds: ON</button>
+                <button id="btn-toggle-clouds" onclick="toggleClouds()" class="btn-active py-2 px-2 text-[10px] border border-slate-600 rounded font-bold">3D Clouds: ON</button>
                 <button id="btn-toggle-cone" onclick="toggleLaserCone()" class="btn-active py-2 px-2 text-[10px] border border-slate-600 rounded font-bold">Scan Beam: ON</button>
                 <button id="btn-toggle-meteors" onclick="toggleMeteors()" class="btn-active py-2 px-2 text-[10px] border border-slate-600 rounded font-bold">Space Meteors: ON</button>
                 <button id="btn-toggle-retro" onclick="toggleOrbitDirection()" class="bg-slate-800/80 py-2 px-2 text-[10px] border border-slate-700 rounded font-bold text-slate-200">Orbit: Prograde</button>

@@ -1,5 +1,5 @@
 // ============================================================================
-// VYUHAK v17 COSMOS // REAL-TIME EARTH, ISS, SOLAR SYSTEM & METEOR ENGINE
+// VYUHAK v18 COSMOS // PHOTOREALISTIC EARTH, ISS, SOLAR SYSTEM & LIVE WEATHER
 // ============================================================================
 
 // --- 1. AUDIO ENGINE WITH MUTE ---
@@ -83,14 +83,10 @@ function latLonToLocalEarthPosition(latDeg, lonDeg, radius) {
     return latLonToWorldPosition(latDeg, lonDeg, radius, 0);
 }
 
-// Days since J2000.0 epoch (Jan 1, 2000 12:00 UTC) for real-time ephemeris
 function getDaysSinceJ2000() {
-    const now = Date.now();
-    const j2000 = Date.UTC(2000, 0, 1, 12, 0, 0);
-    return (now - j2000) / 86400000;
+    return (Date.now() - Date.UTC(2000, 0, 1, 12, 0, 0)) / 86400000;
 }
 
-// Real-time UTC Sub-Solar Vector
 function getRealTimeSunDirection(earthRotationY) {
     const now = new Date();
     const startOfYear = new Date(Date.UTC(now.getUTCFullYear(), 0, 0));
@@ -108,10 +104,11 @@ let isGeoLocked = false;
 let isISSMode = false;
 let isSolarSystemView = false;
 let isRainRadarOn = false;
+let is2DCloudsOn = false;
 let showClouds = true;
 let showLaserCone = true;
 let showMeteors = true;
-let orbitDirection = 1; // 1 = Prograde, -1 = Retrograde
+let orbitDirection = 1;
 
 let lockedLat = 20.84;
 let lockedLon = 85.10;
@@ -128,8 +125,8 @@ let baseOrbitSpeed = 0.035;
 let orbitSpeed = baseOrbitSpeed;
 let orbitInclination = 45;
 let swathRadius = 0.22;
-let vkScale = 0.45;  // Realistic proportional scale relative to Earth
-let issScale = 0.55; // Realistic proportional scale relative to Earth
+let vkScale = 0.45;
+let issScale = 0.55;
 
 let activeEngine = '3D';
 const camModes = ['FREE', 'CHASE', 'NADIR'];
@@ -137,7 +134,6 @@ let camModeIdx = 0;
 let activeCamera = 'FREE';
 let lastScannedTime = 0;
 
-// Live ISS State
 let issInterval = null;
 let issTargetLat = 20.0, issTargetLon = 78.0, issCurrentLat = 20.0, issCurrentLon = 78.0;
 let issAltKm = 420, issVelKps = 7.66;
@@ -154,6 +150,9 @@ const SOVEREIGN_DB = {
     "DE": { name: "Germany", pop: 83294633, cap: "Berlin", cur: "Euro (€)", area: 357114, tz: "UTC+01:00" },
     "AU": { name: "Australia", pop: 26439111, cap: "Canberra", cur: "Australian Dollar ($)", area: 7692024, tz: "UTC+10:00" },
     "CA": { name: "Canada", pop: 40097761, cap: "Ottawa", cur: "Canadian Dollar ($)", area: 9984670, tz: "UTC-05:00" },
+    "KH": { name: "Cambodia", pop: 16944826, cap: "Phnom Penh", cur: "Cambodian Riel (៛)", area: 181035, tz: "UTC+07:00" },
+    "TH": { name: "Thailand", pop: 71801279, cap: "Bangkok", cur: "Thai Baht (฿)", area: 513120, tz: "UTC+07:00" },
+    "VN": { name: "Vietnam", pop: 98858950, cap: "Hanoi", cur: "Vietnamese Dong (₫)", area: 331212, tz: "UTC+07:00" },
     "TD": { name: "Chad", pop: 18278568, cap: "N'Djamena", cur: "CFA Franc", area: 1284000, tz: "UTC+01:00" },
     "NG": { name: "Nigeria", pop: 223804632, cap: "Abuja", cur: "Naira (₦)", area: 923768, tz: "UTC+01:00" },
     "EG": { name: "Egypt", pop: 112716598, cap: "Cairo", cur: "Egyptian Pound", area: 1002450, tz: "UTC+02:00" },
@@ -256,7 +255,7 @@ function toggleGeoLock() {
     }
 }
 
-// --- 6. LIVE ISS TRACKING (REALISTIC ISS 3D MODEL + LIVE TELEMETRY) ---
+// --- 6. LIVE ISS TRACKING ---
 async function pollLiveISS() {
     if (!isISSMode) return;
     try {
@@ -287,7 +286,6 @@ function toggleISSMode() {
         document.getElementById('hud-sat-name').textContent = 'ISS (ZARYA LIVE)';
         if (orbitLineMesh) orbitLineMesh.visible = false;
         
-        // Swap to the Realistic ISS 3D Station Model
         vkSatGroup.visible = false;
         issGroup.visible = true;
         activeSpacecraft = issGroup;
@@ -310,7 +308,6 @@ function toggleISSMode() {
         document.getElementById('hud-vel').textContent = '7.3';
         if (orbitLineMesh) orbitLineMesh.visible = true;
 
-        // Swap back to VK-Tracker Satellite
         issGroup.visible = false;
         vkSatGroup.visible = true;
         activeSpacecraft = vkSatGroup;
@@ -322,6 +319,18 @@ function toggleISSMode() {
 }
 
 // --- 7. SOLAR SYSTEM VIEW TOGGLE ---
+function positionCameraOnDaySide() {
+    const sunDir = getRealTimeSunDirection(earthMesh.rotation.y);
+    const dist = window.innerWidth < window.innerHeight ? 4.3 : 2.9;
+    // Offset slightly east of noon so both sunlit continents and twilight terminator are framed cleanly
+    const camDir = sunDir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), 0.35);
+    camDir.y = Math.max(-0.2, Math.min(0.42, camDir.y + 0.28));
+    camDir.normalize().multiplyScalar(dist);
+    camera.position.copy(camDir);
+    camera.lookAt(0, 0, 0);
+    controls.update();
+}
+
 function toggleSolarSystemView() {
     isSolarSystemView = !isSolarSystemView;
     const btn = document.getElementById('btn-solar-view');
@@ -334,7 +343,7 @@ function toggleSolarSystemView() {
         activeCamera = 'FREE';
         camModeIdx = 0;
         document.getElementById('cam-label').textContent = 'Free';
-        controls.maxDistance = 65;
+        controls.maxDistance = 68;
         camera.position.set(0, 14, 28);
         controls.update();
         showToast('Solar System Real-Time Alignment View');
@@ -342,8 +351,7 @@ function toggleSolarSystemView() {
         btn.classList.remove('bg-purple-900/50', 'border-purple-400');
         ind.textContent = 'OFF'; ind.classList.replace('text-purple-300', 'text-slate-400');
         controls.maxDistance = 16;
-        camera.position.set(0, 1.5, window.innerWidth < window.innerHeight ? 4.4 : 2.9);
-        controls.update();
+        positionCameraOnDaySide();
         showToast('Returned to Earth Orbital View');
     }
 }
@@ -511,6 +519,11 @@ async function fetchSubSatData(lat, lon, force = false) {
     document.getElementById('weather-loc').textContent = `Center: ${numLat.toFixed(2)}°, ${numLon.toFixed(2)}° | Radius: ${swathKm} km`;
     document.getElementById('connection-led').classList.add('recording');
 
+    // FIX: Always clear stale Oceanic/previous cards immediately at start of new scan
+    ['reg-pop', 'reg-cap', 'reg-cur', 'reg-area', 'reg-dens', 'reg-tz'].forEach(id => {
+        document.getElementById(id).textContent = 'Scanning...';
+    });
+
     const weatherPromise = cachedFetchJSON(API_ENDPOINTS.WEATHER(numLat.toFixed(2), numLon.toFixed(2)), 180000).catch(() => null);
     const aqiPromise = cachedFetchJSON(API_ENDPOINTS.AIR_QUALITY(numLat.toFixed(2), numLon.toFixed(2)), 180000).catch(() => null);
     const geoPromise = cachedFetchJSON(API_ENDPOINTS.REVGEO(numLat.toFixed(2), numLon.toFixed(2)), 300000).catch(() => null);
@@ -626,9 +639,16 @@ async function fetchCountryMetrics(ctryCode, ctryName, numLon, scanId) {
                 document.getElementById('reg-area').textContent = areaNum ? areaNum.toLocaleString() + ' km²' : 'N/A';
                 document.getElementById('reg-dens').textContent = (popNum && areaNum) ? Math.round(popNum / areaNum).toLocaleString() + ' / km²' : 'N/A';
                 document.getElementById('reg-tz').textContent = (cInfo.timezones && cInfo.timezones[0]) ? cInfo.timezones[0] : `UTC ${numLon >= 0 ? '+' : ''}${Math.round(numLon / 15)}h`;
+                return;
             }
         }
     } catch (e) {}
+    if (scanId === currentScanId && !SOVEREIGN_DB[ctryCode]) {
+        ['reg-pop', 'reg-cap', 'reg-cur', 'reg-area', 'reg-dens'].forEach(id => {
+            if (document.getElementById(id).textContent === 'Scanning...') document.getElementById(id).textContent = 'N/A';
+        });
+        document.getElementById('reg-tz').textContent = `UTC ${numLon >= 0 ? '+' : ''}${Math.round(numLon / 15)}h`;
+    }
 }
 
 async function fetchRegionBio(city, state, ctry, scanId) {
@@ -886,7 +906,6 @@ function parkSatelliteAt(lat, lon) {
 // ============================================================================
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.05, 1200);
-camera.position.set(0, 1.5, window.innerWidth < window.innerHeight ? 4.4 : 2.9);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -899,7 +918,6 @@ controls.minDistance = 1.15; controls.maxDistance = 16;
 
 // --- A. REAL CATALOG BRIGHT STARS (RA / DEC) + DEEP-SPACE STARFIELD ---
 (function createRealStarfield() {
-    // Major real-world catalog stars [RA hours, Dec deg, Color Hex]
     const brightStars = [
         [6.75, -16.71, 0xbae6fd], // Sirius
         [6.40, -52.70, 0xfef9c3], // Canopus
@@ -917,7 +935,6 @@ controls.minDistance = 1.15; controls.maxDistance = 16;
     const colors = new Float32Array(totalStars * 3);
     const palette = [new THREE.Color(0xffffff), new THREE.Color(0xbae6fd), new THREE.Color(0xfef08a), new THREE.Color(0xfed7aa)];
 
-    // Add real catalog stars first
     brightStars.forEach((s, idx) => {
         const raRad = (s[0] * 15) * Math.PI / 180;
         const decRad = s[1] * Math.PI / 180;
@@ -929,7 +946,6 @@ controls.minDistance = 1.15; controls.maxDistance = 16;
         colors[idx*3] = c.r; colors[idx*3+1] = c.g; colors[idx*3+2] = c.b;
     });
 
-    // Background celestial sphere stars
     for (let i = brightStars.length; i < totalStars; i++) {
         const r = 160 + Math.random() * 140;
         const theta = Math.random() * Math.PI * 2;
@@ -952,17 +968,21 @@ scene.add(new THREE.AmbientLight(0xffffff, 0.22));
 const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
 scene.add(sunLight);
 
-// --- C. PHOTOREALISTIC EARTH + REALISTIC SUN-LIT CLOUDS ---
+// --- C. PHOTOREALISTIC EARTH WITH TERRAIN RELIEF + SOFT WISPY CLOUDS ---
 const texLoader = new THREE.TextureLoader();
 const earthDayTex = texLoader.load('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg');
 const earthNightTex = texLoader.load('https://unpkg.com/three-globe/example/img/earth-night.jpg');
 const earthWaterTex = texLoader.load('https://unpkg.com/three-globe/example/img/earth-water.png');
+const earthBumpTex = texLoader.load('https://unpkg.com/three-globe/example/img/earth-topology.png');
 const earthCloudsTex = texLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_clouds_1024.png');
+earthCloudsTex.minFilter = THREE.LinearMipmapLinearFilter;
+earthCloudsTex.magFilter = THREE.LinearFilter;
 
 const earthUniforms = {
     dayTexture: { value: earthDayTex },
     nightTexture: { value: earthNightTex },
     specularTexture: { value: earthWaterTex },
+    bumpTexture: { value: earthBumpTex },
     sunDir: { value: new THREE.Vector3(1, 0, 0) },
     satDir: { value: new THREE.Vector3(0, 0, 1) },
     satSpotCos: { value: Math.cos(0.22) },
@@ -987,6 +1007,7 @@ const earthShaderMat = new THREE.ShaderMaterial({
         uniform sampler2D dayTexture;
         uniform sampler2D nightTexture;
         uniform sampler2D specularTexture;
+        uniform sampler2D bumpTexture;
         uniform vec3 sunDir;
         uniform vec3 satDir;
         uniform float satSpotCos;
@@ -1002,24 +1023,32 @@ const earthShaderMat = new THREE.ShaderMaterial({
             vec3 V = normalize(cameraPosition - vWorldPos);
 
             vec3 dayCol = texture2D(dayTexture, vUv).rgb;
-            vec3 nightCol = texture2D(nightTexture, vUv).rgb * 1.45;
+            vec3 nightCol = texture2D(nightTexture, vUv).rgb * 1.48;
             float waterMask = texture2D(specularTexture, vUv).r;
+
+            // Terrain Elevation Relief (Highlights Himalayas, Andes, Alps along sunlight)
+            float hL = texture2D(bumpTexture, vUv + vec2(-0.0015, 0.0)).r;
+            float hR = texture2D(bumpTexture, vUv + vec2( 0.0015, 0.0)).r;
+            float hD = texture2D(bumpTexture, vUv + vec2(0.0, -0.0015)).r;
+            float hU = texture2D(bumpTexture, vUv + vec2(0.0,  0.0015)).r;
+            float relief = ((hR - hL) + (hU - hD)) * (1.0 - waterMask) * 0.45;
 
             float NdotL = dot(N, L);
             float dayFactor = smoothstep(-0.14, 0.22, NdotL);
+            float litDiffuse = clamp(0.24 + 0.86 * max(NdotL + relief * 0.35, 0.0), 0.0, 1.15);
 
             vec3 H = normalize(L + V);
-            float spec = pow(max(dot(N, H), 0.0), 36.0) * waterMask * max(NdotL, 0.0) * 0.52;
+            float spec = pow(max(dot(N, H), 0.0), 38.0) * waterMask * max(NdotL, 0.0) * 0.52;
 
             float twilight = exp(-pow(NdotL * 6.5, 2.0)) * 0.28;
             vec3 twilightCol = vec3(1.0, 0.42, 0.14) * twilight;
 
             float satDot = dot(N, normalize(satDir));
-            float inSwath = smoothstep(satSpotCos - 0.015, satSpotCos + 0.015, satDot);
+            float inSwath = smoothstep(satSpotCos - 0.012, satSpotCos + 0.012, satDot);
             float nightOnly = 1.0 - dayFactor;
             vec3 satDaylight = dayCol * 0.92 * inSwath * nightOnly;
 
-            vec3 finalCol = mix(nightCol, dayCol * (0.25 + 0.85 * max(NdotL, 0.0)), dayFactor) + twilightCol + vec3(spec) + satDaylight;
+            vec3 finalCol = mix(nightCol, dayCol * litDiffuse, dayFactor) + twilightCol + vec3(spec) + satDaylight;
 
             if (opticsMode == 1) {
                 float lum = dot(finalCol, vec3(0.299, 0.587, 0.114));
@@ -1038,7 +1067,7 @@ const earthWireMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, wireframe: t
 const earthMesh = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 64), earthShaderMat);
 scene.add(earthMesh);
 
-// Realistic Sun-Lit Cloud Shader (Darkens naturally on the night side instead of glowing white!)
+// FIX: Soft, Wispy Sun-Lit Clouds using proper ALPHA channel (Zero blocky white squares!)
 const cloudShaderMat = new THREE.ShaderMaterial({
     uniforms: {
         cloudTexture: { value: earthCloudsTex },
@@ -1060,10 +1089,13 @@ const cloudShaderMat = new THREE.ShaderMaterial({
         varying vec3 vWorldNormal;
         void main() {
             vec4 c = texture2D(cloudTexture, vUv);
+            // Sample true alpha channel (c.a) * luminance so transparent pixels stay 100% invisible
+            float mask = smoothstep(0.08, 0.88, c.a * c.r);
             float NdotL = dot(normalize(vWorldNormal), normalize(sunDir));
-            float light = smoothstep(-0.2, 0.35, NdotL);
-            vec3 col = mix(vec3(0.04, 0.06, 0.12), vec3(1.0, 0.99, 0.97), light);
-            float alpha = c.r * (0.12 + 0.55 * light);
+            float light = smoothstep(-0.22, 0.32, NdotL);
+            float twilight = exp(-pow(NdotL * 6.0, 2.0)) * 0.25;
+            vec3 col = mix(vec3(0.04, 0.06, 0.12), vec3(1.0, 0.99, 0.97), light) + vec3(0.95, 0.45, 0.18) * twilight;
+            float alpha = mask * (0.08 + 0.62 * light);
             gl_FragColor = vec4(col, alpha);
         }
     `,
@@ -1104,69 +1136,130 @@ const atmosMat = new THREE.ShaderMaterial({
 });
 scene.add(new THREE.Mesh(new THREE.SphereGeometry(1.032, 48, 48), atmosMat));
 
-// --- D. REAL-TIME SOLAR SYSTEM (SUN, MOON & PLANETS BY KEPLERIAN EPHEMERIS) ---
+// --- D. REAL-TIME SOLAR SYSTEM WITH PROCEDURAL CRATERED MOON & BANDED PLANETS ---
 const solarSystemGroup = new THREE.Group();
 scene.add(solarSystemGroup);
 
-// 1. The Sun (Positioned dynamically along liveSunDir)
+// 1. The Sun with Corona
 const sunGroup = new THREE.Group();
-const sunCore = new THREE.Mesh(new THREE.SphereGeometry(2.2, 32, 32), new THREE.MeshBasicMaterial({ color: 0xfff7ed }));
-const sunCorona = new THREE.Mesh(
-    new THREE.SphereGeometry(3.4, 32, 32),
-    new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.28, blending: THREE.AdditiveBlending, depthWrite: false })
-);
-sunGroup.add(sunCore);
-sunGroup.add(sunCorona);
+sunGroup.add(new THREE.Mesh(new THREE.SphereGeometry(2.2, 32, 32), new THREE.MeshBasicMaterial({ color: 0xfff7ed })));
+sunGroup.add(new THREE.Mesh(
+    new THREE.SphereGeometry(3.6, 32, 32),
+    new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.26, blending: THREE.AdditiveBlending, depthWrite: false })
+));
 solarSystemGroup.add(sunGroup);
 
-// 2. The Moon (Real-time synodic lunar phase around Earth)
-const moonMesh = new THREE.Mesh(
-    new THREE.SphereGeometry(0.24, 32, 32),
-    new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.92, metalness: 0.05 })
-);
+// 2. Realistic Procedural Cratered Moon Shader
+const moonMat = new THREE.ShaderMaterial({
+    uniforms: { sunDir: earthUniforms.sunDir },
+    vertexShader: `
+        varying vec3 vNormal;
+        varying vec3 vPos;
+        void main() {
+            vPos = position;
+            vNormal = normalize(mat3(modelMatrix) * normal);
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    `,
+    fragmentShader: `
+        uniform vec3 sunDir;
+        varying vec3 vNormal;
+        varying vec3 vPos;
+        float hash(vec3 p) {
+            p = fract(p * 0.3183099 + 0.1);
+            p *= 17.0;
+            return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+        }
+        float noise(vec3 x) {
+            vec3 i = floor(x); vec3 f = fract(x);
+            f = f * f * (3.0 - 2.0 * f);
+            return mix(
+                mix(mix(hash(i+vec3(0,0,0)), hash(i+vec3(1,0,0)), f.x), mix(hash(i+vec3(0,1,0)), hash(i+vec3(1,1,0)), f.x), f.y),
+                mix(mix(hash(i+vec3(0,0,1)), hash(i+vec3(1,0,1)), f.x), mix(hash(i+vec3(0,1,1)), hash(i+vec3(1,1,1)), f.x), f.y),
+                f.z
+            );
+        }
+        void main() {
+            vec3 p = normalize(vPos) * 5.5;
+            float maria = noise(p * 0.65);
+            float craters = noise(p * 2.8) * 0.5 + noise(p * 6.5) * 0.25;
+            vec3 baseCol = mix(vec3(0.32, 0.34, 0.38), vec3(0.76, 0.78, 0.80), smoothstep(0.32, 0.68, maria));
+            baseCol *= (0.8 + 0.35 * craters);
+            float lit = max(dot(normalize(vNormal), normalize(sunDir)), 0.0);
+            gl_FragColor = vec4(baseCol * (0.06 + 0.98 * lit), 1.0);
+        }
+    `
+});
+const moonMesh = new THREE.Mesh(new THREE.SphereGeometry(0.24, 36, 36), moonMat);
 solarSystemGroup.add(moonMesh);
 
-// 3. Real-Time Major Planets (J2000 Mean Longitude + Orbital Period in Days)
+// 3. Real-Time Major Planets with Procedural Banded Shaders
+function createPlanetMat(colA, colB, banded) {
+    return new THREE.ShaderMaterial({
+        uniforms: {
+            sunDir: earthUniforms.sunDir,
+            colorA: { value: new THREE.Color(colA) },
+            colorB: { value: new THREE.Color(colB) },
+            isBanded: { value: banded ? 1.0 : 0.0 }
+        },
+        vertexShader: `
+            varying vec3 vNormal;
+            varying vec3 vLocal;
+            void main() {
+                vLocal = normalize(position);
+                vNormal = normalize(mat3(modelMatrix) * normal);
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform vec3 sunDir;
+            uniform vec3 colorA;
+            uniform vec3 colorB;
+            uniform float isBanded;
+            varying vec3 vNormal;
+            varying vec3 vLocal;
+            void main() {
+                float pat = isBanded > 0.5
+                    ? 0.5 + 0.5 * sin(vLocal.y * 18.0 + sin(vLocal.x * 6.0) * 0.4)
+                    : 0.5 + 0.5 * sin(vLocal.x * 8.0) * cos(vLocal.z * 8.0);
+                vec3 col = mix(colorA, colorB, pat);
+                float lit = max(dot(normalize(vNormal), normalize(sunDir)), 0.0);
+                gl_FragColor = vec4(col * (0.14 + 0.95 * lit), 1.0);
+            }
+        `
+    });
+}
+
 const PLANET_DATA = [
-    { name: 'Mercury', r: 0.16, dist: 14, color: 0x9ca3af, L0: 252.25, period: 87.97 },
-    { name: 'Venus',   r: 0.26, dist: 18, color: 0xfde68a, L0: 181.98, period: 224.70 },
-    { name: 'Mars',    r: 0.22, dist: 23, color: 0xea580c, L0: 355.45, period: 686.98 },
-    { name: 'Jupiter', r: 0.72, dist: 31, color: 0xd97706, L0: 34.40,  period: 4332.59 },
-    { name: 'Saturn',  r: 0.62, dist: 39, color: 0xfcd34d, L0: 49.94,  period: 10759.22, rings: true },
-    { name: 'Uranus',  r: 0.42, dist: 46, color: 0x67e8f9, L0: 313.23, period: 30688.5 },
-    { name: 'Neptune', r: 0.40, dist: 52, color: 0x3b82f6, L0: 304.88, period: 60182.0 }
+    { name: 'Mercury', r: 0.16, dist: 14, c1: 0x6b7280, c2: 0x9ca3af, band: false, L0: 252.25, period: 87.97 },
+    { name: 'Venus',   r: 0.26, dist: 18, c1: 0xd97706, c2: 0xfef08a, band: true,  L0: 181.98, period: 224.70 },
+    { name: 'Mars',    r: 0.22, dist: 23, c1: 0x9a3412, c2: 0xea580c, band: false, L0: 355.45, period: 686.98 },
+    { name: 'Jupiter', r: 0.74, dist: 31, c1: 0x92400e, c2: 0xfde68a, band: true,  L0: 34.40,  period: 4332.59 },
+    { name: 'Saturn',  r: 0.62, dist: 39, c1: 0xb45309, c2: 0xfef3c7, band: true,  L0: 49.94,  period: 10759.22, rings: true },
+    { name: 'Uranus',  r: 0.42, dist: 46, c1: 0x0891b2, c2: 0xa5f3fc, band: true,  L0: 313.23, period: 30688.5 },
+    { name: 'Neptune', r: 0.40, dist: 52, c1: 0x1d4ed8, c2: 0x60a5fa, band: true,  L0: 304.88, period: 60182.0 }
 ];
 
-const planetMeshes = [];
 (function buildPlanets() {
     const days = getDaysSinceJ2000();
     PLANET_DATA.forEach(p => {
         const pGroup = new THREE.Group();
-        const mesh = new THREE.Mesh(
-            new THREE.SphereGeometry(p.r, 24, 24),
-            new THREE.MeshStandardMaterial({ color: p.color, roughness: 0.7, metalness: 0.1 })
-        );
-        pGroup.add(mesh);
-
+        pGroup.add(new THREE.Mesh(new THREE.SphereGeometry(p.r, 28, 28), createPlanetMat(p.c1, p.c2, p.band)));
         if (p.rings) {
             const ring = new THREE.Mesh(
-                new THREE.RingGeometry(p.r * 1.35, p.r * 2.25, 36),
-                new THREE.MeshBasicMaterial({ color: 0xe2c799, side: THREE.DoubleSide, transparent: true, opacity: 0.65 })
+                new THREE.RingGeometry(p.r * 1.35, p.r * 2.3, 48),
+                new THREE.MeshBasicMaterial({ color: 0xe2c799, side: THREE.DoubleSide, transparent: true, opacity: 0.62 })
             );
             ring.rotation.x = Math.PI / 2.3;
             pGroup.add(ring);
         }
-
-        // Compute real-time heliocentric angle for today's UTC date
-        const angleDeg = (p.L0 + (360 / p.period) * days) % 360;
-        const rad = angleDeg * Math.PI / 180;
-        pGroup.position.set(Math.cos(rad) * p.dist, (Math.sin(rad * 2) * 1.2), -Math.sin(rad) * p.dist);
+        const rad = ((p.L0 + (360 / p.period) * days) % 360) * Math.PI / 180;
+        pGroup.position.set(Math.cos(rad) * p.dist, Math.sin(rad * 2) * 1.2, -Math.sin(rad) * p.dist);
         solarSystemGroup.add(pGroup);
-        planetMeshes.push(pGroup);
     });
 })();
 
-// --- E. REALISTIC SPACE METEORS / SHOOTING STARS ---
+// --- E. SPACE METEORS ---
 const meteors = [];
 function spawnMeteor() {
     if (!showMeteors || meteors.length >= 3) return;
@@ -1174,16 +1267,17 @@ function spawnMeteor() {
     const dir = new THREE.Vector3((Math.random() - 0.5) * 2, -0.4 - Math.random() * 0.8, (Math.random() - 0.5) * 2).normalize();
     const len = 1.2 + Math.random() * 1.8;
     const pts = [new THREE.Vector3(0, 0, 0), dir.clone().multiplyScalar(-len)];
-    const geo = new THREE.BufferGeometry().setFromPoints(pts);
-    const mat = new THREE.LineBasicMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.95 });
-    const line = new THREE.Line(geo, mat);
+    const line = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(pts),
+        new THREE.LineBasicMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.95 })
+    );
     line.position.copy(start);
     scene.add(line);
     meteors.push({ mesh: line, vel: dir.multiplyScalar(18 + Math.random() * 14), life: 1.0 });
 }
 setInterval(spawnMeteor, 2600);
 
-// --- F. VISIBLE ORBIT LINE (SUPPORTS ECCENTRICITY) ---
+// --- F. VISIBLE ORBIT LINE ---
 let orbitLineMesh;
 function drawOrbitLine() {
     if (orbitLineMesh) scene.remove(orbitLineMesh);
@@ -1192,15 +1286,11 @@ function drawOrbitLine() {
     for (let i = 0; i <= 200; i++) {
         const t = (i / 200) * Math.PI * 2;
         const r = orbitRadius * (1 - orbitEccentricity * orbitEccentricity) / (1 + orbitEccentricity * Math.cos(t));
-        orbitPoints.push(new THREE.Vector3(
-            Math.cos(t) * r,
-            Math.sin(t) * Math.sin(inclRad) * r,
-            Math.sin(t) * Math.cos(inclRad) * r
-        ));
+        orbitPoints.push(new THREE.Vector3(Math.cos(t) * r, Math.sin(t) * Math.sin(inclRad) * r, Math.sin(t) * Math.cos(inclRad) * r));
     }
     orbitLineMesh = new THREE.Line(
         new THREE.BufferGeometry().setFromPoints(orbitPoints),
-        new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.35 })
+        new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.32 })
     );
     orbitLineMesh.visible = !isGeoLocked && !isISSMode;
     scene.add(orbitLineMesh);
@@ -1266,37 +1356,22 @@ const issTrussMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness:
 const issSolarMat = new THREE.MeshStandardMaterial({ color: 0xb45309, emissive: 0x451a03, metalness: 0.75, roughness: 0.25, side: THREE.DoubleSide });
 const issSolarGrid = new THREE.MeshBasicMaterial({ color: 0xfbbf24, wireframe: true, transparent: true, opacity: 0.25 });
 
-// Main Integrated Truss Backbone (Spans X-axis)
-const mainTruss = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.012, 0.012), issTrussMat);
-issGroup.add(mainTruss);
-
-// Pressurized Cylindrical Modules (Zvezda, Zarya, Unity, Destiny, Harmony along Z-axis)
+issGroup.add(new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.012, 0.012), issTrussMat));
 const coreModules = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.24, 16), issWhiteMat);
-coreModules.rotation.x = Math.PI / 2;
-issGroup.add(coreModules);
-
-// Columbus & Kibo Lab Cross-Modules
+coreModules.rotation.x = Math.PI / 2; issGroup.add(coreModules);
 const labModules = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.14, 16), issWhiteMat);
-labModules.rotation.z = Math.PI / 2;
-labModules.position.z = 0.045;
-issGroup.add(labModules);
+labModules.rotation.z = Math.PI / 2; labModules.position.z = 0.045; issGroup.add(labModules);
 
-// White Thermal Radiator Panels
 const radL = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.002, 0.075), issWhiteMat);
 radL.position.set(-0.09, 0.015, -0.04); issGroup.add(radL);
 const radR = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.002, 0.075), issWhiteMat);
 radR.position.set(0.09, 0.015, -0.04); issGroup.add(radR);
 
-// 8 Large Copper-Gold ISS Solar Array Wings (4 Port, 4 Starboard)
 [-0.25, -0.18, 0.18, 0.25].forEach(xPos => {
     [-1, 1].forEach(zSide => {
         const wingGeo = new THREE.BoxGeometry(0.042, 0.002, 0.15);
-        const wing = new THREE.Mesh(wingGeo, issSolarMat);
-        wing.position.set(xPos, 0, zSide * 0.088);
-        issGroup.add(wing);
-        const grid = new THREE.Mesh(wingGeo, issSolarGrid);
-        grid.position.set(xPos, 0, zSide * 0.088);
-        issGroup.add(grid);
+        const wing = new THREE.Mesh(wingGeo, issSolarMat); wing.position.set(xPos, 0, zSide * 0.088); issGroup.add(wing);
+        const grid = new THREE.Mesh(wingGeo, issSolarGrid); grid.position.set(xPos, 0, zSide * 0.088); issGroup.add(grid);
     });
 });
 
@@ -1306,12 +1381,14 @@ scene.add(issGroup);
 
 let activeSpacecraft = vkSatGroup;
 
-// --- 3D EVENT BEACONS ---
+// --- PULSING 3D EVENT BEACONS ---
 let markerMeshes = [];
+let beaconRings = [];
 let mapMarkers = [];
 function renderIntelMarkers() {
     markerMeshes.forEach(m => earthMesh.remove(m));
     markerMeshes = [];
+    beaconRings = [];
     mapMarkers.forEach(m => map.removeLayer(m));
     mapMarkers = [];
 
@@ -1322,11 +1399,12 @@ function renderIntelMarkers() {
         if (data.type === 'rw') { color = 0xd946ef; hexColor = '#d946ef'; }
         
         const beacon = new THREE.Group();
-        const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.12, 8), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85 }));
-        pillar.position.y = 0.06; beacon.add(pillar);
+        const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.0035, 0.0035, 0.11, 8), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.82 }));
+        pillar.position.y = 0.055; beacon.add(pillar);
         
-        const ring = new THREE.Mesh(new THREE.RingGeometry(0.012, 0.022, 16), new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, opacity: 0.9 }));
-        ring.rotation.x = -Math.PI / 2; ring.position.y = 0.003; beacon.add(ring);
+        const ring = new THREE.Mesh(new THREE.RingGeometry(0.012, 0.022, 20), new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, opacity: 0.9 }));
+        ring.rotation.x = -Math.PI / 2; ring.position.y = 0.004; beacon.add(ring);
+        beaconRings.push(ring);
         
         beacon.position.copy(localPos);
         beacon.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), localPos.clone().normalize());
@@ -1340,7 +1418,7 @@ function renderIntelMarkers() {
     });
 }
 
-// --- 2D LEAFLET MAP + RAINVIEWER RADAR ---
+// --- 2D LEAFLET MAP + RAINVIEWER PRECIPITATION RADAR & LIVE IR CLOUDS ---
 const map = L.map('map-viewport', { zoomControl: false, attributionControl: false }).setView([20, 78], 3);
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 17 }).addTo(map);
 const satMarker = L.marker([0, 0], { icon: L.divIcon({ html: `<div style="width:16px;height:16px;background:#38bdf8;border-radius:50%;border:2px solid white;box-shadow:0 0 10px #38bdf8;"></div>`, className: '', iconSize: [16, 16], iconAnchor: [8, 8] }) }).addTo(map);
@@ -1364,7 +1442,7 @@ async function toggleRainRadar() {
                 const tileUrl = `${rvData.host}${latest.path}/256/{z}/{x}/{y}/2/1_1.png`;
                 if (rainRadarLayer) map.removeLayer(rainRadarLayer);
                 rainRadarLayer = L.tileLayer(tileUrl, { opacity: 0.65, maxNativeZoom: 7, maxZoom: 12 }).addTo(map);
-                showToast('Live RainViewer Weather Radar Active');
+                showToast('Live RainViewer Precipitation Radar Active');
             }
         } catch (e) {
             showToast('RainViewer Radar temporarily unavailable');
@@ -1377,8 +1455,61 @@ async function toggleRainRadar() {
     }
 }
 
-// --- CURVED SURFACE SWATH FOOTPRINT & LASER CONE ---
+let clouds2DLayer = null;
+async function toggle2DClouds() {
+    is2DCloudsOn = !is2DCloudsOn;
+    const btn = document.getElementById('btn-2d-clouds');
+    const ind = document.getElementById('clouds2d-ind');
+    playSound('click');
+
+    if (is2DCloudsOn) {
+        btn.classList.add('bg-sky-900/50', 'border-sky-400');
+        ind.textContent = 'ON'; ind.classList.replace('text-slate-400', 'text-sky-300');
+        try {
+            const rvData = await cachedFetchJSON('https://api.rainviewer.com/public/weather-maps.json', 300000);
+            if (rvData && rvData.satellite && rvData.satellite.infrared && rvData.satellite.infrared.length > 0) {
+                const latest = rvData.satellite.infrared[rvData.satellite.infrared.length - 1];
+                const tileUrl = `${rvData.host}${latest.path}/256/{z}/{x}/{y}/0/0_0.png`;
+                if (clouds2DLayer) map.removeLayer(clouds2DLayer);
+                clouds2DLayer = L.tileLayer(tileUrl, { opacity: 0.58, maxNativeZoom: 7, maxZoom: 12 }).addTo(map);
+                showToast('Live Satellite Infrared Clouds Active');
+            }
+        } catch (e) {
+            showToast('Satellite Cloud feed temporarily unavailable');
+        }
+    } else {
+        btn.classList.remove('bg-sky-900/50', 'border-sky-400');
+        ind.textContent = 'OFF'; ind.classList.replace('text-sky-300', 'text-slate-400');
+        if (clouds2DLayer) { map.removeLayer(clouds2DLayer); clouds2DLayer = null; }
+        showToast('2D Satellite Clouds Disabled');
+    }
+}
+
+// --- VOLUMETRIC GRADIENT SCAN BEAM (REPLACES WIREFRAME CAGE) ---
 let coneMesh, ringMesh;
+const coneShaderMat = new THREE.ShaderMaterial({
+    vertexShader: `
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    `,
+    fragmentShader: `
+        varying vec2 vUv;
+        void main() {
+            // Soft volumetric fade from satellite tip (vUv.y = 1) down to Earth rim (vUv.y = 0)
+            float grad = smoothstep(0.0, 0.85, vUv.y) * (1.0 - smoothstep(0.85, 1.0, vUv.y));
+            float alpha = 0.04 + 0.14 * grad;
+            gl_FragColor = vec4(0.22, 0.74, 0.97, alpha);
+        }
+    `,
+    transparent: true,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+});
+
 function buildLaser() {
     if (coneMesh) scene.remove(coneMesh);
     if (ringMesh) scene.remove(ringMesh);
@@ -1387,21 +1518,21 @@ function buildLaser() {
     const surfaceCircleRadius = Math.sin(angularRad) * 1.004;
     const surfaceZDist = Math.cos(angularRad) * 1.004;
 
-    const cGeo = new THREE.ConeGeometry(surfaceCircleRadius, Math.max(0.1, orbitRadius - surfaceZDist), 24, 1, true);
+    const cGeo = new THREE.ConeGeometry(surfaceCircleRadius, Math.max(0.1, orbitRadius - surfaceZDist), 48, 1, true);
     cGeo.translate(0, -Math.max(0.1, orbitRadius - surfaceZDist) / 2, 0);
     cGeo.rotateX(-Math.PI / 2);
-    coneMesh = new THREE.Mesh(cGeo, new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.08, wireframe: true, depthWrite: false }));
+    coneMesh = new THREE.Mesh(cGeo, coneShaderMat);
     coneMesh.visible = showLaserCone;
     scene.add(coneMesh);
 
     const ringPts = [];
-    for (let i = 0; i <= 64; i++) {
-        const a = (i / 64) * Math.PI * 2;
+    for (let i = 0; i <= 72; i++) {
+        const a = (i / 72) * Math.PI * 2;
         ringPts.push(new THREE.Vector3(Math.cos(a) * surfaceCircleRadius, Math.sin(a) * surfaceCircleRadius, surfaceZDist));
     }
     ringMesh = new THREE.LineLoop(
         new THREE.BufferGeometry().setFromPoints(ringPts),
-        new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.8 })
+        new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.85 })
     );
     ringMesh.visible = showLaserCone;
     scene.add(ringMesh);
@@ -1409,24 +1540,63 @@ function buildLaser() {
 }
 buildLaser();
 
-// --- 3D DOUBLE-TAP RAYCASTER ---
+// --- MULTI-TOUCH SAFE DOUBLE-TAP RAYCASTER (FIXES PINCH-ZOOM BUG!) ---
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
-let lastTapTime = 0;
+const activePointers = new Map();
+let gestureWasMultiTouch = false;
+let lastCleanTapTime = 0;
+let lastCleanTapX = 0;
+let lastCleanTapY = 0;
+
 renderer.domElement.addEventListener('pointerdown', (e) => {
-    const now = Date.now();
-    if (now - lastTapTime < 320) {
-        pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
-        pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
-        raycaster.setFromCamera(pointer, camera);
-        const hits = raycaster.intersectObject(earthMesh);
-        if (hits.length > 0) {
-            const coords = worldPositionToLatLon(hits[0].point, earthMesh.rotation.y);
-            parkSatelliteAt(coords.lat, coords.lon);
-            showToast(`3D Lock: ${coords.lat.toFixed(2)}°, ${coords.lon.toFixed(2)}°`);
+    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY, moved: false });
+    if (activePointers.size > 1) {
+        gestureWasMultiTouch = true;
+    }
+});
+
+renderer.domElement.addEventListener('pointermove', (e) => {
+    const p = activePointers.get(e.pointerId);
+    if (p && Math.hypot(e.clientX - p.x, e.clientY - p.y) > 10) {
+        p.moved = true;
+    }
+});
+
+renderer.domElement.addEventListener('pointerup', (e) => {
+    const p = activePointers.get(e.pointerId);
+    activePointers.delete(e.pointerId);
+
+    // Only consider a clean single-finger stationary tap (never pinch-zoom or drag!)
+    if (!gestureWasMultiTouch && p && !p.moved && activePointers.size === 0) {
+        const now = Date.now();
+        const dist = Math.hypot(e.clientX - lastCleanTapX, e.clientY - lastCleanTapY);
+        if (now - lastCleanTapTime < 300 && dist < 32) {
+            pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+            pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(pointer, camera);
+            const hits = raycaster.intersectObject(earthMesh);
+            if (hits.length > 0) {
+                const coords = worldPositionToLatLon(hits[0].point, earthMesh.rotation.y);
+                parkSatelliteAt(coords.lat, coords.lon);
+                showToast(`3D Lock: ${coords.lat.toFixed(2)}°, ${coords.lon.toFixed(2)}°`);
+            }
+            lastCleanTapTime = 0;
+        } else {
+            lastCleanTapTime = now;
+            lastCleanTapX = e.clientX;
+            lastCleanTapY = e.clientY;
         }
     }
-    lastTapTime = now;
+
+    if (activePointers.size === 0) {
+        gestureWasMultiTouch = false;
+    }
+});
+
+renderer.domElement.addEventListener('pointercancel', (e) => {
+    activePointers.delete(e.pointerId);
+    if (activePointers.size === 0) gestureWasMultiTouch = false;
 });
 
 // --- SETTINGS & SLIDER HANDLERS ---
@@ -1446,7 +1616,7 @@ function toggleClouds() {
     showClouds = !showClouds;
     cloudMesh.visible = showClouds;
     const btn = document.getElementById('btn-toggle-clouds');
-    btn.textContent = `Live Clouds: ${showClouds ? 'ON' : 'OFF'}`;
+    btn.textContent = `3D Clouds: ${showClouds ? 'ON' : 'OFF'}`;
     btn.classList.toggle('btn-active', showClouds);
     playSound('click');
 }
@@ -1489,6 +1659,7 @@ function switchEngine(mode) {
     document.getElementById('btn-cam-cycle').classList.toggle('hidden', mode !== '3D');
     document.getElementById('btn-solar-view').classList.toggle('hidden', mode !== '3D');
     document.getElementById('btn-radar').classList.toggle('hidden', mode !== '2D');
+    document.getElementById('btn-2d-clouds').classList.toggle('hidden', mode !== '2D');
     document.getElementById('btn-3d').className = (mode === '3D') ? 'btn-active px-3 py-1.5 rounded text-[10px] font-bold' : 'px-3 py-1.5 rounded text-[10px] font-bold text-slate-400 hover:text-white';
     document.getElementById('btn-2d').className = (mode === '2D') ? 'btn-active px-3 py-1.5 rounded text-[10px] font-bold' : 'px-3 py-1.5 rounded text-[10px] font-bold text-slate-400 hover:text-white';
     if (mode === '2D') setTimeout(() => map.invalidateSize(), 100);
@@ -1557,6 +1728,7 @@ const clock = new THREE.Clock();
 function animate() {
     requestAnimationFrame(animate);
     const dt = Math.min(clock.getDelta(), 0.1);
+    const elapsed = clock.elapsedTime;
 
     earthMesh.rotation.y += 0.008 * dt;
     cloudMesh.rotation.y += 0.011 * dt;
@@ -1567,10 +1739,15 @@ function animate() {
     sunLight.position.copy(liveSunDir).multiplyScalar(15);
     sunGroup.position.copy(liveSunDir).multiplyScalar(68);
 
-    // Moon synodic orbit (29.53 days)
     const moonPhaseRad = ((getDaysSinceJ2000() % 29.53059) / 29.53059) * Math.PI * 2;
     moonMesh.position.set(Math.cos(moonPhaseRad) * 6.8, Math.sin(moonPhaseRad) * 0.6, -Math.sin(moonPhaseRad) * 6.8);
     moonMesh.rotation.y += 0.02 * dt;
+
+    // Gentle Pulse on 3D Event Beacon Halos
+    const pulse = 1.0 + 0.32 * Math.sin(elapsed * 3.5);
+    for (let i = 0; i < beaconRings.length; i++) {
+        beaconRings[i].scale.set(pulse, pulse, 1);
+    }
 
     // Update Meteors
     for (let i = meteors.length - 1; i >= 0; i--) {
@@ -1628,7 +1805,6 @@ function animate() {
         vkSatGroup.lookAt(0,0,0);
     }
 
-    // Align laser cone & curved surface swath ring to active spacecraft
     coneMesh.position.copy(activeSpacecraft.position);
     coneMesh.lookAt(0,0,0);
     ringMesh.lookAt(activeSpacecraft.position);
@@ -1640,7 +1816,6 @@ function animate() {
 
     document.getElementById('hud-time').textContent = 'UTC ' + new Date().toISOString().substr(11,8);
 
-    // Camera Modes
     if (activeCamera === 'FREE') {
         controls.update();
     } else if (activeCamera === 'CHASE') {
@@ -1669,7 +1844,8 @@ window.addEventListener('resize', () => {
     if (activeEngine === '2D') map.invalidateSize();
 });
 
-// Boot initialization
+// Boot initialization: Face sunlit Earth immediately!
+positionCameraOnDaySide();
 updateSpeed(document.getElementById('speed-slider').value);
 setTimeout(() => {
     fetchLiveIntel(true);

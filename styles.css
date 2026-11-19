@@ -1,7 +1,7 @@
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 body { margin: 0; overflow: hidden; background-color: #010206; font-family: 'Inter', sans-serif; color: #e2e8f0; user-select: none; -webkit-user-select: none; }
 .mono-telemetry { font-variant-numeric: tabular-nums; }
-#globe-viewport, #map-viewport { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+#globe-viewport, #map-viewport { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; touch-action: none; }
 #map-viewport { display: none; z-index: 2; }
 .obsidian-glass { background: rgba(6, 11, 20, 0.84); backdrop-filter: blur(22px) saturate(180%); -webkit-backdrop-filter: blur(22px) saturate(180%); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); }
 .hide-scrollbar::-webkit-scrollbar { display: none; }

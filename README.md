@@ -1,13 +1,13 @@
-# VYUHAK v17 COSMOS // Real-Time Earth, ISS & Solar System Intelligence
+# VYUHAK v18 COSMOS // Real-Time Earth, ISS & Solar System Intelligence
 
-VYUHAK (*Virtual Yield Uplink & Heuristic Aerospace Kinematics*) is a serverless 3D/2D orbital intelligence and astronomical visualization platform built with Three.js custom GLSL shaders, Leaflet.js, and 100% free, keyless live APIs.
+VYUHAK (*Virtual Yield Uplink & Heuristic Aerospace Kinematics*) is a serverless 3D/2D orbital intelligence and astronomical visualization platform powered by Three.js custom GLSL shaders, Leaflet.js, and 100% free, keyless live APIs.
 
-## What's New in v17 COSMOS
-- **Realistic International Space Station (ISS) 3D Model:** Switching `ISS Live` ON swaps the spacecraft to a detailed ISS model with an integrated truss backbone, pressurized cylindrical modules, thermal radiators, and 8 copper-gold solar wing arrays tracked live via `api.wheretheiss.at`.
-- **Proportional Spacecraft Scaling & Controls:** Both `VK-Tracker-01` and the `ISS` default to realistic proportions relative to Earth, with dedicated **VK-Tracker Size** and **ISS Station Size** sliders in Settings.
-- **Realistic Sun-Lit Clouds:** Custom GLSL cloud shader that illuminates clouds on the sunlit day side and dims them naturally across the twilight terminator and night side.
-- **Real-Time Solar System, Catalog Stars & Meteors:** Renders the Sun, Moon (real-time synodic phase), all major planets (Mercury through Neptune with Saturn's rings) positioned via J2000 Keplerian orbital elements, real bright catalog stars (Sirius, Rigel, Betelgeuse, Vega, Polaris, etc.), and periodic streaking space meteors.
-- **Expanded Artificial Satellite Settings:** Includes Orbit Eccentricity (circular to elliptical), Prograde/Retrograde orbit direction, Live Clouds toggle, Scan Beam toggle, and Space Meteors toggle.
+## What's Fixed & Upgraded in v18
+- **Pinch-to-Zoom Touch Fix:** Rewrote the 3D double-tap raycaster to track active multi-touch pointers and drag distance—pinching with two fingers to zoom in/out never triggers accidental 3D Lock or pops open Ground Data.
+- **Soft, Wispy 3D Clouds + 2D Live Infrared Satellite Clouds:** Fixed the blocky cloud artifact by sampling the proper PNG alpha mask (`c.a * c.r`) with smooth twilight tinting, and added a live **IR Clouds** overlay on the 2D map via RainViewer.
+- **Volumetric Gradient Scan Beam & Terrain Relief Shading:** Replaced the wireframe cone with a smooth additive GLSL gradient beam and added elevation relief shading in `earthShaderMat` so mountain ranges catch angled sunlight.
+- **Sunlit Opening Camera & Procedural Moon/Planets:** The camera opens facing the live sunlit hemisphere and twilight terminator, while the Moon (cratered maria shader) and all Solar System planets (banded atmospheric shaders) render with rich surface detail.
+- **Stale Ocean Card Reset & Pulsing Event Beacons:** Demographic cards reset cleanly on every new scan so ocean data never lingers over land, and 3D event beacons pulse smoothly on the globe surface.
 
 ## Deployment
 Upload `index.html`, `styles.css`, `app.js`, and `README.md` directly to your GitHub Pages repository.

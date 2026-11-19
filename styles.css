@@ -116,3 +116,9 @@ input[type=range]::-webkit-slider-thumb { border: 2px solid #02040a; height: 20p
 #toast-container { position: fixed; top: 108px; left: 50%; transform: translateX(-50%); z-index: 100; display: flex; flex-direction: column; gap: 6px; pointer-events: none; width: max-content; max-width: 90vw; }
 .toast-msg { background: rgba(15, 23, 42, 0.94); border: 1px solid rgba(56, 189, 248, 0.5); color: #e2e8f0; padding: 7px 14px; border-radius: 999px; font-size: 11px; font-weight: 600; box-shadow: 0 6px 20px rgba(0,0,0,0.6); animation: fadeUp 0.25s ease-out; }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+.quick-pill.on-indigo {
+    border-color: rgba(129, 140, 248, 0.7);
+    background: rgba(55, 48, 163, 0.35);
+    color: #e0e7ff;
+}

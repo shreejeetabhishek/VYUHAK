@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>VYUHAK v21 COSMOS PRIME // Real-Time Earth, ISS & Heliocentric Solar System</title>
+    <title>VYUHAK v22 GALACTIC // Earth, Solar System & Milky Way Intelligence</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -70,6 +70,9 @@
             <button id="btn-solar-view" onclick="toggleSolarSystemView()" class="quick-pill">
                 <span id="solar-dot" class="dot bg-slate-500"></span>Cosmos
             </button>
+            <button id="btn-galaxy-view" onclick="toggleGalaxyView()" class="quick-pill">
+                <span id="galaxy-dot" class="dot bg-slate-500"></span>Galaxy
+            </button>
             <button id="btn-radar" onclick="toggleRainRadar()" class="quick-pill hidden">
                 <span id="radar-dot" class="dot bg-slate-500"></span>Radar
             </button>
@@ -93,6 +96,22 @@
                         1.00 AU &bull; 8.32 lm
                     </div>
                     <button id="btn-cosmos-warp" onclick="cycleCosmosWarp()" class="bg-purple-900/60 hover:bg-purple-700/60 border border-purple-400/50 text-purple-200 px-2 py-0.5 rounded text-[9px] font-bold shrink-0">1x Live</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Milky Way Galaxy Region Bar (Visible ONLY in Galaxy Mode) -->
+        <div id="galaxy-bar" class="pointer-events-auto hidden flex flex-col gap-1.5 w-full">
+            <div class="flex items-center gap-1 overflow-x-auto hide-scrollbar pb-0.5" id="galaxy-chips">
+                <!-- Populated dynamically by JS -->
+            </div>
+            <div class="obsidian-glass rounded-lg px-3 py-2 text-[10px] text-slate-300 flex items-center justify-between gap-2 border border-indigo-500/35">
+                <div class="min-w-0">
+                    <span id="gt-name" class="font-bold text-indigo-300 uppercase tracking-wider">Milky Way</span>
+                    <span id="gt-type" class="text-slate-400 ml-1.5">SBbc Barred Spiral</span>
+                </div>
+                <div class="mono-telemetry text-right text-[9px] text-sky-200 shrink-0" id="gt-stats">
+                    105,700 ly &bull; ~250B Stars
                 </div>
             </div>
         </div>
@@ -325,6 +344,85 @@
                     </div>
                 </div>
             </div><!-- /#cosmos-dossier -->
+
+            <!-- MILKY WAY GALAXY DOSSIER -->
+            <div id="galaxy-dossier" class="hidden space-y-5">
+                <div class="flex justify-between items-center border-b border-indigo-500/30 pb-2">
+                    <div>
+                        <h3 id="gd-title" class="text-xs font-bold text-indigo-300 tracking-widest uppercase">MILKY WAY // SBbc BARRED SPIRAL</h3>
+                        <div id="gd-subtitle" class="text-[10px] text-sky-300 mono-telemetry">Local Group &bull; Laniakea Supercluster</div>
+                    </div>
+                    <button onclick="focusGalaxyRegion('Solar System')" class="text-[10px] bg-indigo-900/50 hover:bg-indigo-700/50 text-indigo-200 px-3 py-1 rounded font-bold border border-indigo-500/30">Find Sun</button>
+                </div>
+
+                <!-- 1. Live Astrophysical Overview -->
+                <div>
+                    <h4 class="text-[10px] font-bold text-slate-400 tracking-widest mb-2 uppercase">1. Galactic Region Overview</h4>
+                    <div id="gd-bio" class="text-[11px] text-slate-200 leading-relaxed bg-slate-900/60 p-3 border border-slate-800 rounded-lg">
+                        Loading galactic astrophysical dossier...
+                    </div>
+                </div>
+
+                <!-- 2. Real-Time Galactic Astrometry & Kinematics -->
+                <div>
+                    <h4 class="text-[10px] font-bold text-sky-400 tracking-widest mb-2 uppercase">2. Galactic Astrometry & Kinematics</h4>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Galactocentric Dist.</div>
+                            <div id="gd-dist" class="text-xs font-bold text-amber-300 mt-0.5 mono-telemetry">26,670 ly</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Orbital Velocity</div>
+                            <div id="gd-vel" class="text-xs font-bold text-sky-300 mt-0.5 mono-telemetry">230 km/s</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Galactic Year</div>
+                            <div id="gd-year" class="text-xs font-bold text-emerald-300 mt-0.5 mono-telemetry">230M yrs</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Disk Diameter</div>
+                            <div id="gd-diam" class="text-xs font-bold text-white mt-0.5 mono-telemetry">105,700 ly</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Total Mass</div>
+                            <div id="gd-mass" class="text-xs font-bold text-purple-300 mt-0.5 mono-telemetry">1.15 &times; 10&sup1;&sup2; M&#9737;</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Ecliptic Plane Tilt</div>
+                            <div id="gd-tilt" class="text-xs font-bold text-pink-300 mt-0.5 mono-telemetry">60.2&deg;</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Sagittarius A* Supermassive Black Hole -->
+                <div>
+                    <h4 class="text-[10px] font-bold text-amber-400 tracking-widest mb-2 uppercase">3. Galactic Core // Sagittarius A* (SMBH)</h4>
+                    <div class="bg-slate-900/50 border border-amber-500/25 rounded p-3 text-[11px] text-slate-300 space-y-1">
+                        <div><strong class="text-amber-300">Mass:</strong> 4.154 &times; 10&sup6; Solar Masses (Event Horizon Telescope)</div>
+                        <div><strong class="text-sky-300">Schwarzschild Radius:</strong> ~12.2 million km (0.082 AU)</div>
+                        <div><strong class="text-emerald-300">Distance from Earth:</strong> 8.178 kpc (~26,673 light-years)</div>
+                    </div>
+                </div>
+
+                <!-- 4. Spiral Arm Architecture & Local Group Neighbors -->
+                <div>
+                    <h4 class="text-[10px] font-bold text-emerald-400 tracking-widest mb-2 uppercase">4. Local Group Neighbors</h4>
+                    <div class="space-y-1.5 text-[11px]">
+                        <div class="bg-slate-900/60 border border-slate-800 rounded p-2 flex justify-between items-center">
+                            <span class="font-semibold text-indigo-300">🌌 Andromeda (M31)</span>
+                            <span class="text-[10px] text-slate-400 mono-telemetry">2.537M ly &bull; -110 km/s</span>
+                        </div>
+                        <div class="bg-slate-900/60 border border-slate-800 rounded p-2 flex justify-between items-center">
+                            <span class="font-semibold text-sky-300">🌌 Large Magellanic Cloud</span>
+                            <span class="text-[10px] text-slate-400 mono-telemetry">163,000 ly &bull; Satellite</span>
+                        </div>
+                        <div class="bg-slate-900/60 border border-slate-800 rounded p-2 flex justify-between items-center">
+                            <span class="font-semibold text-purple-300">🌌 Triangulum (M33)</span>
+                            <span class="text-[10px] text-slate-400 mono-telemetry">2.73M ly &bull; Spiral</span>
+                        </div>
+                    </div>
+                </div>
+            </div><!-- /#galaxy-dossier -->
         </div>
 
         <!-- Tab: Settings -->
@@ -364,6 +462,7 @@
                 <button id="btn-toggle-clouds" onclick="toggleClouds()" class="btn-active py-2 px-2 text-[10px] border border-slate-600 rounded font-bold">3D Clouds: ON</button>
                 <button id="btn-toggle-cone" onclick="toggleLaserCone()" class="btn-active py-2 px-2 text-[10px] border border-slate-600 rounded font-bold">Scan Beam: ON</button>
                 <button id="btn-toggle-meteors" onclick="toggleMeteors()" class="btn-active py-2 px-2 text-[10px] border border-slate-600 rounded font-bold">Space Meteors: ON</button>
+                <button id="btn-toggle-mw" onclick="toggleMilkyWaySky()" class="btn-active py-2 px-2 text-[10px] border border-slate-600 rounded font-bold">Milky Way Sky: ON</button>
                 <button id="btn-toggle-retro" onclick="toggleOrbitDirection()" class="bg-slate-800/80 py-2 px-2 text-[10px] border border-slate-700 rounded font-bold text-slate-200">Orbit: Prograde</button>
             </div>
 

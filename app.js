@@ -1,5 +1,5 @@
 // ============================================================================
-// VYUHAK v26 INFINITY // CONTINUOUS PINCH-ZOOM ACROSS EARTH, COSMOS, GALAXY, COSMIC WEB, CMB & MULTIVERSE
+// VYUHAK v28 INFINITY // CLEAN HUD PROJECTION, CINEMATIC SCALE TRANSITIONS & VOLUMETRIC MILKY WAY
 // ============================================================================
 
 // --- 1. AUDIO ENGINE WITH MUTE ---
@@ -27,13 +27,13 @@ function playSound(type) {
         gain.gain.setValueAtTime(0, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0.035, audioCtx.currentTime + 0.04); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.22);
         osc.start(); osc.stop(audioCtx.currentTime + 0.22);
     } else if (type === 'warp-out') {
-        osc.type = 'sine'; osc.frequency.setValueAtTime(190, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(520, audioCtx.currentTime + 0.35);
-        gain.gain.setValueAtTime(0, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0.045, audioCtx.currentTime + 0.08); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.42);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.42);
+        osc.type = 'sine'; osc.frequency.setValueAtTime(150, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(480, audioCtx.currentTime + 0.78);
+        gain.gain.setValueAtTime(0, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0.042, audioCtx.currentTime + 0.16); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.90);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.90);
     } else if (type === 'warp-in') {
-        osc.type = 'sine'; osc.frequency.setValueAtTime(520, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(170, audioCtx.currentTime + 0.35);
-        gain.gain.setValueAtTime(0, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0.045, audioCtx.currentTime + 0.08); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.42);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.42);
+        osc.type = 'sine'; osc.frequency.setValueAtTime(480, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(140, audioCtx.currentTime + 0.78);
+        gain.gain.setValueAtTime(0, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0.042, audioCtx.currentTime + 0.16); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.90);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.90);
     }
     osc.connect(gain); gain.connect(audioCtx.destination);
 }
@@ -487,6 +487,11 @@ function transitionToScale(targetScale, options = {}) {
         return { arriveStartPos, arriveStartTarget, arriveEndPos, arriveEndTarget };
     };
 
+    const scaleDelta = Math.max(1, Math.abs(scaleRank[targetScale] - scaleRank[fromScale]));
+    const isAuto = !!options.isAutoScroll;
+    const departDur = isAuto ? 540 : (850 + scaleDelta * 300);   // 1150ms (1 hop), 1450ms (2 hops), 1750ms (3 hops)
+    const arriveDur = isAuto ? 920 : (1150 + scaleDelta * 500);  // 1650ms (1 hop), 2150ms (2 hops), 2650ms (3 hops)
+
     scaleAnim = {
         phase: 'DEPART',
         fromScale,
@@ -494,8 +499,8 @@ function transitionToScale(targetScale, options = {}) {
         zoomingOut,
         outGroup,
         startTime: performance.now(),
-        departDuration: 520,
-        arriveDuration: 880,
+        departDuration: departDur,
+        arriveDuration: arriveDur,
         departStartPos,
         departStartTarget,
         departEndPos,
@@ -3070,6 +3075,7 @@ function switchEngine(mode) {
     document.getElementById('galaxy-bar').classList.toggle('hidden', mode !== '3D' || !isGalaxyView);
     document.getElementById('universe-bar').classList.toggle('hidden', mode !== '3D' || !isUniverseView);
     document.getElementById('scale-bar-hud').classList.toggle('hidden', mode !== '3D');
+    if (mode !== '3D') document.getElementById('you-are-here-pin').classList.add('hidden');
     document.getElementById('btn-radar').classList.toggle('hidden', mode !== '2D');
     document.getElementById('btn-2d-clouds').classList.toggle('hidden', mode !== '2D');
     document.getElementById('btn-3d').classList.toggle('active', mode === '3D');
@@ -3182,7 +3188,7 @@ function animate() {
             }
         } else if (scaleAnim.phase === 'ARRIVE') {
             const t = Math.min(1, (nowMs - scaleAnim.startTime) / scaleAnim.arriveDuration);
-            const easeOut = 1 - Math.pow(1 - t, 3); // Smooth decelerating arrival
+            const easeOut = 1 - Math.pow(1 - t, 4); // Cinematic lingering deceleration
             camera.position.lerpVectors(scaleAnim.arrival.arriveStartPos, scaleAnim.arrival.arriveEndPos, easeOut);
             controls.target.lerpVectors(scaleAnim.arrival.arriveStartTarget, scaleAnim.arrival.arriveEndTarget, easeOut);
 
@@ -3243,22 +3249,22 @@ function animate() {
         if (nowMs - lastAutoScaleSwitch > 1400) {
             if (!isSolarSystemView && !isGalaxyView && !isUniverseView && camDist > 15.6) {
                 lastAutoScaleSwitch = nowMs;
-                transitionToScale('COSMOS', { toastMsg: 'Zoomed Out to Solar System' });
+                transitionToScale('COSMOS', { isAutoScroll: true, toastMsg: 'Zoomed Out to Solar System' });
             } else if (isSolarSystemView && camDist > 122) {
                 lastAutoScaleSwitch = nowMs;
-                transitionToScale('GALAXY', { toastMsg: 'Zoomed Out to Milky Way Galaxy' });
+                transitionToScale('GALAXY', { isAutoScroll: true, toastMsg: 'Zoomed Out to Milky Way Galaxy' });
             } else if (isSolarSystemView && camDist < 1.95 && focusedCosmosBody === 'Earth') {
                 lastAutoScaleSwitch = nowMs;
-                transitionToScale('EARTH', { toastMsg: 'Zoomed In to Earth' });
+                transitionToScale('EARTH', { isAutoScroll: true, toastMsg: 'Zoomed In to Earth' });
             } else if (isGalaxyView && camDist > 122) {
                 lastAutoScaleSwitch = nowMs;
-                transitionToScale('UNIVERSE', { toastMsg: 'Zoomed Out to Observable Universe' });
+                transitionToScale('UNIVERSE', { isAutoScroll: true, toastMsg: 'Zoomed Out to Observable Universe' });
             } else if (isGalaxyView && camDist < 3.6) {
                 lastAutoScaleSwitch = nowMs;
-                transitionToScale('COSMOS', { toastMsg: 'Zoomed In to Solar System' });
+                transitionToScale('COSMOS', { isAutoScroll: true, toastMsg: 'Zoomed In to Solar System' });
             } else if (isUniverseView && camDist < 4.2) {
                 lastAutoScaleSwitch = nowMs;
-                transitionToScale('GALAXY', { toastMsg: 'Zoomed In to Milky Way Galaxy' });
+                transitionToScale('GALAXY', { isAutoScroll: true, toastMsg: 'Zoomed In to Milky Way Galaxy' });
             }
         }
     }
@@ -3289,7 +3295,7 @@ function animate() {
         // Update "YOU ARE HERE" 3D-to-2D screen projection in Cosmos, Galaxy & Universe views
         const yahEl = document.getElementById('you-are-here-pin');
         let anchorObj = null;
-        if (isSolarSystemView && cosmosBodiesMap.has('Earth')) anchorObj = cosmosBodiesMap.get('Earth').obj;
+        if (isSolarSystemView && cosmosBodiesMap.has('Earth') && !(focusedCosmosBody === 'Earth' && camDist < 6.0)) anchorObj = cosmosBodiesMap.get('Earth').obj;
         else if (isGalaxyView && solarSystemPinObj) anchorObj = solarSystemPinObj;
         else if (isUniverseView && universeHomePin) anchorObj = universeHomePin;
 

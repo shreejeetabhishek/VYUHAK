@@ -130,7 +130,7 @@ input[type=range]::-webkit-slider-thumb { border: 2px solid #02040a; height: 20p
     pointer-events: none;
     opacity: 0;
     background: radial-gradient(circle at center, rgba(186, 230, 253, 0.24) 0%, rgba(15, 23, 42, 0.45) 55%, rgba(2, 6, 23, 0.85) 100%);
-    transition: opacity 0.16s ease-out;
+    transition: opacity 0.34s ease-in-out;
 }
 #scale-warp-veil.active {
     opacity: 1;
@@ -161,6 +161,11 @@ input[type=range]::-webkit-slider-thumb { border: 2px solid #02040a; height: 20p
     margin-top: 2px;
 }
 
+#scale-bar-hud.hidden,
+#you-are-here-pin.hidden {
+    display: none !important;
+}
+
 #you-are-here-pin {
     position: fixed;
     top: 0;
@@ -169,7 +174,7 @@ input[type=range]::-webkit-slider-thumb { border: 2px solid #02040a; height: 20p
     display: flex;
     align-items: center;
     gap: 4px;
-    transform: translate(-50%, -50%);
+    transform: translate(-3.5px, -50%);
     will-change: transform;
 }
 .yah-dot {

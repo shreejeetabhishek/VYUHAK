@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>VYUHAK v30 OMNI // Earth, Solar, Galaxy, Universe & Multiverse Intelligence</title>
+    <title>VYUHAK v31 ATLAS // Constellations, Deep-Space Landmarks & 5-Scale Cosmos</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -165,12 +165,15 @@
 
         <!-- Multiverse Bar (Visible ONLY in Multiverse Mode) -->
         <div id="multiverse-bar" class="pointer-events-auto hidden flex flex-col gap-1.5 w-full">
+            <div class="flex items-center gap-1 overflow-x-auto hide-scrollbar pb-0.5" id="multiverse-chips">
+                <!-- Populated dynamically by JS -->
+            </div>
             <div class="obsidian-glass rounded-lg px-3 py-2 text-[10px] text-slate-300 flex items-center justify-between gap-2 border border-rose-500/35">
                 <div class="min-w-0">
-                    <span class="font-bold text-rose-300 uppercase tracking-wider">Multiverse</span>
-                    <span class="text-slate-400 ml-1.5">Eternal Inflation Bubbles</span>
+                    <span id="mt-name" class="font-bold text-rose-300 uppercase tracking-wider">Multiverse</span>
+                    <span id="mt-type" class="text-slate-400 ml-1.5">Eternal Inflation Bubbles</span>
                 </div>
-                <div class="mono-telemetry text-right text-[9px] text-rose-200 shrink-0">
+                <div id="mt-stats" class="mono-telemetry text-right text-[9px] text-rose-200 shrink-0">
                     &gt; 100B ly &bull; An idea, not a measurement
                 </div>
             </div>
@@ -580,6 +583,7 @@
                 <button id="btn-toggle-cone" onclick="toggleLaserCone()" class="btn-active py-2 px-2 text-[10px] border border-slate-600 rounded font-bold">Scan Beam: ON</button>
                 <button id="btn-toggle-meteors" onclick="toggleMeteors()" class="btn-active py-2 px-2 text-[10px] border border-slate-600 rounded font-bold">Space Meteors: ON</button>
                 <button id="btn-toggle-mw" onclick="toggleMilkyWaySky()" class="btn-active py-2 px-2 text-[10px] border border-slate-600 rounded font-bold">Milky Way Sky: ON</button>
+                <button id="btn-toggle-constellations" onclick="toggleConstellations()" class="btn-active py-2 px-2 text-[10px] border border-slate-600 rounded font-bold">Constellations: ON</button>
                 <button id="btn-toggle-retro" onclick="toggleOrbitDirection()" class="bg-slate-800/80 py-2 px-2 text-[10px] border border-slate-700 rounded font-bold text-slate-200">Orbit: Prograde</button>
             </div>
 

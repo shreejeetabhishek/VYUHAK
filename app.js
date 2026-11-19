@@ -1,5 +1,5 @@
 // ============================================================================
-// VYUHAK v30 OMNI // 5-SCALE COSMIC RAIL (EARTH, SOLAR, GALAXY, UNIVERSE, MULTIVERSE) + 3D/2D & FREE/ISS
+// VYUHAK v31 ATLAS // REAL-SKY CONSTELLATIONS, DEEP-SPACE LANDMARKS & 5-SCALE COSMOS
 // ============================================================================
 
 // --- 1. AUDIO ENGINE WITH MUTE ---
@@ -175,6 +175,8 @@ let isMultiverseView = false;
 let focusedUniverseRegion = 'Cosmic Web';
 let lastAutoScaleSwitch = 0;
 let showMilkyWaySky = true;
+let showConstellations = true;
+let constellationLinesMesh = null;
 let focusedGalaxyRegion = 'Milky Way';
 let focusedCosmosBody = 'Sun';
 let cosmosWarpIdx = 0;
@@ -335,6 +337,7 @@ function applyScaleDOMAndVisibility(targetScale) {
     galaxyGroup.visible = isGalaxyView;
     universeGroup.visible = (isUniverseView || isMultiverseView);
     if (milkyWaySkyMesh) milkyWaySkyMesh.visible = (isEarth || isSolarSystemView) && showMilkyWaySky;
+    if (constellationLinesMesh) constellationLinesMesh.visible = (isEarth || isSolarSystemView) && showConstellations;
 
     document.getElementById('earth-dossier').classList.toggle('hidden', !isEarth);
     document.getElementById('cosmos-dossier').classList.toggle('hidden', !isSolarSystemView);
@@ -919,6 +922,36 @@ const UNIVERSE_REGIONS = {
         type: 'Local Supercluster', stats: '520M ly &bull; Great Attractor',
         wiki: 'Laniakea_Supercluster', camPos: new THREE.Vector3(4, 9, 14), lookAt: new THREE.Vector3(0, 0, 0)
     },
+    'Virgo': {
+        title: 'VIRGO SUPERCLUSTER // LOCAL NODE', subtitle: 'Core Cluster of ~1,300–2,000 Galaxies',
+        type: 'Galaxy Supercluster', stats: '110M ly &bull; M87 Core',
+        wiki: 'Virgo_Supercluster', camPos: new THREE.Vector3(8, 8, 12), lookAt: new THREE.Vector3(4.5, 1.5, 3.0)
+    },
+    'Great Attractor': {
+        title: 'GREAT ATTRACTOR // GRAVITATIONAL ANOMALY', subtitle: 'Central Gravitational Hub of Laniakea',
+        type: 'Gravitational Anomaly', stats: '150–250M ly &bull; ~10¹⁶ M☉',
+        wiki: 'Great_Attractor', camPos: new THREE.Vector3(-10, 7, 13), lookAt: new THREE.Vector3(-6.2, -1.8, 4.5)
+    },
+    'Shapley': {
+        title: 'SHAPLEY SUPERCLUSTER // MASSIVE NODE', subtitle: 'Largest Galaxy Concentration in Local Universe',
+        type: 'Supercluster', stats: '650M ly &bull; 8,000+ Galaxies',
+        wiki: 'Shapley_Supercluster', camPos: new THREE.Vector3(-16, 12, -14), lookAt: new THREE.Vector3(-12.5, 4.2, -9.5)
+    },
+    'Sloan Great Wall': {
+        title: 'SLOAN GREAT WALL // COSMIC FILAMENT', subtitle: '1.38 Billion Light-Year Galaxy Filament',
+        type: 'Supercluster Filament', stats: '1.38B ly Long &bull; 1B ly Away',
+        wiki: 'Sloan_Great_Wall', camPos: new THREE.Vector3(22, 16, -20), lookAt: new THREE.Vector3(16.0, 5.5, -14.0)
+    },
+    'Boötes Void': {
+        title: 'BOÖTES VOID // THE GREAT NOTHING', subtitle: '330 Million Light-Year Spherical Supervoid',
+        type: 'Cosmic Supervoid', stats: '330M ly Wide &bull; ~60 Galaxies',
+        wiki: 'Boötes_Void', camPos: new THREE.Vector3(16, -10, 22), lookAt: new THREE.Vector3(11.0, -6.5, 13.5)
+    },
+    'GN-z11': {
+        title: 'GN-z11 // EARLY UNIVERSE GALAXY', subtitle: 'Observed 400M Years After the Big Bang',
+        type: 'High-Redshift Galaxy (z=10.6)', stats: '32B ly Proper Dist.',
+        wiki: 'GN-z11', camPos: new THREE.Vector3(-24, 18, 28), lookAt: new THREE.Vector3(-21.0, 12.0, 20.0)
+    },
     'CMB Horizon': {
         title: 'OBSERVABLE UNIVERSE // CMB HORIZON', subtitle: 'Cosmic Microwave Background (93 Billion ly)',
         type: '2.725 K Horizon Sphere', stats: '93B ly &bull; 13.8B yrs Old',
@@ -930,6 +963,52 @@ const UNIVERSE_REGIONS = {
         wiki: 'Multiverse', camPos: new THREE.Vector3(0, 78, 138), lookAt: new THREE.Vector3(0, 0, 0)
     }
 };
+
+const MULTIVERSE_BUBBLES = {
+    'Multiverse': {
+        title: 'MULTIVERSE // ETERNAL INFLATION', subtitle: 'Hypothetical Bubble Universes — An idea, not a measurement',
+        type: 'Theoretical Cosmology', stats: '> 100B ly &bull; Unverified',
+        bio: 'In eternal inflation models, quantum fluctuations keep space inflating outside our observable horizon, continuously spawning separate pocket universes with potentially different physical constants.',
+        camPos: new THREE.Vector3(0, 78, 138), lookAt: new THREE.Vector3(0, 0, 0)
+    },
+    'Pocket α': {
+        title: 'POCKET UNIVERSE α // ALTERNATE CONSTANTS', subtitle: 'Hypothetical Inflaton Bubble (Bubble #1)',
+        type: 'Eternal Inflation Pocket', stats: 'Hypothetical &bull; Different α',
+        bio: 'A theoretical neighboring pocket universe where the fine-structure constant or dark energy density settled into a different vacuum state during symmetry breaking.',
+        camPos: new THREE.Vector3(52, 34, -12), lookAt: new THREE.Vector3(78, 22, -45)
+    },
+    'Quantum Branch': {
+        title: 'QUANTUM BRANCH // MANY-WORLDS', subtitle: 'Everettian Decoherence Branch (Bubble #2)',
+        type: 'Quantum Cosmology', stats: 'Hypothetical &bull; Hilbert Space',
+        bio: 'Represents the Many-Worlds interpretation of quantum mechanics, where every quantum measurement branches the universal wavefunction into non-interacting histories.',
+        camPos: new THREE.Vector3(-42, -4, -22), lookAt: new THREE.Vector3(-74, -18, -55)
+    },
+    'Brane Bulk': {
+        title: 'BRANE BULK // STRING LANDSCAPE', subtitle: 'Higher-Dimensional M-Theory Brane (Bubble #3)',
+        type: 'String Theory Hypothesis', stats: '10⁵⁰⁰ Vacua &bull; Theoretical',
+        bio: 'In string theory and brane cosmology, our 3D universe could be a membrane floating in a higher-dimensional bulk alongside other parallel brane-worlds.',
+        camPos: new THREE.Vector3(24, -26, 98), lookAt: new THREE.Vector3(45, -42, 68)
+    },
+    'High-Entropy': {
+        title: 'HIGH-ENTROPY POCKET // THERMAL VOID', subtitle: 'Rapidly Decayed Vacuum Bubble (Bubble #4)',
+        type: 'Theoretical Vacuum State', stats: 'Short-Lived &bull; Unverified',
+        bio: 'A hypothetical pocket universe with a much larger cosmological constant, causing matter to disperse before stars or galaxies could ever form.',
+        camPos: new THREE.Vector3(-26, 62, 82), lookAt: new THREE.Vector3(-52, 48, 52)
+    }
+};
+
+function focusMultiverseBubble(name) {
+    const b = MULTIVERSE_BUBBLES[name];
+    if (!b) return;
+    document.querySelectorAll('#multiverse-chips .planet-chip').forEach(ch => ch.classList.toggle('active', ch.dataset.bubble === name));
+    document.getElementById('mt-name').textContent = name;
+    document.getElementById('mt-type').textContent = b.type;
+    document.getElementById('mt-stats').innerHTML = b.stats;
+    document.getElementById('ud-title').textContent = b.title;
+    document.getElementById('ud-subtitle').innerHTML = b.subtitle;
+    document.getElementById('ud-bio').textContent = b.bio;
+    smoothFlyTo(b.camPos, b.lookAt, 950);
+}
 
 async function updateUniverseBio(name) {
     const r = UNIVERSE_REGIONS[name];
@@ -993,11 +1072,47 @@ const GALAXY_REGIONS = {
         dist: '~33,000 ly', vel: '225 km/s', year: '~280M yrs', diam: 'Outer Disk Span', mass: 'High OB Star Density', tilt: '60.2°',
         wiki: 'Perseus_Arm', camPos: new THREE.Vector3(-18, 14, 24), lookAt: new THREE.Vector3(-14, 0, 10)
     },
+    'Scutum-Centaurus': {
+        title: 'SCUTUM-CENTAURUS ARM // MAJOR ARM', subtitle: 'Primary Inner Spiral Arm of the Milky Way',
+        type: 'Major Spiral Arm', stats: 'Inner Galactic Disk &bull; Dense Starburst',
+        dist: '~18,000 ly', vel: '235 km/s', year: '~180M yrs', diam: 'Inner Disk Span', mass: 'Rich Red Supergiants', tilt: '60.2°',
+        wiki: 'Scutum–Centaurus_Arm', camPos: new THREE.Vector3(12, 12, -16), lookAt: new THREE.Vector3(8.5, 0, -9.5)
+    },
+    'Alpha Centauri': {
+        title: 'ALPHA CENTAURI // NEAREST STAR SYSTEM', subtitle: 'Proxima Centauri b &bull; 4.37 Light-Years from Sun',
+        type: 'Triple Star System', stats: '4.37 ly &bull; Closest Exoplanet',
+        dist: '26,668 ly (Core)', vel: '230 km/s', year: '230M yrs', diam: 'Triple System', mass: '2.18 M☉ Total', tilt: '60.2°',
+        wiki: 'Alpha_Centauri', camPos: new THREE.Vector3(15.2, 4.5, 5.2), lookAt: new THREE.Vector3(13.6, 0.1, 0.5)
+    },
+    'Orion Nebula': {
+        title: 'ORION NEBULA (M42) // STELLAR NURSERY', subtitle: 'Closest Massive Star-Forming Region (1,344 ly)',
+        type: 'Diffuse H-II Nebula', stats: '1,344 ly from Earth &bull; 24 ly Wide',
+        dist: '27,800 ly (Core)', vel: '228 km/s', year: '235M yrs', diam: '24 ly', mass: '~2,000 M☉', tilt: '60.2°',
+        wiki: 'Orion_Nebula', camPos: new THREE.Vector3(17.5, 5.2, 7.8), lookAt: new THREE.Vector3(14.6, -0.2, 2.2)
+    },
+    'Pillars of Creation': {
+        title: 'EAGLE NEBULA (M16) // PILLARS OF CREATION', subtitle: 'Sagittarius Arm Star-Forming Columns (5,700 ly)',
+        type: 'H-II Molecular Pillars', stats: '5,700 ly &bull; Sagittarius Arm',
+        dist: '21,200 ly (Core)', vel: '232 km/s', year: '205M yrs', diam: '70 × 55 ly', mass: '~12,000 M☉', tilt: '60.2°',
+        wiki: 'Pillars_of_Creation', camPos: new THREE.Vector3(11.5, 5.8, -6.5), lookAt: new THREE.Vector3(10.2, 0.2, -3.2)
+    },
+    'LMC': {
+        title: 'LARGE MAGELLANIC CLOUD // SATELLITE GALAXY', subtitle: 'Largest Dwarf Satellite of the Milky Way',
+        type: 'Magellanic Spiral', stats: '163,000 ly &bull; ~30B Stars',
+        dist: '163,000 ly', vel: '327 km/s', year: '~1.5B yrs', diam: '32,200 ly', mass: '1.38 × 10¹¹ M☉', tilt: '35°',
+        wiki: 'Large_Magellanic_Cloud', camPos: new THREE.Vector3(-22, -12, -26), lookAt: new THREE.Vector3(-32, -18, -36)
+    },
     'Andromeda (M31)': {
         title: 'ANDROMEDA (M31) // LOCAL GROUP', subtitle: 'Nearest Major Spiral Galaxy (2.537M ly)',
         type: 'SA(s)b Spiral Galaxy', stats: '2.537M ly &bull; ~1 Trillion Stars',
         dist: '2,537,000 ly', vel: '-110 km/s (Approach)', year: 'Collision in ~4.5B yrs', diam: '152,000 ly', mass: '1.5 × 10¹² M☉', tilt: '77°',
         wiki: 'Andromeda_Galaxy', camPos: new THREE.Vector3(38, 22, -45), lookAt: new THREE.Vector3(55, 16, -65)
+    },
+    'Triangulum (M33)': {
+        title: 'TRIANGULUM (M33) // LOCAL GROUP', subtitle: 'Third-Largest Galaxy in the Local Group',
+        type: 'SA(s)cd Spiral Galaxy', stats: '2.73M ly &bull; ~40B Stars',
+        dist: '2,730,000 ly', vel: '-179 km/s', year: 'Local Group', diam: '61,100 ly', mass: '5 × 10¹⁰ M☉', tilt: '54°',
+        wiki: 'Triangulum_Galaxy', camPos: new THREE.Vector3(56, 26, -34), lookAt: new THREE.Vector3(72, 24, -48)
     }
 };
 
@@ -1046,10 +1161,21 @@ async function focusGalaxyRegion(name) {
 
 function toggleMilkyWaySky() {
     showMilkyWaySky = !showMilkyWaySky;
-    if (milkyWaySkyMesh && !isGalaxyView) milkyWaySkyMesh.visible = showMilkyWaySky;
+    if (milkyWaySkyMesh && !isGalaxyView && !isUniverseView && !isMultiverseView) milkyWaySkyMesh.visible = showMilkyWaySky;
     const btn = document.getElementById('btn-toggle-mw');
     btn.textContent = `Milky Way Sky: ${showMilkyWaySky ? 'ON' : 'OFF'}`;
     btn.classList.toggle('btn-active', showMilkyWaySky);
+    playSound('click');
+}
+
+function toggleConstellations() {
+    showConstellations = !showConstellations;
+    if (constellationLinesMesh && !isGalaxyView && !isUniverseView && !isMultiverseView) {
+        constellationLinesMesh.visible = showConstellations;
+    }
+    const btn = document.getElementById('btn-toggle-constellations');
+    btn.textContent = `Constellations: ${showConstellations ? 'ON' : 'OFF'}`;
+    btn.classList.toggle('btn-active', showConstellations);
     playSound('click');
 }
 
@@ -1746,30 +1872,115 @@ scene.add(heliocentricGroup);
 scene.add(galaxyGroup);
 scene.add(universeGroup);
 
-// --- A. REAL CATALOG BRIGHT STARS (RA / DEC) + DEEP-SPACE STARFIELD ---
-(function createRealStarfield() {
-    const brightStars = [
-        [6.75, -16.71, 0xbae6fd], [6.40, -52.70, 0xfef9c3], [14.26, 19.18, 0xfdba74],
-        [18.62, 38.78, 0xe0f2fe], [5.28, 46.00, 0xfef08a],  [5.24, -8.20, 0x93c5fd],
-        [5.92, 7.41, 0xfb923c],   [2.53, 89.26, 0xfef9c3],  [16.49, -26.43, 0xf87171], [19.85, 8.87, 0xf8fafc]
+// --- A. REAL CATALOG STARS + 12 MAJOR CONSTELLATIONS WITH STAR-CONNECTING LINES ---
+(function createRealStarfieldAndConstellations() {
+    // Real astronomical stars [RA_hours, Dec_deg, hexColor]
+    const CONSTELLATION_STARS = {
+        // Orion
+        betelgeuse: [5.919, 7.407, 0xfb923c], bellatrix: [5.419, 6.350, 0xbae6fd],
+        mintaka: [5.533, -0.299, 0xe0f2fe], alnilam: [5.603, -1.202, 0xe0f2fe], alnitak: [5.679, -1.943, 0xbae6fd],
+        saiph: [5.796, -9.670, 0xbae6fd], rigel: [5.242, -8.202, 0x93c5fd], meissa: [5.585, 9.934, 0xbae6fd],
+        // Ursa Major (Big Dipper)
+        dubhe: [11.062, 61.751, 0xfdba74], merak: [11.031, 56.382, 0xf8fafc], phecda: [11.897, 53.695, 0xf8fafc],
+        megrez: [12.257, 57.033, 0xf8fafc], alioth: [12.900, 55.960, 0xf8fafc], mizar: [13.399, 54.925, 0xf8fafc],
+        alkaid: [13.792, 49.313, 0xbae6fd],
+        // Ursa Minor (Little Dipper / Polaris)
+        polaris: [2.530, 89.264, 0xfef9c3], yildun: [17.537, 86.586, 0xf8fafc], epsUMi: [16.766, 82.037, 0xfef08a],
+        zetaUMi: [15.734, 77.794, 0xf8fafc], kochab: [14.845, 74.156, 0xfdba74], pherkad: [15.345, 71.834, 0xf8fafc],
+        etaUMi: [16.292, 75.755, 0xfef9c3],
+        // Cassiopeia (W shape)
+        caph: [0.153, 59.150, 0xfef9c3], schedar: [0.675, 56.537, 0xfdba74], gammaCas: [0.945, 60.717, 0xbae6fd],
+        ruchbah: [1.430, 60.235, 0xf8fafc], segin: [1.907, 63.670, 0xbae6fd],
+        // Scorpius
+        acrab: [16.091, -19.805, 0xbae6fd], dschubba: [16.005, -22.622, 0xbae6fd], piSco: [15.981, -26.114, 0xbae6fd],
+        antares: [16.490, -26.432, 0xf87171], tauSco: [16.598, -28.216, 0xbae6fd], epsSco: [16.836, -34.293, 0xfdba74],
+        zetaSco: [16.909, -42.361, 0xfdba74], sargas: [17.622, -42.998, 0xfef9c3], shaula: [17.560, -37.104, 0xbae6fd],
+        // Leo
+        regulus: [10.139, 11.967, 0xbae6fd], etaLeo: [10.122, 16.763, 0xf8fafc], algieba: [10.333, 19.841, 0xfdba74],
+        adhafera: [10.278, 23.417, 0xfef9c3], rasalas: [9.879, 26.007, 0xfdba74], zosma: [11.235, 20.524, 0xf8fafc],
+        chertan: [11.237, 15.429, 0xf8fafc], denebola: [11.818, 14.572, 0xf8fafc],
+        // Cygnus (Northern Cross)
+        deneb: [20.690, 45.280, 0xe0f2fe], sadr: [20.370, 40.257, 0xfef9c3], albireo: [19.512, 27.960, 0xfdba74],
+        gienahCyg: [20.770, 33.970, 0xfdba74], deltaCyg: [19.750, 45.131, 0xbae6fd],
+        // Crux (Southern Cross)
+        acrux: [12.443, -63.099, 0xbae6fd], gacrux: [12.519, -57.113, 0xfb923c],
+        mimosa: [12.795, -59.689, 0xbae6fd], imai: [12.252, -58.749, 0xbae6fd],
+        // Canis Major
+        sirius: [6.752, -16.716, 0xbae6fd], mirzam: [6.378, -17.956, 0xbae6fd], wezen: [7.140, -26.393, 0xfef9c3],
+        adhara: [6.977, -28.972, 0xbae6fd], aludra: [7.401, -29.303, 0xbae6fd], muliphein: [7.063, -15.633, 0xbae6fd],
+        // Taurus
+        aldebaran: [4.599, 16.509, 0xfb923c], elnath: [5.438, 28.607, 0xbae6fd], zetaTau: [5.627, 21.143, 0xbae6fd],
+        ain: [4.477, 19.180, 0xfdba74], hyadumI: [4.330, 15.628, 0xfdba74],
+        // Gemini
+        castor: [7.577, 31.888, 0xf8fafc], pollux: [7.755, 28.026, 0xfdba74], alhena: [6.629, 16.399, 0xf8fafc],
+        wasat: [7.335, 21.982, 0xfef9c3], mebsuta: [6.732, 25.131, 0xfdba74], tejat: [6.383, 22.514, 0xfb923c],
+        // Pegasus (Great Square)
+        markab: [23.079, 15.205, 0xbae6fd], scheat: [23.063, 28.083, 0xfb923c],
+        algenib: [0.220, 15.184, 0xbae6fd], alpheratz: [0.140, 29.091, 0xbae6fd]
+    };
+
+    const CONSTELLATION_EDGES = [
+        // Orion
+        ['meissa','betelgeuse'], ['meissa','bellatrix'], ['betelgeuse','bellatrix'],
+        ['betelgeuse','alnitak'], ['bellatrix','mintaka'], ['mintaka','alnilam'], ['alnilam','alnitak'],
+        ['mintaka','rigel'], ['alnitak','saiph'], ['rigel','saiph'],
+        // Ursa Major
+        ['dubhe','merak'], ['merak','phecda'], ['phecda','megrez'], ['megrez','dubhe'],
+        ['megrez','alioth'], ['alioth','mizar'], ['mizar','alkaid'],
+        // Ursa Minor
+        ['polaris','yildun'], ['yildun','epsUMi'], ['epsUMi','zetaUMi'],
+        ['zetaUMi','kochab'], ['kochab','pherkad'], ['pherkad','etaUMi'], ['etaUMi','zetaUMi'],
+        // Cassiopeia
+        ['caph','schedar'], ['schedar','gammaCas'], ['gammaCas','ruchbah'], ['ruchbah','segin'],
+        // Scorpius
+        ['acrab','dschubba'], ['dschubba','piSco'], ['dschubba','antares'], ['antares','tauSco'],
+        ['tauSco','epsSco'], ['epsSco','zetaSco'], ['zetaSco','sargas'], ['sargas','shaula'],
+        // Leo
+        ['regulus','etaLeo'], ['etaLeo','algieba'], ['algieba','adhafera'], ['adhafera','rasalas'],
+        ['algieba','zosma'], ['zosma','denebola'], ['denebola','chertan'], ['chertan','regulus'], ['zosma','chertan'],
+        // Cygnus
+        ['deneb','sadr'], ['sadr','albireo'], ['deltaCyg','sadr'], ['sadr','gienahCyg'],
+        // Crux
+        ['acrux','gacrux'], ['mimosa','imai'],
+        // Canis Major
+        ['sirius','mirzam'], ['sirius','muliphein'], ['sirius','wezen'], ['wezen','adhara'], ['wezen','aludra'],
+        // Taurus
+        ['elnath','ain'], ['ain','hyadumI'], ['hyadumI','aldebaran'], ['aldebaran','zetaTau'],
+        // Gemini
+        ['castor','pollux'], ['castor','mebsuta'], ['mebsuta','tejat'], ['pollux','wasat'], ['wasat','alhena'],
+        // Pegasus Square
+        ['markab','scheat'], ['scheat','alpheratz'], ['alpheratz','algenib'], ['algenib','markab']
     ];
-    const totalStars = 3400 + brightStars.length;
+
+    const starPosMap = {};
+    const starKeys = Object.keys(CONSTELLATION_STARS);
+    const rSphere = 240;
+
+    function raDecToVec3(raHours, decDeg, r) {
+        const raRad = (raHours * 15) * Math.PI / 180;
+        const decRad = decDeg * Math.PI / 180;
+        return new THREE.Vector3(
+            r * Math.cos(decRad) * Math.cos(raRad),
+            r * Math.sin(decRad),
+            -r * Math.cos(decRad) * Math.sin(raRad)
+        );
+    }
+
+    const totalStars = 3400 + starKeys.length;
     const positions = new Float32Array(totalStars * 3);
     const colors = new Float32Array(totalStars * 3);
     const palette = [new THREE.Color(0xffffff), new THREE.Color(0xbae6fd), new THREE.Color(0xfef08a), new THREE.Color(0xfed7aa)];
 
-    brightStars.forEach((s, idx) => {
-        const raRad = (s[0] * 15) * Math.PI / 180;
-        const decRad = s[1] * Math.PI / 180;
-        const r = 240;
-        positions[idx*3] = r * Math.cos(decRad) * Math.cos(raRad);
-        positions[idx*3+1] = r * Math.sin(decRad);
-        positions[idx*3+2] = -r * Math.cos(decRad) * Math.sin(raRad);
-        const c = new THREE.Color(s[2]);
+    starKeys.forEach((key, idx) => {
+        const [ra, dec, hex] = CONSTELLATION_STARS[key];
+        const v = raDecToVec3(ra, dec, rSphere);
+        starPosMap[key] = v;
+        positions[idx*3] = v.x; positions[idx*3+1] = v.y; positions[idx*3+2] = v.z;
+        const c = new THREE.Color(hex);
         colors[idx*3] = c.r; colors[idx*3+1] = c.g; colors[idx*3+2] = c.b;
     });
 
-    for (let i = brightStars.length; i < totalStars; i++) {
+    for (let i = starKeys.length; i < totalStars; i++) {
         const r = 220 + Math.random() * 180;
         const theta = Math.random() * Math.PI * 2;
         const phi = Math.acos(2 * Math.random() - 1);
@@ -1785,16 +1996,32 @@ scene.add(universeGroup);
     starGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     const starSpriteTex = createCircleSpriteTexture('rgba(255,255,255,1)', 'rgba(186,230,253,0.35)');
     scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({
-        size: 1.35,
+        size: 1.4,
         map: starSpriteTex,
         vertexColors: true,
         transparent: true,
-        opacity: 0.92,
+        opacity: 0.94,
         blending: THREE.AdditiveBlending,
         depthWrite: false
     })));
-})();
 
+    // Single-draw-call Constellation Star-Connecting Lines (Visible in Earth & Solar views!)
+    const linePositions = [];
+    CONSTELLATION_EDGES.forEach(([a, b]) => {
+        if (starPosMap[a] && starPosMap[b]) {
+            linePositions.push(starPosMap[a], starPosMap[b]);
+        }
+    });
+    const lineGeo = new THREE.BufferGeometry().setFromPoints(linePositions);
+    constellationLinesMesh = new THREE.LineSegments(lineGeo, new THREE.LineBasicMaterial({
+        color: 0x7dd3fc,
+        transparent: true,
+        opacity: 0.26,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+    }));
+    scene.add(constellationLinesMesh);
+})();
 
 // --- A2. 360° REALISTIC MILKY WAY SKYBAND (TILTED 60.2° GALACTIC PLANE + GREAT RIFT DUST LANES) ---
 const milkyWaySkyMat = new THREE.ShaderMaterial({
@@ -2360,6 +2587,68 @@ function createHelioPlanetMat(colA, colB, banded, hasPolarCaps = false, rimHex =
     heliocentricGroup.add(new THREE.Points(kuiperGeo, new THREE.PointsMaterial({
         color: 0x7dd3fc, size: 0.34, map: asteroidSpriteTex, transparent: true, opacity: 0.42, depthWrite: false
     })));
+
+    // Habitable (Goldilocks) Zone Ring around Earth's orbit (r = 10.2 to 13.4)
+    const hzRing = new THREE.Mesh(
+        new THREE.RingGeometry(10.2, 13.4, 96),
+        new THREE.MeshBasicMaterial({ color: 0x10b981, side: THREE.DoubleSide, transparent: true, opacity: 0.08, depthWrite: false })
+    );
+    hzRing.rotation.x = Math.PI / 2;
+    heliocentricGroup.add(hzRing);
+
+    // Outer Oort Cloud Spherical Shell (r = 72 to 92)
+    const oortCount = 700;
+    const oortPos = new Float32Array(oortCount * 3);
+    for (let i = 0; i < oortCount; i++) {
+        const r = 72 + Math.random() * 20;
+        const th = Math.random() * Math.PI * 2;
+        const ph = Math.acos(2 * Math.random() - 1);
+        oortPos[i*3] = r * Math.sin(ph) * Math.cos(th);
+        oortPos[i*3+1] = r * Math.sin(ph) * Math.sin(th);
+        oortPos[i*3+2] = r * Math.cos(ph);
+    }
+    const oortGeo = new THREE.BufferGeometry();
+    oortGeo.setAttribute('position', new THREE.BufferAttribute(oortPos, 3));
+    heliocentricGroup.add(new THREE.Points(oortGeo, new THREE.PointsMaterial({
+        color: 0x93c5fd, size: 0.42, map: asteroidSpriteTex, transparent: true, opacity: 0.28, depthWrite: false
+    })));
+
+    // Major Dwarf Planets, Comet & Deep-Space Probes
+    const EXTRA_SOLAR = [
+        { name: 'Ceres', wikiTitle: 'Ceres_(dwarf_planet)', type: 'Main Belt Dwarf Planet', visR: 0.22, pos: new THREE.Vector3(-14.5, 0.9, 12.2), color: 0x94a3b8,
+          statsHTML: 'Sun: 2.77 AU &bull; Main Asteroid Belt', a: 2.77, e: 0.076, I: 10.6, L0: 95, LRate: 7800, wBar: 73, Omega: 80, tilt: 4, radiusKm: 473, gravity: 0.28, escapeKps: 0.51, temp: '-105 °C', dayLen: '9h 04m', atmo: 'Transient Water Vapor Exosphere', moonCount: 0, moons: [] },
+        { name: 'Pluto', wikiTitle: 'Pluto', type: 'Kuiper Belt Dwarf Planet', visR: 0.28, pos: new THREE.Vector3(36.0, 6.2, 41.5), color: 0xd6b59c,
+          statsHTML: 'Sun: 39.48 AU &bull; Kuiper Belt', a: 39.48, e: 0.249, I: 17.16, L0: 238, LRate: 145, wBar: 224, Omega: 110, tilt: 122.5, radiusKm: 1188, gravity: 0.62, escapeKps: 1.21, temp: '-229 °C', dayLen: '6.39d (Retro)', atmo: 'Thin N₂, CH₄, CO Atmosphere', moonCount: 5, moons: [{ name: 'Charon', r: 0.08, dist: 0.55, period: 6.39, color: 0x94a3b8 }] },
+        { name: 'Eris', wikiTitle: 'Eris_(dwarf_planet)', type: 'Scattered Disc Dwarf Planet', visR: 0.27, pos: new THREE.Vector3(-46.0, -14.0, -38.0), color: 0xe2e8f0,
+          statsHTML: 'Sun: 67.86 AU &bull; Scattered Disc', a: 67.86, e: 0.436, I: 44.04, L0: 205, LRate: 64, wBar: 151, Omega: 36, tilt: 78, radiusKm: 1163, gravity: 0.82, escapeKps: 1.38, temp: '-243 °C', dayLen: '25.9h', atmo: 'Frozen Methane Surface', moonCount: 1, moons: [{ name: 'Dysnomia', r: 0.06, dist: 0.52, period: 15.79, color: 0xcbd5e1 }] },
+        { name: "Halley's Comet", wikiTitle: "Halley's_Comet", type: 'Periodic Comet (75-76 yrs)', visR: 0.20, pos: new THREE.Vector3(-22.0, 4.8, -18.5), color: 0x7dd3fc, isComet: true,
+          statsHTML: 'Next Perihelion: 2061 &bull; Retrograde', a: 17.83, e: 0.967, I: 162.3, L0: 38, LRate: 470, wBar: 111, Omega: 58, tilt: 0, radiusKm: 5.5, gravity: 0.0005, escapeKps: 0.002, temp: '-70 °C', dayLen: '2.2d', atmo: 'Sublimating H₂O, CO₂, CO Coma & Ion Tail', moonCount: 0, moons: [] },
+        { name: 'Voyager 1', wikiTitle: 'Voyager_1', type: 'Interstellar Space Probe', visR: 0.22, pos: new THREE.Vector3(58.0, 26.0, -28.0), color: 0xfbbf24,
+          statsHTML: 'Sun: ~165 AU &bull; Interstellar Space', a: 165.0, e: 0.0, I: 35.0, L0: 255, LRate: 0, wBar: 0, Omega: 0, tilt: 0, radiusKm: 0.003, gravity: 0, escapeKps: 0, temp: '-270 °C', dayLen: 'Launched 1977', atmo: 'Interstellar Medium (Beyond Heliopause)', moonCount: 0, moons: [] }
+    ];
+
+    EXTRA_SOLAR.forEach(item => {
+        const g = new THREE.Group();
+        g.position.copy(item.pos);
+        const m = new THREE.Mesh(
+            new THREE.SphereGeometry(item.visR, 20, 20),
+            new THREE.MeshStandardMaterial({ color: item.color, roughness: 0.7, metalness: 0.15, emissive: item.isComet ? 0x0284c7 : 0x000000 })
+        );
+        g.add(m);
+        if (item.isComet) {
+            const tail = new THREE.Mesh(
+                new THREE.ConeGeometry(0.32, 3.8, 16, 1, true),
+                new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.35, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false })
+            );
+            tail.rotation.z = -Math.PI / 2;
+            tail.position.x = -1.9;
+            g.add(tail);
+            g.lookAt(0, 0, 0);
+        }
+        heliocentricGroup.add(g);
+        cosmosBodiesMap.set(item.name, { name: item.name, type: item.type, obj: g, spinMesh: m, moons: [], meta: item, radius: item.visR, statsHTML: item.statsHTML });
+        chipsContainer.innerHTML += `<button class="planet-chip" data-body="${item.name}" onclick="focusCosmosBody('${item.name.replace("'", "\'")}')">${item.name}</button>`;
+    });
 })();
 
 
@@ -2660,6 +2949,23 @@ function gaussianRandom() {
     m31Core.scale.set(7.0, 7.0, 1);
     andromedaGroupObj.add(m31Core);
     galaxyGroup.add(andromedaGroupObj);
+
+    // Extra Galactic Landmarks: Orion Nebula (M42), Pillars of Creation (M16), Alpha Centauri, LMC & Triangulum (M33)
+    const galLandmarks = [
+        { pos: [14.6, -0.2, 2.2], color: 0xf472b6, size: 1.8, parent: milkyWayDiskGroup },
+        { pos: [10.2, 0.2, -3.2], color: 0xfb7185, size: 1.6, parent: milkyWayDiskGroup },
+        { pos: [13.6, 0.1, 0.5],  color: 0xfef08a, size: 0.9, parent: milkyWayDiskGroup },
+        { pos: [-32, -18, -36],   color: 0x7dd3fc, size: 5.5, parent: galaxyGroup },
+        { pos: [72, 24, -48],     color: 0xc084fc, size: 6.2, parent: galaxyGroup }
+    ];
+    galLandmarks.forEach(lm => {
+        const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+            map: sunGlowTex, color: lm.color, transparent: true, opacity: 0.72, blending: THREE.AdditiveBlending, depthWrite: false
+        }));
+        sp.position.set(lm.pos[0], lm.pos[1], lm.pos[2]);
+        sp.scale.set(lm.size, lm.size, 1);
+        lm.parent.add(sp);
+    });
 })();
 
 
@@ -2667,8 +2973,13 @@ function gaussianRandom() {
 let universeHomePin = null;
 (function buildUniverse3D() {
     const uChips = document.getElementById('universe-chips');
-    ['Cosmic Web', 'Laniakea', 'CMB Horizon'].forEach((key, idx) => {
+    ['Cosmic Web', 'Laniakea', 'Virgo', 'Great Attractor', 'Shapley', 'Sloan Great Wall', 'Boötes Void', 'GN-z11', 'CMB Horizon'].forEach((key, idx) => {
         uChips.innerHTML += `<button class="planet-chip ${idx === 0 ? 'active' : ''}" data-region="${key}" onclick="focusUniverseRegion('${key}')">${key}</button>`;
+    });
+
+    const mChips = document.getElementById('multiverse-chips');
+    Object.keys(MULTIVERSE_BUBBLES).forEach((key, idx) => {
+        mChips.innerHTML += `<button class="planet-chip ${idx === 0 ? 'active' : ''}" data-bubble="${key}" onclick="focusMultiverseBubble('${key}')">${key}</button>`;
     });
 
     // 1. 3D Cosmic Web Nodes & Supercluster Filaments (Inside radius 34)
@@ -2724,9 +3035,33 @@ let universeHomePin = null;
         size: 0.72, map: webSprite, vertexColors: true, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false
     })));
 
-    // Home Supercluster Pin (Laniakea / Milky Way)
+    // Home Supercluster Pin (Laniakea / Milky Way) + Major Universe Landmarks
     universeHomePin = new THREE.Mesh(new THREE.SphereGeometry(0.42, 16, 16), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
     universeGroup.add(universeHomePin);
+
+    // Boötes Void dark translucent hollow sphere
+    const bootesVoid = new THREE.Mesh(
+        new THREE.SphereGeometry(3.2, 24, 18),
+        new THREE.MeshBasicMaterial({ color: 0x020617, transparent: true, opacity: 0.72, wireframe: true })
+    );
+    bootesVoid.position.set(11.0, -6.5, 13.5);
+    universeGroup.add(bootesVoid);
+
+    // Glowing markers for Virgo, Great Attractor, Shapley, Sloan Great Wall & GN-z11
+    [
+        [4.5, 1.5, 3.0, 0x7dd3fc, 1.8],
+        [-6.2, -1.8, 4.5, 0xf59e0b, 2.2],
+        [-12.5, 4.2, -9.5, 0xc084fc, 2.4],
+        [16.0, 5.5, -14.0, 0xfdba74, 2.6],
+        [-21.0, 12.0, 20.0, 0xf43f5e, 2.0]
+    ].forEach(([x, y, z, col, sz]) => {
+        const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+            map: sunGlowTex, color: col, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false
+        }));
+        sp.position.set(x, y, z);
+        sp.scale.set(sz, sz, 1);
+        universeGroup.add(sp);
+    });
 
     // 2. Observable Universe CMB Horizon Sphere (Planck-style amber/blue temperature fluctuations)
     const cmbMat = new THREE.ShaderMaterial({

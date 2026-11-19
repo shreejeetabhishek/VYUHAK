@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>VYUHAK v18 // Real-Time Earth, ISS & Solar System Intelligence</title>
+    <title>VYUHAK v19 APEX // Real-Time Earth, ISS & Heliocentric Solar System</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
     
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -21,90 +21,98 @@
     <!-- Non-blocking Toast Notification -->
     <div id="toast-container"></div>
 
-    <!-- TOP HUD -->
+    <!-- ULTRA-COMPACT PREMIUM TOP HUD -->
     <div id="top-hud-container">
-        <!-- Main Telemetry Card -->
-        <div class="obsidian-glass hud-brackets pointer-events-auto rounded-lg p-3 w-full shrink-0 shadow-lg">
-            <div class="flex items-center justify-between mb-2.5 border-b border-slate-700/50 pb-2">
-                <div class="flex items-center gap-2">
-                    <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    <h1 class="text-xs font-bold tracking-widest text-sky-400">VYUHAK <span class="text-slate-400 font-normal">v18 COSMOS</span></h1>
+        <!-- Compact Single-Strip Telemetry Bar -->
+        <div class="obsidian-glass hud-pill pointer-events-auto rounded-xl px-3 py-2 w-full shadow-lg">
+            <div class="flex items-center justify-between gap-2">
+                <!-- Left: Brand + Active Craft -->
+                <div class="flex items-center gap-2 min-w-0">
+                    <div id="connection-led" class="status-led shrink-0"></div>
+                    <span class="text-[11px] font-bold tracking-widest text-sky-400 font-display shrink-0">VYUHAK</span>
+                    <span class="text-slate-600 text-[10px]">|</span>
+                    <span id="hud-sat-name" class="text-[10px] font-semibold text-sky-100 truncate">VK-Tracker-01</span>
                 </div>
-                <div class="flex items-center gap-2.5">
-                    <span id="hud-time" class="text-[10px] font-bold text-amber-400 mono-telemetry">UTC --:--:--</span>
+                <!-- Right: Live Coords + UTC + Mute -->
+                <div class="flex items-center gap-2 shrink-0">
+                    <span class="text-[10px] text-emerald-400 mono-telemetry font-medium"><span id="hud-lat">20.84</span>&deg;, <span id="hud-lon">85.10</span>&deg;</span>
+                    <span id="hud-time" class="text-[9px] font-bold text-amber-400/90 mono-telemetry hidden sm:inline">UTC --:--:--</span>
                     <button id="btn-mute" onclick="toggleMute()" class="text-slate-400 hover:text-sky-300 transition p-0.5" title="Toggle Sound">
                         <svg id="icon-sound-on" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
                         <svg id="icon-sound-off" class="w-3.5 h-3.5 hidden text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path></svg>
                     </button>
-                    <div id="connection-led" class="status-led"></div>
                 </div>
             </div>
-            
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-y-2.5 gap-x-2 text-[11px] text-slate-300">
-                <div>
-                    <div class="mb-0.5 opacity-60 text-[9px] uppercase tracking-wider">Active Spacecraft</div>
-                    <div class="text-sky-100 font-bold" id="hud-sat-name">VK-Tracker-01</div>
-                </div>
-                <div>
-                    <div class="mb-0.5 opacity-60 text-[9px] uppercase tracking-wider">Camera Vision</div>
-                    <div class="text-slate-200 font-bold" id="hud-optics">Standard Color</div>
-                </div>
-                <div>
-                    <div class="mb-0.5 opacity-60 text-[9px] uppercase tracking-wider">Altitude / Speed</div>
-                    <div class="text-slate-200 mono-telemetry"><span id="hud-alt">1200</span> km / <span id="hud-vel">7.3</span> km/s</div>
-                </div>
-                <div>
-                    <div class="mb-0.5 opacity-60 text-[9px] uppercase tracking-wider">Looking At (Coords)</div>
-                    <div class="text-emerald-400 mono-telemetry"><span id="hud-lat">20.84</span>&deg;, <span id="hud-lon">85.10</span>&deg;</div>
-                </div>
+            <!-- Micro Sub-Telemetry Strip -->
+            <div class="flex items-center justify-between text-[9px] text-slate-400 mt-1 pt-1 border-t border-white/5 mono-telemetry">
+                <span>ALT <strong class="text-slate-200" id="hud-alt">1200</strong> km &bull; VEL <strong class="text-slate-200" id="hud-vel">7.26</strong> km/s</span>
+                <span id="hud-optics" class="text-sky-300/90 font-sans font-semibold">True Color</span>
             </div>
         </div>
 
-        <!-- Compact Mobile-Friendly Action Bar -->
-        <div class="pointer-events-auto flex flex-wrap items-center gap-1.5 w-full">
-            <div class="obsidian-glass rounded flex p-0.5 shrink-0">
-                <button id="btn-3d" onclick="switchEngine('3D')" class="btn-active px-3 py-1.5 rounded text-[10px] font-bold">3D</button>
-                <button id="btn-2d" onclick="switchEngine('2D')" class="px-3 py-1.5 rounded text-[10px] font-bold text-slate-400 hover:text-white">2D</button>
+        <!-- Single-Row Sleek Quick-Toggle Rail (No Wrapping, Zero Clutter) -->
+        <div class="pointer-events-auto flex items-center gap-1.5 overflow-x-auto hide-scrollbar w-full py-0.5">
+            <!-- 3D / 2D Segmented Switch -->
+            <div class="obsidian-glass rounded-full flex p-0.5 shrink-0 border border-white/10">
+                <button id="btn-3d" onclick="switchEngine('3D')" class="toggle-seg active">3D</button>
+                <button id="btn-2d" onclick="switchEngine('2D')" class="toggle-seg">2D</button>
             </div>
-            <button id="btn-cam-cycle" onclick="cycleCamera()" class="obsidian-glass rounded px-3 py-1.5 text-[10px] font-bold text-sky-300 border border-slate-700/60 shrink-0">
-                Cam: <span id="cam-label">Free</span>
+            <!-- Quick Toggle Pills -->
+            <button id="btn-cam-cycle" onclick="cycleCamera()" class="quick-pill text-sky-300">
+                <span class="dot bg-sky-400"></span><span id="cam-label">Free</span>
             </button>
-            <button id="top-geo-lock" onclick="toggleGeoLock()" class="obsidian-glass rounded px-3 py-1.5 text-[10px] font-bold text-slate-200 border border-slate-700/60 shrink-0">
-                Hover: <span id="top-lock-ind" class="text-slate-400">OFF</span>
+            <button id="top-geo-lock" onclick="toggleGeoLock()" class="quick-pill">
+                <span id="top-lock-dot" class="dot bg-slate-500"></span>Hover
             </button>
-            <button id="btn-iss-mode" onclick="toggleISSMode()" class="obsidian-glass rounded px-3 py-1.5 text-[10px] font-bold text-amber-300 border border-amber-500/30 shrink-0">
-                ISS Live: <span id="iss-ind" class="text-slate-400">OFF</span>
+            <button id="btn-iss-mode" onclick="toggleISSMode()" class="quick-pill">
+                <span id="iss-dot" class="dot bg-slate-500"></span>ISS
             </button>
-            <button id="btn-solar-view" onclick="toggleSolarSystemView()" class="obsidian-glass rounded px-3 py-1.5 text-[10px] font-bold text-purple-300 border border-purple-500/30 shrink-0">
-                Solar System: <span id="solar-ind" class="text-slate-400">OFF</span>
+            <button id="btn-solar-view" onclick="toggleSolarSystemView()" class="quick-pill">
+                <span id="solar-dot" class="dot bg-slate-500"></span>Cosmos
             </button>
-            <button id="btn-radar" onclick="toggleRainRadar()" class="obsidian-glass rounded px-3 py-1.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/30 shrink-0 hidden">
-                Rain Radar: <span id="radar-ind" class="text-slate-400">OFF</span>
+            <button id="btn-radar" onclick="toggleRainRadar()" class="quick-pill hidden">
+                <span id="radar-dot" class="dot bg-slate-500"></span>Radar
             </button>
-            <button id="btn-2d-clouds" onclick="toggle2DClouds()" class="obsidian-glass rounded px-3 py-1.5 text-[10px] font-bold text-sky-200 border border-sky-400/30 shrink-0 hidden">
-                IR Clouds: <span id="clouds2d-ind" class="text-slate-400">OFF</span>
+            <button id="btn-2d-clouds" onclick="toggle2DClouds()" class="quick-pill hidden">
+                <span id="clouds2d-dot" class="dot bg-slate-500"></span>Clouds
             </button>
+        </div>
+
+        <!-- Solar System Planet Selector Bar (Visible ONLY in Cosmos Mode) -->
+        <div id="cosmos-bar" class="pointer-events-auto hidden flex flex-col gap-1.5 w-full">
+            <div class="flex items-center gap-1 overflow-x-auto hide-scrollbar pb-0.5" id="planet-chips">
+                <!-- Populated dynamically by JS -->
+            </div>
+            <div id="planet-telemetry" class="obsidian-glass rounded-lg px-3 py-2 text-[10px] text-slate-300 flex items-center justify-between gap-2 border border-purple-500/30">
+                <div>
+                    <span id="pt-name" class="font-bold text-purple-300 uppercase tracking-wider">Sun</span>
+                    <span id="pt-type" class="text-slate-400 ml-1.5">G2V Main-Sequence Star</span>
+                </div>
+                <div class="mono-telemetry text-right text-[9px] text-sky-200" id="pt-stats">
+                    1.00 AU from Earth &bull; 8.32 light-min
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- BOTTOM DOCK -->
+    <!-- BOTTOM DOCK (SWIPEABLE) -->
     <div id="fixed-bottom-dock">
-        <div class="flex justify-center pt-1.5 pb-0.5 cursor-pointer" onclick="toggleDockCollapse()">
-            <div class="w-10 h-1 bg-slate-600 rounded-full"></div>
+        <div id="dock-handle" class="flex justify-center pt-2 pb-1 cursor-pointer" onclick="toggleDockCollapse()">
+            <div class="w-10 h-1 bg-slate-500/80 rounded-full"></div>
         </div>
-        <div class="flex h-[48px] w-full border-b border-white/5 relative z-10">
+        <div class="flex h-[44px] w-full border-b border-white/5 relative z-10">
             <button onclick="openTab('intel', this)" class="tab-btn active">Live Events <span id="intel-badge" class="ml-1.5 bg-red-500 text-white text-[9px] px-1.5 py-0.5 rounded-full hidden">0</span></button>
             <button onclick="openTab('weather', this)" class="tab-btn">Ground Data</button>
             <button onclick="openTab('mission', this)" class="tab-btn">Settings</button>
         </div>
         
-        <!-- Tab: Live Global Events -->
+        <!-- Tab: Live Global & Space Events -->
         <div id="tab-intel" class="tab-content active hide-scrollbar">
             <div class="flex justify-between items-center mb-3">
-                <h3 class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Global Live Feed</h3>
-                <button onclick="fetchLiveIntel(true)" class="text-[10px] bg-sky-900/50 hover:bg-sky-700/50 text-sky-300 px-3 py-1.5 rounded font-bold border border-sky-500/30">Refresh</button>
+                <h3 class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Earth & Space Live Feed</h3>
+                <button onclick="fetchLiveIntel(true)" class="text-[10px] bg-sky-900/50 hover:bg-sky-700/50 text-sky-300 px-3 py-1 rounded font-bold border border-sky-500/30">Refresh</button>
             </div>
-            <div id="intel-feed" class="space-y-3 pb-6">
+            <div id="intel-feed" class="space-y-2.5 pb-6">
                 <div class="skeleton-card h-14 rounded-lg"></div>
                 <div class="skeleton-card h-14 rounded-lg"></div>
             </div>
@@ -218,7 +226,7 @@
             </div>
         </div>
 
-        <!-- Tab: Settings (Advanced Satellite, ISS & Cosmos Controls) -->
+        <!-- Tab: Settings -->
         <div id="tab-mission" class="tab-content hide-scrollbar pb-12">
             <!-- Unified City / Coordinate Search -->
             <h3 class="text-[11px] font-bold text-slate-400 tracking-widest mb-2.5 pb-1 border-b border-slate-700 uppercase">Search Any City, Country, or Coordinates</h3>
@@ -261,7 +269,7 @@
             <!-- Camera Vision Modes -->
             <h3 class="text-[11px] font-bold text-slate-400 tracking-widest mb-2.5 pb-1 border-b border-slate-700 uppercase">Camera Vision Modes</h3>
             <div class="grid grid-cols-2 gap-2 mb-5">
-                <button onclick="setOptics(0)" class="optics-btn btn-active py-2.5 text-[11px] border border-slate-600 rounded font-bold text-slate-200">Standard Color (Real-Time)</button>
+                <button onclick="setOptics(0)" class="optics-btn btn-active py-2.5 text-[11px] border border-slate-600 rounded font-bold text-slate-200">True Color (Real-Time)</button>
                 <button onclick="setOptics(1)" class="optics-btn py-2.5 text-[11px] bg-slate-800/80 border border-slate-700 rounded font-bold text-amber-400">Thermal (Heat)</button>
                 <button onclick="setOptics(2)" class="optics-btn py-2.5 text-[11px] bg-slate-800/80 border border-slate-700 rounded font-bold text-emerald-400">Night Vision</button>
                 <button onclick="setOptics(3)" class="optics-btn py-2.5 text-[11px] bg-slate-800/80 border border-slate-700 rounded font-bold text-sky-400">Radar (Wireframe)</button>

@@ -1,5 +1,5 @@
 // ============================================================================
-// VYUHAK v37 INDIA // INDIA-CENTERED DEFAULT EARTH ORIENTATION & SEAMLESS MULTIVERSE
+// VYUHAK v38 MULTIVERSE // WIDE-FIELD MULTIVERSE BUBBLE CLUSTER & SEAMLESS MULTI-SCALE ATLAS
 // ============================================================================
 
 // --- 1. AUDIO ENGINE WITH MUTE ---
@@ -462,8 +462,8 @@ function applyScaleDOMAndVisibility(targetScale) {
         dossierTab.textContent = 'Multiverse Data';
         activeCamera = 'FREE'; camModeIdx = 0;
         document.getElementById('cam-label').textContent = 'Free';
-        controls.minDistance = 68;
-        controls.maxDistance = 240;
+        controls.minDistance = 60;
+        controls.maxDistance = 380;
     }
 }
 
@@ -562,7 +562,7 @@ function computeStageTrajectory(stage, zoomingOut, options) {
             if (scale === 'MULTIVERSE') {
                 const dir = camera.position.clone().normalize();
                 endTarget = new THREE.Vector3(0, 0, 0);
-                endPos = dir.multiplyScalar(82.0);
+                endPos = dir.multiplyScalar(92.0);
             } else if (scale === 'UNIVERSE') {
                 const dir = camera.position.clone().normalize();
                 endTarget = new THREE.Vector3(0, 0, 0);
@@ -637,7 +637,7 @@ function computeStageTrajectory(stage, zoomingOut, options) {
     if (scale === 'MULTIVERSE') {
         const m = UNIVERSE_REGIONS['Multiverse'];
         return {
-            startPos: new THREE.Vector3(0, 56, 86),
+            startPos: new THREE.Vector3(0, 62, 96),
             startTarget: new THREE.Vector3(0, 0, 0),
             endPos: m.camPos.clone(),
             endTarget: m.lookAt.clone()
@@ -1050,7 +1050,7 @@ const UNIVERSE_REGIONS = {
     'Multiverse': {
         title: 'MULTIVERSE // HYPOTHETICAL BUBBLES', subtitle: 'Eternal Inflation — An idea, not a measurement',
         type: 'Theoretical Cosmology', stats: '> 100B ly &bull; Unverified',
-        wiki: 'Multiverse', camPos: new THREE.Vector3(0, 78, 138), lookAt: new THREE.Vector3(0, 0, 0)
+        wiki: 'Multiverse', camPos: new THREE.Vector3(0, 128, 228), lookAt: new THREE.Vector3(0, 0, 0)
     }
 };
 
@@ -1059,7 +1059,7 @@ const MULTIVERSE_BUBBLES = {
         title: 'MULTIVERSE // ETERNAL INFLATION', subtitle: 'Hypothetical Bubble Universes — An idea, not a measurement',
         type: 'Theoretical Cosmology', stats: '> 100B ly &bull; Unverified',
         bio: 'In eternal inflation models, quantum fluctuations keep space inflating outside our observable horizon, continuously spawning separate pocket universes with potentially different physical constants.',
-        camPos: new THREE.Vector3(0, 78, 138), lookAt: new THREE.Vector3(0, 0, 0)
+        camPos: new THREE.Vector3(0, 128, 228), lookAt: new THREE.Vector3(0, 0, 0)
     },
     'Pocket α': {
         title: 'POCKET UNIVERSE α // ALTERNATE CONSTANTS', subtitle: 'Hypothetical Inflaton Bubble (Bubble #1)',
@@ -3506,7 +3506,9 @@ let universeHomePin = null;
         [45, -42, 68, 19, 0xf59e0b], [-52, 48, 52, 21, 0x34d399],
         [15, 68, -62, 18, 0xf472b6], [-85, 10, 28, 20, 0x60a5fa],
         [105, -24, -18, 26, 0xa78bfa], [-28, -78, -32, 22, 0xfb7185],
-        [68, 56, 48, 20, 0x2dd4bf], [-98, 42, -68, 24, 0xfbbf24]
+        [68, 56, 48, 20, 0x2dd4bf], [-98, 42, -68, 24, 0xfbbf24],
+        [124, 48, -78, 28, 0x818cf8], [-128, -52, 44, 27, 0xf43f5e],
+        [18, -96, -84, 24, 0x38bdf8], [-44, 96, -36, 25, 0xc084fc]
     ];
     bubbleCoords.forEach(([x, y, z, r, hex]) => {
         const bMat = new THREE.ShaderMaterial({

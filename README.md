@@ -1,12 +1,11 @@
-# VYUHAK v23 GALACTIC // Earth, Solar System & Milky Way Intelligence
+# VYUHAK v24 GALACTIC ULTRA // Volumetric Milky Way, Solar System & Earth
 
-VYUHAK (*Virtual Yield Uplink & Heuristic Aerospace Kinematics*) is a serverless, mobile-first 3D/2D Earth Observation, Heliocentric Solar System, and Milky Way Galaxy platform powered by Three.js custom GLSL shaders, Leaflet.js, and 100% free, keyless live APIs.
+VYUHAK (*Virtual Yield Uplink & Heuristic Aerospace Kinematics*) is a serverless, mobile-first 3D/2D Earth Observation, Heliocentric Solar System, and Volumetric Milky Way Galaxy platform powered by Three.js custom GLSL shaders, Leaflet.js, and 100% free, keyless live APIs.
 
-## What's Fixed & Upgraded in v23
-- **Seamless Galaxy-to-Earth Transitions:** Tapping `Hover`, `ISS`, `Cam`, or deploying to any location from `Galaxy` mode now cleanly restores the Earth Orbital Frame, camera distance, and `Ground Data` drawer without blank screens.
-- **3,500-Star 3D Andromeda (M31) Spiral & Dynamic Target Tracking:** Andromeda now renders as a real tilted 3D mini-spiral in the stationary Local Group halo, and focusing on `Solar System` or `Andromeda (M31)` dynamically locks onto their live 3D world positions.
-- **Organic Gaussian Milky Way Core & Logarithmic Arms:** Replaced the rigid central bar with a soft Box-Muller Gaussian elliptical bulge and smooth logarithmic spiral winding.
-- **Unobstructed Single-Toast Notifications:** Moved toast notifications above the bottom dock and replaced stacking with a clean single auto-updating pill.
+## What's Upgraded in v24 GALACTIC ULTRA
+- **Continuous Volumetric FBM Galactic Disk Shader:** Eliminates the grainy dot-only look by layering a continuous 5-octave domain-warped FBM spiral gas & starlight disk beneath the 3D starfield—complete with warm galactic bar/bulge light, cyan-blue outer arms, pink H-II star-forming knots, and **dark absorbing dust lanes** along the inner spiral arm ridges.
+- **55,000 Crisp Multi-Scale Stars (60 FPS Smooth):** Upgraded the stellar point shader with exponential core + soft halo falloff and distance-clamped point sizing so stars stay razor-sharp without flickering or popping while zooming on mobile GPUs.
+- **Volumetric Andromeda (M31) Spiral:** Upgraded Andromeda with its own volumetric spiral gas disk + 4,000 stars in the Local Group halo.
 
 ## Deployment
 Upload `index.html`, `styles.css`, `app.js`, and `README.md` directly to your GitHub Pages repository.

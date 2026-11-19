@@ -1,5 +1,5 @@
 // ============================================================================
-// VYUHAK v23 GALACTIC // ORGANIC MILKY WAY, 3D ANDROMEDA SPIRAL, SEAMLESS MODE SWITCH & CLEAN TOASTS
+// VYUHAK v24 GALACTIC ULTRA // VOLUMETRIC FBM MILKY WAY DISK, DARK DUST LANES & SMOOTH 60FPS STARS
 // ============================================================================
 
 // --- 1. AUDIO ENGINE WITH MUTE ---
@@ -1983,7 +1983,7 @@ function createHelioPlanetMat(colA, colB, banded, hasPolarCaps = false, rimHex =
 })();
 
 
-// --- E2. ORGANIC 45,000-STAR MILKY WAY + 3D ANDROMEDA (M31) SPIRAL IN LOCAL GROUP ---
+// --- E2. VOLUMETRIC FBM MILKY WAY GALAXY (CONTINUOUS SPIRAL GAS + DARK DUST LANES + 55K STARS) ---
 let milkyWayDiskGroup = new THREE.Group();
 let solarSystemMarkerRing = null;
 let solarSystemPinObj = null;
@@ -2004,65 +2004,167 @@ function gaussianRandom() {
         gChips.innerHTML += `<button class="planet-chip ${idx === 0 ? 'active' : ''}" data-region="${key}" onclick="focusGalaxyRegion('${key}')">${key}</button>`;
     });
 
-    const starCount = 45000;
+    // LAYER 1: CONTINUOUS VOLUMETRIC GALACTIC DISK SHADER (Eliminates dotty/grainy look!)
+    // Renders smooth logarithmic spiral arms, warm galactic bar, pink H-II nebulae, and dark absorbing dust lanes
+    const diskShaderMat = new THREE.ShaderMaterial({
+        uniforms: { uTime: solarTimeUniform },
+        vertexShader: `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            varying vec2 vUv;
+            uniform float uTime;
+
+            float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
+            float noise(vec2 p) {
+                vec2 i = floor(p), f = fract(p);
+                f = f * f * (3.0 - 2.0 * f);
+                return mix(
+                    mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
+                    mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x),
+                    f.y
+                );
+            }
+            float fbm(vec2 p) {
+                float v = 0.0, a = 0.5;
+                mat2 rot = mat2(0.8, 0.6, -0.6, 0.8);
+                for (int i = 0; i < 5; i++) {
+                    v += a * noise(p);
+                    p = rot * p * 2.05;
+                    a *= 0.5;
+                }
+                return v;
+            }
+
+            void main() {
+                vec2 p = (vUv - 0.5) * 2.0;
+                float r = length(p);
+                if (r > 1.0) discard;
+
+                float angle = atan(p.y, p.x);
+
+                // Central 27-degree Galactic Bar + Gaussian Bulge
+                float barAng = 0.47;
+                vec2 bp = vec2(p.x * cos(barAng) - p.y * sin(barAng), p.x * sin(barAng) + p.y * cos(barAng));
+                float bar = exp(- (bp.x * bp.x * 16.0 + bp.y * bp.y * 55.0));
+                float bulge = exp(-r * r * 14.0);
+
+                // 4 Logarithmic Spiral Arms (2 primary bright + 2 secondary)
+                float logR = log(max(r, 0.025) * 8.5 + 1.0);
+                float spiralPhase2 = angle * 2.0 - logR * 3.1;
+                float spiralPhase4 = angle * 4.0 - logR * 6.2;
+
+                // Domain-warped FBM turbulence for realistic interstellar gas clouds
+                vec2 warp = vec2(fbm(p * 3.8 + 1.2), fbm(p * 3.8 - 2.4));
+                float gas = fbm(p * 5.5 + warp * 1.15);
+                float fineDust = fbm(p * 11.0 + warp * 1.6);
+
+                float primaryArms = pow(0.5 + 0.5 * cos(spiralPhase2 + (gas - 0.5) * 1.4), 2.4);
+                float secondaryArms = pow(0.5 + 0.5 * cos(spiralPhase4 + (gas - 0.5) * 1.1), 3.0) * 0.55;
+                float arms = clamp(primaryArms + secondaryArms, 0.0, 1.0);
+
+                // Dark absorbing dust lanes hugging the inner edge of the spiral arms
+                float dustRidge = pow(0.5 + 0.5 * cos(spiralPhase2 + 0.65 + (fineDust - 0.5) * 1.6), 3.2);
+                float dustMask = smoothstep(0.28, 0.78, dustRidge * fineDust) * smoothstep(0.08, 0.25, r) * (1.0 - smoothstep(0.65, 0.98, r));
+
+                // Radial disk falloff
+                float diskFalloff = smoothstep(1.0, 0.12, r) * (0.28 + 0.72 * arms);
+
+                // Realistic Astrophysical Color Palette
+                vec3 coreCol   = vec3(1.00, 0.93, 0.80);
+                vec3 barCol    = vec3(0.98, 0.72, 0.42);
+                vec3 armBlue   = vec3(0.36, 0.58, 0.98);
+                vec3 armCyan   = vec3(0.65, 0.84, 1.00);
+                vec3 h2Pink    = vec3(0.95, 0.34, 0.58);
+
+                vec3 col = mix(armBlue, armCyan, gas) * diskFalloff * (0.45 + 0.85 * gas);
+                col += h2Pink * smoothstep(0.62, 0.86, fineDust) * arms * smoothstep(0.15, 0.35, r) * (1.0 - smoothstep(0.6, 0.9, r)) * 0.55;
+                col = mix(col, barCol, clamp(bar * 0.85 + bulge * 0.55, 0.0, 1.0));
+                col += coreCol * bulge * 1.15;
+
+                // Apply dark dust lane absorption for high-contrast depth
+                col *= (1.0 - dustMask * 0.72);
+
+                float alpha = clamp(diskFalloff * (0.38 + 0.45 * gas) + bulge * 0.75 + bar * 0.45, 0.0, 0.92);
+                alpha *= smoothstep(1.0, 0.78, r); // Seamless outer edge fade
+                gl_FragColor = vec4(col, alpha * 0.82);
+            }
+        `,
+        transparent: true,
+        side: THREE.DoubleSide,
+        depthWrite: false
+    });
+
+    // Stack 2 subtle volumetric planes for 3D thickness when viewed at oblique angles
+    const diskGeo = new THREE.PlaneGeometry(58, 58, 1, 1);
+    const mainDisk = new THREE.Mesh(diskGeo, diskShaderMat);
+    mainDisk.rotation.x = -Math.PI / 2;
+    milkyWayDiskGroup.add(mainDisk);
+
+    // LAYER 2: 55,000 CRISP MULTI-SCALE STELLAR POPULATION STARS
+    const starCount = 55000;
     const positions = new Float32Array(starCount * 3);
     const colors = new Float32Array(starCount * 3);
     const sizes = new Float32Array(starCount);
 
-    const colCore = new THREE.Color(0xfff4e0);
+    const colCore = new THREE.Color(0xfff5e4);
     const colBulge = new THREE.Color(0xfdba74);
     const colArmBlue = new THREE.Color(0x93c5fd);
     const colArmWhite = new THREE.Color(0xe0f2fe);
     const colNebula = new THREE.Color(0xf472b6);
 
     const numArms = 4;
-    const maxR = 26.5;
+    const maxR = 27.5;
 
     for (let i = 0; i < starCount; i++) {
         let x, y, z, col;
         const rnd = Math.random();
 
-        if (rnd < 0.22) {
-            // Soft, Organic Gaussian Elliptical Bulge + Blended Bar (Zero rigid stick!)
+        if (rnd < 0.24) {
+            // Soft 3D Gaussian Galactic Bulge & Bar
             const barAngle = 27 * Math.PI / 180;
-            const localX = gaussianRandom() * 3.1;
-            const localZ = gaussianRandom() * 1.85;
+            const localX = gaussianRandom() * 3.0;
+            const localZ = gaussianRandom() * 1.75;
             x = localX * Math.cos(barAngle) - localZ * Math.sin(barAngle);
             z = localX * Math.sin(barAngle) + localZ * Math.cos(barAngle);
             const distC = Math.hypot(x, z);
-            y = gaussianRandom() * (1.25 * Math.exp(-distC * 0.16) + 0.15);
-            col = colCore.clone().lerp(colBulge, Math.min(1, distC / 7.0));
-            sizes[i] = 0.55 + Math.random() * 0.95;
-        } else if (rnd < 0.88) {
-            // 4 Logarithmic Spiral Arms with Gaussian Arm Width
+            y = gaussianRandom() * (1.35 * Math.exp(-distC * 0.18) + 0.14);
+            col = colCore.clone().lerp(colBulge, Math.min(1, distC / 6.5));
+            sizes[i] = 0.42 + Math.random() * 0.72;
+        } else if (rnd < 0.86) {
+            // Stars tightly hugging the 4 logarithmic spiral arm ridges
             const armIdx = i % numArms;
-            const r = 1.6 + Math.pow(Math.random(), 1.2) * (maxR - 1.6);
-            const spinAngle = Math.log(r * 0.65 + 1.0) * 2.55;
+            const r = 1.8 + Math.pow(Math.random(), 1.15) * (maxR - 1.8);
+            const spinAngle = Math.log(r * 0.31 + 1.0) * 3.1;
             const armAngle = (armIdx / numArms) * Math.PI * 2 + spinAngle;
-            const spread = gaussianRandom() * (0.28 + r * 0.015);
+            const spread = gaussianRandom() * (0.24 + r * 0.012);
             const angle = armAngle + spread;
 
             x = Math.cos(angle) * r;
             z = Math.sin(angle) * r;
-            y = gaussianRandom() * (0.45 * Math.exp(-r * 0.06) + 0.14);
+            y = gaussianRandom() * (0.42 * Math.exp(-r * 0.07) + 0.12);
 
             const tCol = Math.min(1, r / maxR);
-            if (Math.random() < 0.032 && r > 5 && r < 22) {
+            if (Math.random() < 0.028 && r > 5 && r < 22) {
                 col = colNebula;
-                sizes[i] = 1.2 + Math.random() * 1.4;
+                sizes[i] = 0.95 + Math.random() * 1.1;
             } else {
-                col = colBulge.clone().lerp(Math.random() < 0.55 ? colArmBlue : colArmWhite, Math.pow(tCol, 0.65));
-                sizes[i] = 0.42 + Math.random() * 0.85;
+                col = colBulge.clone().lerp(Math.random() < 0.55 ? colArmBlue : colArmWhite, Math.pow(tCol, 0.6));
+                sizes[i] = 0.34 + Math.random() * 0.68;
             }
         } else {
-            // Diffuse Inter-Arm Disk & Halo Stars
+            // Diffuse Stellar Halo & Globular Clusters
             const r = Math.pow(Math.random(), 0.85) * maxR;
             const a = Math.random() * Math.PI * 2;
             x = Math.cos(a) * r;
             z = Math.sin(a) * r;
-            y = gaussianRandom() * (1.1 * Math.exp(-r * 0.05) + 0.35);
+            y = gaussianRandom() * (1.6 * Math.exp(-r * 0.06) + 0.45);
             col = colBulge.clone().lerp(colArmWhite, Math.min(1, r / maxR));
-            sizes[i] = 0.35 + Math.random() * 0.55;
+            sizes[i] = 0.28 + Math.random() * 0.45;
         }
 
         positions[i*3] = x;
@@ -2083,21 +2185,26 @@ function gaussianRandom() {
         vertexShader: `
             attribute float aSize;
             varying vec3 vColor;
+            varying float vDist;
             uniform float uPixelRatio;
             void main() {
                 vColor = color;
                 vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                gl_PointSize = aSize * uPixelRatio * (88.0 / max(-mvPosition.z, 1.0));
+                vDist = -mvPosition.z;
+                gl_PointSize = clamp(aSize * uPixelRatio * (82.0 / max(vDist, 1.5)), 1.0, 9.0);
                 gl_Position = projectionMatrix * mvPosition;
             }
         `,
         fragmentShader: `
             varying vec3 vColor;
+            varying float vDist;
             void main() {
                 float d = length(gl_PointCoord - vec2(0.5));
                 if (d > 0.5) discard;
-                float strength = pow(1.0 - d * 2.0, 2.3);
-                gl_FragColor = vec4(vColor, strength * 0.84);
+                float core = exp(-d * d * 22.0);
+                float halo = pow(max(0.0, 1.0 - d * 2.0), 2.4) * 0.55;
+                float alpha = clamp(core + halo, 0.0, 1.0) * smoothstep(0.8, 3.0, vDist);
+                gl_FragColor = vec4(vColor, alpha * 0.85);
             }
         `,
         vertexColors: true,
@@ -2107,11 +2214,11 @@ function gaussianRandom() {
     });
     milkyWayDiskGroup.add(new THREE.Points(galGeo, galMat));
 
-    // Soft Sagittarius A* Supermassive Black Hole Core Glow
+    // LAYER 3: SAGITTARIUS A* RADIANT CORE
     const sgrCore = new THREE.Sprite(new THREE.SpriteMaterial({
-        map: sunGlowTex, color: 0xffe4b5, transparent: true, opacity: 0.78, blending: THREE.AdditiveBlending, depthWrite: false
+        map: sunGlowTex, color: 0xffedd5, transparent: true, opacity: 0.72, blending: THREE.AdditiveBlending, depthWrite: false
     }));
-    sgrCore.scale.set(11.5, 11.5, 1);
+    sgrCore.scale.set(12.0, 12.0, 1);
     milkyWayDiskGroup.add(sgrCore);
 
     // Solar System Pinpoint at 26,670 ly (13.335 units from Sgr A*) + Galactic Orbit Ring
@@ -2123,10 +2230,10 @@ function gaussianRandom() {
     }
     milkyWayDiskGroup.add(new THREE.LineLoop(
         new THREE.BufferGeometry().setFromPoints(sunOrbitPts),
-        new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.30 })
+        new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.28 })
     ));
 
-    solarSystemPinObj = new THREE.Mesh(new THREE.SphereGeometry(0.28, 16, 16), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+    solarSystemPinObj = new THREE.Mesh(new THREE.SphereGeometry(0.26, 16, 16), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
     solarSystemPinObj.position.set(sunGalR, 0, 0);
     milkyWayDiskGroup.add(solarSystemPinObj);
 
@@ -2138,24 +2245,28 @@ function gaussianRandom() {
     solarSystemMarkerRing.position.set(sunGalR, 0.02, 0);
     milkyWayDiskGroup.add(solarSystemMarkerRing);
 
-    // --- NON-ROTATING LOCAL GROUP: 3,500-STAR 3D ANDROMEDA (M31) MINI-SPIRAL ---
+    // --- NON-ROTATING LOCAL GROUP: VOLUMETRIC + 4,000-STAR ANDROMEDA (M31) ---
     andromedaGroupObj.position.set(55, 16, -65);
     andromedaGroupObj.rotation.set(0.95, 0.4, 0.35);
 
-    const m31Count = 3500;
+    const m31Disk = new THREE.Mesh(new THREE.PlaneGeometry(24, 24), diskShaderMat);
+    m31Disk.rotation.x = -Math.PI / 2;
+    andromedaGroupObj.add(m31Disk);
+
+    const m31Count = 4000;
     const m31Pos = new Float32Array(m31Count * 3);
     const m31Col = new Float32Array(m31Count * 3);
     const m31Sizes = new Float32Array(m31Count);
     for (let i = 0; i < m31Count; i++) {
         const arm = i % 2;
-        const r = Math.pow(Math.random(), 1.35) * 11.0;
-        const angle = arm * Math.PI + r * 0.45 + gaussianRandom() * 0.35;
+        const r = Math.pow(Math.random(), 1.3) * 11.5;
+        const angle = arm * Math.PI + r * 0.42 + gaussianRandom() * 0.32;
         m31Pos[i*3] = Math.cos(angle) * r;
-        m31Pos[i*3+1] = gaussianRandom() * (0.45 * Math.exp(-r * 0.15) + 0.08);
+        m31Pos[i*3+1] = gaussianRandom() * (0.42 * Math.exp(-r * 0.15) + 0.08);
         m31Pos[i*3+2] = Math.sin(angle) * r;
-        const c = colCore.clone().lerp(new THREE.Color(0xa5b4fc), Math.min(1, r / 10.0));
+        const c = colCore.clone().lerp(new THREE.Color(0xa5b4fc), Math.min(1, r / 10.5));
         m31Col[i*3] = c.r; m31Col[i*3+1] = c.g; m31Col[i*3+2] = c.b;
-        m31Sizes[i] = 0.45 + Math.random() * 0.8;
+        m31Sizes[i] = 0.4 + Math.random() * 0.7;
     }
     const m31Geo = new THREE.BufferGeometry();
     m31Geo.setAttribute('position', new THREE.BufferAttribute(m31Pos, 3));
@@ -2164,9 +2275,9 @@ function gaussianRandom() {
     andromedaGroupObj.add(new THREE.Points(m31Geo, galMat));
 
     const m31Core = new THREE.Sprite(new THREE.SpriteMaterial({
-        map: sunGlowTex, color: 0xe0e7ff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false
+        map: sunGlowTex, color: 0xe0e7ff, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false
     }));
-    m31Core.scale.set(6.5, 6.5, 1);
+    m31Core.scale.set(7.0, 7.0, 1);
     andromedaGroupObj.add(m31Core);
     galaxyGroup.add(andromedaGroupObj);
 })();

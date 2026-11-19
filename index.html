@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>VYUHAK v19 APEX // Real-Time Earth, ISS & Heliocentric Solar System</title>
+    <title>VYUHAK v20 ULTRA // Real-Time Earth, ISS & Keplerian Solar System</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -88,8 +88,11 @@
                     <span id="pt-name" class="font-bold text-purple-300 uppercase tracking-wider">Sun</span>
                     <span id="pt-type" class="text-slate-400 ml-1.5">G2V Main-Sequence Star</span>
                 </div>
-                <div class="mono-telemetry text-right text-[9px] text-sky-200" id="pt-stats">
-                    1.00 AU from Earth &bull; 8.32 light-min
+                <div class="flex items-center gap-2 shrink-0">
+                    <div class="mono-telemetry text-right text-[9px] text-sky-200" id="pt-stats">
+                        1.00 AU &bull; 8.32 lm
+                    </div>
+                    <button id="btn-cosmos-warp" onclick="cycleCosmosWarp()" class="bg-purple-900/60 hover:bg-purple-700/60 border border-purple-400/50 text-purple-200 px-2 py-0.5 rounded text-[9px] font-bold shrink-0">1x Live</button>
                 </div>
             </div>
         </div>

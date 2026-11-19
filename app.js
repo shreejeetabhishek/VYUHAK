@@ -1,5 +1,5 @@
 // ============================================================================
-// VYUHAK v19 APEX // KEPLERIAN SOLAR SYSTEM, PHOTOREALISTIC EARTH & LIVE OSINT
+// VYUHAK v20 ULTRA // PHOTOREALISTIC EARTH, FBM PLANETS, RADIANT SUN & KEPLERIAN COSMOS
 // ============================================================================
 
 // --- 1. AUDIO ENGINE WITH MUTE ---
@@ -155,6 +155,40 @@ let isGeoLocked = false;
 let isISSMode = false;
 let isSolarSystemView = false;
 let focusedCosmosBody = 'Sun';
+let cosmosWarpIdx = 0;
+const cosmosWarpModes = [
+    { label: '1x Live', daysPerSec: 1 / 86400 },
+    { label: '1 Day/s', daysPerSec: 1.0 },
+    { label: '15 Days/s', daysPerSec: 15.0 },
+    { label: '60 Days/s', daysPerSec: 60.0 }
+];
+let simDaysOffset = 0;
+
+function cycleCosmosWarp() {
+    playSound('click');
+    cosmosWarpIdx = (cosmosWarpIdx + 1) % cosmosWarpModes.length;
+    if (cosmosWarpIdx === 0) simDaysOffset = 0;
+    document.getElementById('btn-cosmos-warp').textContent = cosmosWarpModes[cosmosWarpIdx].label;
+    showToast('Cosmos Time: ' + cosmosWarpModes[cosmosWarpIdx].label);
+}
+
+// Crisp Circular Soft-Glow Sprite Texture (Eliminates square WebGL points!)
+function createCircleSpriteTexture(innerColor, outerColor) {
+    const size = 64;
+    const canvas = document.createElement('canvas');
+    canvas.width = size; canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    const grad = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+    grad.addColorStop(0.0, innerColor);
+    grad.addColorStop(0.28, innerColor);
+    grad.addColorStop(0.65, outerColor);
+    grad.addColorStop(1.0, 'rgba(0,0,0,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, size, size);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.needsUpdate = true;
+    return tex;
+}
 let isRainRadarOn = false;
 let is2DCloudsOn = false;
 let showClouds = true;
@@ -1091,7 +1125,16 @@ scene.add(heliocentricGroup);
     const starGeo = new THREE.BufferGeometry();
     starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     starGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ size: 0.55, vertexColors: true, transparent: true, opacity: 0.9, depthWrite: false })));
+    const starSpriteTex = createCircleSpriteTexture('rgba(255,255,255,1)', 'rgba(186,230,253,0.35)');
+    scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({
+        size: 1.35,
+        map: starSpriteTex,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.92,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+    })));
 })();
 
 // --- B. LIGHTING ---
@@ -1099,16 +1142,15 @@ scene.add(new THREE.AmbientLight(0xffffff, 0.22));
 const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
 earthSystemGroup.add(sunLight);
 
-// --- C. ANIMATED SOLAR PHOTOSPHERE + SOFT VOLUMETRIC CORONA SHADER ---
+// --- C. FBM PLASMA SOLAR PHOTOSPHERE + VOLUMETRIC CORONA FLARE ---
 const solarTimeUniform = { value: 0 };
+const sunGlowTex = createCircleSpriteTexture('rgba(255,248,220,0.95)', 'rgba(251,146,60,0.38)');
 function createRadiantSun(coreRadius) {
     const g = new THREE.Group();
     const photosphereMat = new THREE.ShaderMaterial({
         uniforms: { uTime: solarTimeUniform },
         vertexShader: `
-            varying vec3 vPos;
-            varying vec3 vNormal;
-            varying vec3 vView;
+            varying vec3 vPos; varying vec3 vNormal; varying vec3 vView;
             void main() {
                 vPos = normalize(position);
                 vec4 wp = modelMatrix * vec4(position, 1.0);
@@ -1119,48 +1161,48 @@ function createRadiantSun(coreRadius) {
         `,
         fragmentShader: `
             uniform float uTime;
-            varying vec3 vPos;
-            varying vec3 vNormal;
-            varying vec3 vView;
+            varying vec3 vPos; varying vec3 vNormal; varying vec3 vView;
+            float hash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+            float noise(vec3 x) {
+                vec3 i = floor(x); vec3 f = fract(x); f = f * f * (3.0 - 2.0 * f);
+                return mix(
+                    mix(mix(hash(i+vec3(0,0,0)), hash(i+vec3(1,0,0)), f.x), mix(hash(i+vec3(0,1,0)), hash(i+vec3(1,1,0)), f.x), f.y),
+                    mix(mix(hash(i+vec3(0,0,1)), hash(i+vec3(1,0,1)), f.x), mix(hash(i+vec3(0,1,1)), hash(i+vec3(1,1,1)), f.x), f.y), f.z
+                );
+            }
+            float fbm(vec3 p) {
+                float v = 0.0, a = 0.5;
+                for (int i = 0; i < 4; i++) { v += a * noise(p); p *= 2.05; a *= 0.5; }
+                return v;
+            }
             void main() {
-                float p = sin(vPos.x * 14.0 + uTime * 0.8) * cos(vPos.y * 14.0 - uTime * 0.6) * sin(vPos.z * 14.0 + uTime * 0.5);
-                float p2 = sin(vPos.x * 28.0 - uTime * 1.1) * cos(vPos.z * 28.0 + uTime * 0.9);
-                float gran = 0.5 + 0.35 * p + 0.15 * p2;
-                float limb = pow(max(dot(normalize(vNormal), normalize(vView)), 0.0), 0.55);
-                vec3 col = mix(vec3(0.95, 0.38, 0.05), vec3(1.0, 0.96, 0.82), clamp(gran * 0.6 + limb * 0.7, 0.0, 1.0));
+                vec3 p = vPos * 4.5 + vec3(uTime * 0.08, -uTime * 0.05, uTime * 0.06);
+                float n = fbm(p + fbm(p * 1.4));
+                float spots = smoothstep(0.26, 0.38, n);
+                float limb = pow(max(dot(normalize(vNormal), normalize(vView)), 0.0), 0.45);
+                vec3 deepOrange = vec3(0.88, 0.24, 0.02);
+                vec3 brightGold = vec3(1.0, 0.72, 0.18);
+                vec3 hotCore = vec3(1.0, 0.97, 0.86);
+                vec3 col = mix(deepOrange, brightGold, spots);
+                col = mix(col, hotCore, clamp(n * 0.75 + limb * 0.55 - 0.35, 0.0, 1.0));
                 gl_FragColor = vec4(col, 1.0);
             }
         `
     });
-    g.add(new THREE.Mesh(new THREE.SphereGeometry(coreRadius, 36, 36), photosphereMat));
+    g.add(new THREE.Mesh(new THREE.SphereGeometry(coreRadius, 40, 40), photosphereMat));
 
-    // Soft Additive Volumetric Corona (Zero hard edge!)
-    const coronaMat = new THREE.ShaderMaterial({
-        vertexShader: `
-            varying vec3 vNormal;
-            varying vec3 vView;
-            void main() {
-                vec4 wp = modelMatrix * vec4(position, 1.0);
-                vNormal = normalize(mat3(modelMatrix) * normal);
-                vView = normalize(cameraPosition - wp.xyz);
-                gl_Position = projectionMatrix * viewMatrix * wp;
-            }
-        `,
-        fragmentShader: `
-            varying vec3 vNormal;
-            varying vec3 vView;
-            void main() {
-                float ndotv = max(dot(normalize(vNormal), normalize(vView)), 0.0);
-                float glow = pow(ndotv, 3.6);
-                vec3 col = mix(vec3(1.0, 0.42, 0.06), vec3(1.0, 0.92, 0.68), glow);
-                gl_FragColor = vec4(col, glow * 0.72);
-            }
-        `,
+    // Billboard Volumetric Solar Corona Sprite (Radiates softly with zero hard edge)
+    const spriteMat = new THREE.SpriteMaterial({
+        map: sunGlowTex,
+        color: 0xfdba74,
         transparent: true,
+        opacity: 0.85,
         blending: THREE.AdditiveBlending,
         depthWrite: false
     });
-    g.add(new THREE.Mesh(new THREE.SphereGeometry(coreRadius * 2.1, 32, 32), coronaMat));
+    const coronaSprite = new THREE.Sprite(spriteMat);
+    coronaSprite.scale.set(coreRadius * 6.5, coreRadius * 6.5, 1);
+    g.add(coronaSprite);
     return g;
 }
 
@@ -1235,8 +1277,8 @@ const earthShaderMat = new THREE.ShaderMaterial({
             vec3 H = normalize(L + V);
             float spec = pow(max(dot(N, H), 0.0), 38.0) * waterMask * max(NdotL, 0.0) * 0.52;
 
-            float twilight = exp(-pow(NdotL * 6.5, 2.0)) * 0.28;
-            vec3 twilightCol = vec3(1.0, 0.42, 0.14) * twilight;
+            float twilight = exp(-pow((NdotL + 0.03) * 14.5, 2.0)) * 0.13;
+            vec3 twilightCol = vec3(0.95, 0.44, 0.22) * twilight;
 
             float satDot = dot(N, normalize(satDir));
             float inSwath = smoothstep(satSpotCos - 0.012, satSpotCos + 0.012, satDot);
@@ -1373,9 +1415,15 @@ const JPL_PLANETS = [
     { name: 'Neptune', type: 'Ice Giant',          a: 30.1104, e: 0.00899, I: 1.770, L0: 304.88, LRate: 218.46,    wBar: 48.12,  Omega: 131.78, visR: 0.75, visDist: 47.0, c1: 0x1d4ed8, c2: 0x60a5fa, band: true }
 ];
 
-function createHelioPlanetMat(colA, colB, banded) {
+function createHelioPlanetMat(colA, colB, banded, hasPolarCaps = false, rimHex = 0x000000) {
     return new THREE.ShaderMaterial({
-        uniforms: { colorA: { value: new THREE.Color(colA) }, colorB: { value: new THREE.Color(colB) }, isBanded: { value: banded ? 1.0 : 0.0 } },
+        uniforms: {
+            colorA: { value: new THREE.Color(colA) },
+            colorB: { value: new THREE.Color(colB) },
+            rimCol: { value: new THREE.Color(rimHex) },
+            isBanded: { value: banded ? 1.0 : 0.0 },
+            polarCaps: { value: hasPolarCaps ? 1.0 : 0.0 }
+        },
         vertexShader: `
             varying vec3 vNormal; varying vec3 vLocal; varying vec3 vWorldPos;
             void main() {
@@ -1387,16 +1435,39 @@ function createHelioPlanetMat(colA, colB, banded) {
             }
         `,
         fragmentShader: `
-            uniform vec3 colorA; uniform vec3 colorB; uniform float isBanded;
+            uniform vec3 colorA; uniform vec3 colorB; uniform vec3 rimCol;
+            uniform float isBanded; uniform float polarCaps;
             varying vec3 vNormal; varying vec3 vLocal; varying vec3 vWorldPos;
+            float hash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+            float noise(vec3 x) {
+                vec3 i = floor(x); vec3 f = fract(x); f = f * f * (3.0 - 2.0 * f);
+                return mix(
+                    mix(mix(hash(i+vec3(0,0,0)), hash(i+vec3(1,0,0)), f.x), mix(hash(i+vec3(0,1,0)), hash(i+vec3(1,1,0)), f.x), f.y),
+                    mix(mix(hash(i+vec3(0,0,1)), hash(i+vec3(1,0,1)), f.x), mix(hash(i+vec3(0,1,1)), hash(i+vec3(1,1,1)), f.x), f.y), f.z
+                );
+            }
+            float fbm(vec3 p) {
+                float v = 0.0, a = 0.5;
+                for (int i = 0; i < 4; i++) { v += a * noise(p); p *= 2.1; a *= 0.5; }
+                return v;
+            }
             void main() {
-                vec3 sunDir = normalize(-vWorldPos); // Sun is at (0,0,0) in Heliocentric frame!
+                vec3 N = normalize(vNormal);
+                vec3 L = normalize(-vWorldPos);
+                vec3 V = normalize(cameraPosition - vWorldPos);
+                float turb = fbm(vLocal * 4.5);
                 float pat = isBanded > 0.5
-                    ? 0.5 + 0.5 * sin(vLocal.y * 20.0 + sin(vLocal.x * 6.0) * 0.45)
-                    : 0.5 + 0.5 * sin(vLocal.x * 9.0) * cos(vLocal.z * 9.0);
-                vec3 col = mix(colorA, colorB, pat);
-                float lit = max(dot(normalize(vNormal), sunDir), 0.0);
-                gl_FragColor = vec4(col * (0.14 + 0.96 * lit), 1.0);
+                    ? fbm(vec3(vLocal.x * 1.4, vLocal.y * 8.5 + turb * 1.6, vLocal.z * 1.4))
+                    : fbm(vLocal * 5.2 + turb * 0.8);
+                vec3 col = mix(colorA, colorB, smoothstep(0.22, 0.78, pat));
+                if (polarCaps > 0.5) {
+                    float cap = smoothstep(0.82, 0.94, abs(vLocal.y) + turb * 0.08);
+                    col = mix(col, vec3(0.92, 0.94, 0.98), cap);
+                }
+                float lit = max(dot(N, L), 0.0);
+                float rim = pow(1.0 - max(dot(N, V), 0.0), 3.0) * smoothstep(-0.2, 0.6, dot(N, L));
+                vec3 finalCol = col * (0.12 + 0.96 * lit) + rimCol * rim * 0.55;
+                gl_FragColor = vec4(finalCol, 1.0);
             }
         `
     });
@@ -1449,12 +1520,25 @@ function createHelioPlanetMat(colA, colB, banded) {
             miniMoon.position.set(Math.cos(mPhase) * 1.15, 0.1, -Math.sin(mPhase) * 1.15);
             pGroup.add(miniMoon);
         } else {
-            pGroup.add(new THREE.Mesh(new THREE.SphereGeometry(p.visR, 28, 28), createHelioPlanetMat(p.c1, p.c2, p.band)));
+            pGroup.add(new THREE.Mesh(new THREE.SphereGeometry(p.visR, 36, 36), createHelioPlanetMat(p.c1, p.c2, p.band, p.name === 'Mars', p.name === 'Neptune' || p.name === 'Uranus' ? 0x38bdf8 : (p.name === 'Venus' ? 0xfde68a : 0x000000))));
             if (p.rings) {
-                const ring = new THREE.Mesh(
-                    new THREE.RingGeometry(p.visR * 1.32, p.visR * 2.32, 56),
-                    new THREE.MeshBasicMaterial({ color: 0xe2c799, side: THREE.DoubleSide, transparent: true, opacity: 0.65 })
-                );
+                const ringMat = new THREE.ShaderMaterial({
+                    vertexShader: `varying vec3 vPos; void main() { vPos = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+                    fragmentShader: `
+                        varying vec3 vPos;
+                        void main() {
+                            float r = length(vPos.xy);
+                            float t = clamp((r - 1.48) / 1.12, 0.0, 1.0);
+                            float bands = 0.65 + 0.35 * sin(t * 42.0) * cos(t * 17.0);
+                            float cassini = 1.0 - smoothstep(0.56, 0.60, t) * (1.0 - smoothstep(0.64, 0.68, t));
+                            vec3 col = mix(vec3(0.68, 0.56, 0.42), vec3(0.95, 0.88, 0.72), bands);
+                            float edgeFade = smoothstep(0.0, 0.08, t) * (1.0 - smoothstep(0.92, 1.0, t));
+                            gl_FragColor = vec4(col, edgeFade * cassini * 0.78);
+                        }
+                    `,
+                    transparent: true, side: THREE.DoubleSide, depthWrite: false
+                });
+                const ring = new THREE.Mesh(new THREE.RingGeometry(p.visR * 1.32, p.visR * 2.32, 72), ringMat);
                 ring.rotation.x = Math.PI / 2.3;
                 pGroup.add(ring);
             }
@@ -1485,7 +1569,10 @@ function createHelioPlanetMat(colA, colB, banded) {
     }
     const beltGeo = new THREE.BufferGeometry();
     beltGeo.setAttribute('position', new THREE.BufferAttribute(beltPos, 3));
-    heliocentricGroup.add(new THREE.Points(beltGeo, new THREE.PointsMaterial({ color: 0x94a3b8, size: 0.14, transparent: true, opacity: 0.55 })));
+    const asteroidSpriteTex = createCircleSpriteTexture('rgba(203,213,225,0.9)', 'rgba(100,116,139,0.2)');
+    heliocentricGroup.add(new THREE.Points(beltGeo, new THREE.PointsMaterial({
+        color: 0x94a3b8, size: 0.28, map: asteroidSpriteTex, transparent: true, opacity: 0.65, depthWrite: false
+    })));
 })();
 
 // --- F. SPACE METEORS ---
@@ -1946,6 +2033,22 @@ function animate() {
     const camDist = camera.position.distanceTo(controls.target);
     controls.rotateSpeed = Math.max(0.32, Math.min(0.9, (camDist - 1.0) * 0.18 + 0.32));
     controls.zoomSpeed = Math.max(0.65, Math.min(1.2, camDist * 0.08 + 0.6));
+
+    // Update Heliocentric Planets (Axial Spin + Live / Time-Warp Keplerian Orbit)
+    if (isSolarSystemView) {
+        const warp = cosmosWarpModes[cosmosWarpIdx].daysPerSec;
+        if (cosmosWarpIdx > 0) simDaysOffset += warp * dt;
+        const simDays = getDaysSinceJ2000() + simDaysOffset;
+        JPL_PLANETS.forEach(p => {
+            const entry = cosmosBodiesMap.get(p.name);
+            if (!entry) return;
+            entry.obj.rotation.y += 0.25 * dt;
+            if (cosmosWarpIdx > 0) {
+                const res = computePlanetHeliocentricAU(p, simDays);
+                entry.obj.position.copy(res.vec.normalize().multiplyScalar(p.visDist));
+            }
+        });
+    }
 
     // Update Earth & Clouds
     earthMesh.rotation.y += 0.008 * dt;

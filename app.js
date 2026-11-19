@@ -1,5 +1,5 @@
 // ============================================================================
-// VYUHAK v33 HALLEY // LIVE 1P/HALLEY KEPLERIAN PHYSICS, DUAL PLASMA/DUST TAILS & HOLOGRAPHIC HUD
+// VYUHAK v34 PHOTOREAL // CINEMA-GRADE 1P/HALLEY NUCLEUS, LIVE FLOWING TAILS & HOLOGRAPHIC HUD
 // ============================================================================
 
 // --- 1. AUDIO ENGINE WITH MUTE ---
@@ -2764,7 +2764,7 @@ function createHelioPlanetMat(colA, colB, banded, hasPolarCaps = false, rimHex =
         chipsContainer.innerHTML += `<button class="planet-chip" data-body="${item.name}" onclick="focusCosmosBody(this.dataset.body)">${item.name}</button>`;
     });
 
-    // --- LIVE, MATHEMATICALLY ACCURATE COMET 1P/HALLEY (JPL J2000 RETROGRADE ORBIT + VOLUMETRIC DUAL TAILS) ---
+    // --- PHOTOREALISTIC COMET 1P/HALLEY (JPL J2000 RETROGRADE ORBIT + GIOTTO NUCLEUS + FLOWING DUAL TAILS) ---
     const halleyOrbitPts = [];
     for (let i = 0; i <= 320; i++) {
         const E = (i / 320) * Math.PI * 2;
@@ -2772,52 +2772,118 @@ function createHelioPlanetMat(colA, colB, banded, hasPolarCaps = false, rimHex =
     }
     heliocentricGroup.add(new THREE.LineLoop(
         new THREE.BufferGeometry().setFromPoints(halleyOrbitPts),
-        new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.28 })
+        new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.26 })
     ));
 
     const halleyGroup = new THREE.Group();
     const halleyInit = computeHalleyState(days);
     halleyGroup.position.copy(halleyInit.visPos);
 
-    // 1. Craggy dark icy-carbonaceous nucleus (15 x 8 km irregular potato shape)
-    const nucGeo = new THREE.IcosahedronGeometry(0.11, 2);
+    // 1. Giotto/Rosetta-Grade Craggy Bilobed Carbonaceous Nucleus (15 x 8 km irregular peanut)
+    const nucGeo = new THREE.IcosahedronGeometry(0.115, 4);
     const nPos = nucGeo.attributes.position;
     for (let i = 0; i < nPos.count; i++) {
         const vx = nPos.getX(i), vy = nPos.getY(i), vz = nPos.getZ(i);
-        const bump = 1.0 + 0.22 * Math.sin(vx * 28.0) * Math.cos(vy * 22.0) + 0.14 * Math.sin(vz * 34.0);
-        nPos.setXYZ(i, vx * 1.35 * bump, vy * 0.82 * bump, vz * 0.9 * bump);
+        // Bilobed peanut silhouette + multi-frequency rock ridges & crater depressions
+        const pinch = 1.0 - 0.28 * Math.exp(-vx * vx * 220.0);
+        const crag = 1.0
+            + 0.16 * Math.sin(vx * 32.0 + vy * 18.0) * Math.cos(vz * 26.0)
+            + 0.09 * Math.sin(vy * 54.0 - vz * 42.0)
+            + 0.05 * Math.cos(vx * 78.0 + vz * 65.0);
+        nPos.setXYZ(i, vx * 1.48 * crag, vy * 0.84 * pinch * crag, vz * 0.90 * pinch * crag);
     }
     nucGeo.computeVertexNormals();
-    const halleyNucleus = new THREE.Mesh(
-        nucGeo,
-        new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.92, metalness: 0.08, emissive: 0x0c4a6e, emissiveIntensity: 0.35 })
-    );
+
+    const halleyNucleusMat = new THREE.ShaderMaterial({
+        uniforms: { uTime: solarTimeUniform, uActivity: { value: 0.55 } },
+        vertexShader: `
+            varying vec3 vNormal; varying vec3 vLocal; varying vec3 vWorldPos;
+            void main() {
+                vLocal = position;
+                vec4 wp = modelMatrix * vec4(position, 1.0);
+                vWorldPos = wp.xyz;
+                vNormal = normalize(mat3(modelMatrix) * normal);
+                gl_Position = projectionMatrix * viewMatrix * wp;
+            }
+        `,
+        fragmentShader: `
+            uniform float uTime; uniform float uActivity;
+            varying vec3 vNormal; varying vec3 vLocal; varying vec3 vWorldPos;
+
+            float hash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+            float noise(vec3 x) {
+                vec3 i = floor(x); vec3 f = fract(x); f = f * f * (3.0 - 2.0 * f);
+                return mix(
+                    mix(mix(hash(i+vec3(0,0,0)), hash(i+vec3(1,0,0)), f.x), mix(hash(i+vec3(0,1,0)), hash(i+vec3(1,1,0)), f.x), f.y),
+                    mix(mix(hash(i+vec3(0,0,1)), hash(i+vec3(1,0,1)), f.x), mix(hash(i+vec3(0,1,1)), hash(i+vec3(1,1,1)), f.x), f.y), f.z
+                );
+            }
+            float fbm(vec3 p) {
+                float v = 0.0, a = 0.5;
+                for (int i = 0; i < 4; i++) { v += a * noise(p); p *= 2.15; a *= 0.5; }
+                return v;
+            }
+            void main() {
+                vec3 N = normalize(vNormal);
+                vec3 L = normalize(-vWorldPos); // Sun is at world origin (0,0,0)
+                vec3 V = normalize(cameraPosition - vWorldPos);
+
+                float rock = fbm(vLocal * 38.0);
+                float craters = smoothstep(0.32, 0.68, noise(vLocal * 75.0));
+                // Real Halley nucleus has ultra-dark charcoal-carbonaceous crust with bright icy sublimation fissures
+                vec3 darkCrust = vec3(0.055, 0.062, 0.078);
+                vec3 dustyGrey = vec3(0.22, 0.24, 0.28);
+                vec3 iceFissure = vec3(0.78, 0.94, 1.0);
+
+                float lit = max(dot(N, L), 0.0);
+                float ventMask = smoothstep(0.68, 0.84, rock) * smoothstep(0.25, 0.85, lit);
+                vec3 baseCol = mix(darkCrust, dustyGrey, rock * 0.75 + craters * 0.25);
+                vec3 col = baseCol * (0.10 + 1.15 * lit);
+                // Glowing sunlit outgassing ice vents
+                col += iceFissure * ventMask * (0.45 + 0.65 * uActivity);
+                // Subtle sunlit coma rim scattering
+                float rim = pow(1.0 - max(dot(N, V), 0.0), 2.8) * smoothstep(-0.15, 0.7, dot(N, L));
+                col += vec3(0.42, 0.84, 1.0) * rim * (0.35 + 0.45 * uActivity);
+
+                gl_FragColor = vec4(col, 1.0);
+            }
+        `
+    });
+    const halleyNucleus = new THREE.Mesh(nucGeo, halleyNucleusMat);
     halleyGroup.add(halleyNucleus);
 
-    // 2. Layered Volumetric Coma (Inner bright icy core + Outer diffuse gas envelope)
-    const halleyComaInner = new THREE.Sprite(new THREE.SpriteMaterial({
-        map: createCircleSpriteTexture('rgba(240,252,255,0.95)', 'rgba(56,189,248,0.45)'),
-        transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false
+    // 2. Multi-Layered Photorealistic Coma (Sharp sunlit core + dusty inner glow + expansive cyan-blue H2 envelope)
+    const halleyComaCore = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: createCircleSpriteTexture('rgba(255,255,255,0.98)', 'rgba(186,230,253,0.42)'),
+        transparent: true, opacity: 0.92, blending: THREE.AdditiveBlending, depthWrite: false
     }));
-    halleyComaInner.scale.set(0.75, 0.75, 1);
+    halleyComaCore.scale.set(0.46, 0.46, 1);
+    halleyGroup.add(halleyComaCore);
+
+    const halleyComaInner = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: createCircleSpriteTexture('rgba(254,249,235,0.62)', 'rgba(125,211,252,0.18)'),
+        transparent: true, opacity: 0.78, blending: THREE.AdditiveBlending, depthWrite: false
+    }));
+    halleyComaInner.scale.set(1.05, 1.05, 1);
     halleyGroup.add(halleyComaInner);
 
     const halleyComaOuter = new THREE.Sprite(new THREE.SpriteMaterial({
-        map: createCircleSpriteTexture('rgba(125,211,252,0.48)', 'rgba(14,165,233,0.0)'),
-        transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false
+        map: createCircleSpriteTexture('rgba(56,189,248,0.34)', 'rgba(14,165,233,0.0)'),
+        transparent: true, opacity: 0.58, blending: THREE.AdditiveBlending, depthWrite: false
     }));
-    halleyComaOuter.scale.set(1.9, 1.9, 1);
+    halleyComaOuter.scale.set(2.4, 2.4, 1);
     halleyGroup.add(halleyComaOuter);
 
-    // Helper: Feathered Volumetric Tail Plume (Crossed GLSL Shader Ribbons — ZERO hard edges!)
-    function createVolumetricTailRibbon(length, width, colorCoreHex, colorEdgeHex, curveStrength) {
+    // Helper: 3-Axis Volumetric Tail Plume (0°, 60°, 120° crossed GLSL ribbons — silky from EVERY 3D angle!)
+    function createVolumetricTailRibbon(length, width, colorCoreHex, colorEdgeHex, curveStrength, raySharpness) {
         const mat = new THREE.ShaderMaterial({
             uniforms: {
                 uTime: solarTimeUniform,
                 uColCore: { value: new THREE.Color(colorCoreHex) },
                 uColEdge: { value: new THREE.Color(colorEdgeHex) },
                 uIntensity: { value: 0.65 },
-                uCurve: { value: curveStrength }
+                uCurve: { value: curveStrength },
+                uSharp: { value: raySharpness }
             },
             vertexShader: `
                 varying vec2 vUv;
@@ -2825,11 +2891,12 @@ function createHelioPlanetMat(colA, colB, banded, hasPolarCaps = false, rimHex =
                 void main() {
                     vUv = uv;
                     vec3 p = position;
-                    // Gentle parabolic curve for dust tail along +Y
+                    // Parabolic radiation-pressure sweep for dust tail
                     p.y += uCurve * uv.x * uv.x;
-                    // Fan width gently outward as tail travels downstream
-                    p.y *= (0.28 + 1.15 * pow(uv.x, 0.85));
-                    p.z *= (0.28 + 1.15 * pow(uv.x, 0.85));
+                    // Smooth natural flare from tight coma out into deep space
+                    float flare = 0.16 + 1.35 * pow(uv.x, 0.78);
+                    p.y *= flare;
+                    p.z *= flare;
                     gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
                 }
             `,
@@ -2839,28 +2906,34 @@ function createHelioPlanetMat(colA, colB, banded, hasPolarCaps = false, rimHex =
                 uniform vec3 uColCore;
                 uniform vec3 uColEdge;
                 uniform float uIntensity;
+                uniform float uSharp;
 
-                float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+                float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
                 float noise(vec2 p) {
                     vec2 i = floor(p), f = fract(p);
                     f = f * f * (3.0 - 2.0 * f);
                     return mix(mix(hash(i), hash(i+vec2(1,0)), f.x), mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), f.x), f.y);
                 }
+                float fbm(vec2 p) {
+                    float v = 0.0, a = 0.5;
+                    for (int i = 0; i < 4; i++) { v += a * noise(p); p *= 2.05; a *= 0.5; }
+                    return v;
+                }
                 void main() {
-                    float along = vUv.x; // 0 at coma -> 1 at far tail tip
-                    float across = abs(vUv.y - 0.5) * 2.0; // 0 at spine -> 1 at edge
+                    float along = vUv.x;
+                    float across = abs(vUv.y - 0.5) * 2.0;
 
-                    // Smooth radial Gaussian cross-section (completely eliminates geometric cone edge)
-                    float crossFade = exp(-across * across * 5.2) * (1.0 - smoothstep(0.75, 1.0, across));
-                    // Smooth onset at coma + exponential fade into deep space
-                    float lengthFade = smoothstep(0.0, 0.08, along) * pow(1.0 - along, 1.75);
+                    // Soft Gaussian cross-section (zero geometric seam)
+                    float crossFade = exp(-across * across * uSharp) * (1.0 - smoothstep(0.72, 1.0, across));
+                    // Smooth emergence from coma + long delicate fade into space
+                    float lengthFade = smoothstep(0.0, 0.055, along) * pow(1.0 - along, 1.85);
 
-                    // Animated solar-wind plasma streamers flowing away from coma
-                    float flow1 = noise(vec2(along * 7.5 - uTime * 1.45, vUv.y * 12.0));
-                    float flow2 = noise(vec2(along * 14.0 - uTime * 2.3, vUv.y * 22.0));
-                    float wisps = 0.58 + 0.42 * (flow1 * 0.65 + flow2 * 0.35);
+                    // Fine longitudinal solar-wind plasma streamers & wispy dust bands
+                    float streamers = fbm(vec2(along * 4.5 - uTime * 1.1, vUv.y * 18.0));
+                    float fineRays  = noise(vec2(along * 11.0 - uTime * 2.2, vUv.y * 36.0));
+                    float wisps = 0.45 + 0.55 * (streamers * 0.68 + fineRays * 0.32);
 
-                    vec3 col = mix(uColCore, uColEdge, smoothstep(0.05, 0.72, along + across * 0.35));
+                    vec3 col = mix(uColCore, uColEdge, smoothstep(0.04, 0.68, along + across * 0.32));
                     float alpha = crossFade * lengthFade * wisps * uIntensity;
                     gl_FragColor = vec4(col, alpha);
                 }
@@ -2872,60 +2945,74 @@ function createHelioPlanetMat(colA, colB, banded, hasPolarCaps = false, rimHex =
         });
 
         const group = new THREE.Group();
-        const geo1 = new THREE.PlaneGeometry(length, width, 24, 1);
-        geo1.translate(length / 2, 0, 0);
-        group.add(new THREE.Mesh(geo1, mat));
-
-        const geo2 = new THREE.PlaneGeometry(length, width, 24, 1);
-        geo2.translate(length / 2, 0, 0);
-        geo2.rotateX(Math.PI / 2);
-        group.add(new THREE.Mesh(geo2, mat));
+        [0, Math.PI / 3, (2 * Math.PI) / 3].forEach(rotX => {
+            const geo = new THREE.PlaneGeometry(length, width, 28, 1);
+            geo.translate(length / 2, 0, 0);
+            geo.rotateX(rotX);
+            group.add(new THREE.Mesh(geo, mat));
+        });
         return { group, mat };
     }
 
-    // 3. Type I Ion (Plasma) Tail — Straight Anti-Solar Blue Streamers + Ion Particles
-    const ionTail = createVolumetricTailRibbon(6.8, 0.85, 0xe0f2fe, 0x0284c7, 0.0);
-    const ionPartCount = 140;
+    // 3. Type I Ion (Plasma) Tail — Straight Anti-Solar Electric-Blue Filamentary Streamers + Live Flowing Particles
+    const ionTail = createVolumetricTailRibbon(8.2, 0.72, 0xf0f9ff, 0x0284c7, 0.0, 6.2);
+    const ionPartCount = 260;
     const ionPartPos = new Float32Array(ionPartCount * 3);
+    const ionPartMeta = [];
     for (let i = 0; i < ionPartCount; i++) {
-        const t = Math.pow(Math.random(), 1.35);
-        const spread = (0.06 + t * 0.24);
-        ionPartPos[i*3] = t * 6.5;
-        ionPartPos[i*3+1] = gaussianRandom() * spread;
-        ionPartPos[i*3+2] = gaussianRandom() * spread;
+        const prog = Math.random();
+        const speed = 0.22 + Math.random() * 0.35;
+        const angle = Math.random() * Math.PI * 2;
+        const radScale = 0.05 + Math.random() * 0.24;
+        ionPartMeta.push({ prog, speed, angle, radScale });
+        const x = prog * 7.8;
+        const r = radScale * (0.18 + prog * 1.15);
+        ionPartPos[i*3] = x;
+        ionPartPos[i*3+1] = Math.cos(angle) * r;
+        ionPartPos[i*3+2] = Math.sin(angle) * r;
     }
     const ionPartGeo = new THREE.BufferGeometry();
     ionPartGeo.setAttribute('position', new THREE.BufferAttribute(ionPartPos, 3));
     const ionParticles = new THREE.Points(ionPartGeo, new THREE.PointsMaterial({
-        color: 0x7dd3fc, size: 0.16, map: asteroidSpriteTex, transparent: true, opacity: 0.62, blending: THREE.AdditiveBlending, depthWrite: false
+        color: 0x7dd3fc, size: 0.14, map: asteroidSpriteTex, transparent: true, opacity: 0.65, blending: THREE.AdditiveBlending, depthWrite: false
     }));
     ionTail.group.add(ionParticles);
     halleyGroup.add(ionTail.group);
 
-    // 4. Type II Dust Tail — Broader, Curved Golden-White Radiation-Pressure Plume + Dust Particles
-    const dustTail = createVolumetricTailRibbon(5.4, 1.45, 0xfffbeb, 0xf59e0b, 0.65);
-    const dustPartCount = 110;
+    // 4. Type II Dust Tail — Broad, Silky Curved Golden-White Fan + Live Drifting Dust Motes
+    const dustTail = createVolumetricTailRibbon(6.4, 1.55, 0xfffbeb, 0xf59e0b, 0.85, 3.8);
+    const dustPartCount = 200;
     const dustPartPos = new Float32Array(dustPartCount * 3);
+    const dustPartMeta = [];
     for (let i = 0; i < dustPartCount; i++) {
-        const t = Math.pow(Math.random(), 1.25);
-        const spread = (0.10 + t * 0.42);
-        dustPartPos[i*3] = t * 5.0;
-        dustPartPos[i*3+1] = 0.65 * t * t + gaussianRandom() * spread;
-        dustPartPos[i*3+2] = gaussianRandom() * spread;
+        const prog = Math.random();
+        const speed = 0.11 + Math.random() * 0.18;
+        const angle = Math.random() * Math.PI * 2;
+        const radScale = 0.08 + Math.random() * 0.42;
+        dustPartMeta.push({ prog, speed, angle, radScale });
+        const x = prog * 6.0;
+        const r = radScale * (0.2 + prog * 1.25);
+        dustPartPos[i*3] = x;
+        dustPartPos[i*3+1] = 0.85 * prog * prog + Math.cos(angle) * r;
+        dustPartPos[i*3+2] = Math.sin(angle) * r;
     }
     const dustPartGeo = new THREE.BufferGeometry();
     dustPartGeo.setAttribute('position', new THREE.BufferAttribute(dustPartPos, 3));
     const dustParticles = new THREE.Points(dustPartGeo, new THREE.PointsMaterial({
-        color: 0xfef3c7, size: 0.18, map: asteroidSpriteTex, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false
+        color: 0xfef3c7, size: 0.17, map: asteroidSpriteTex, transparent: true, opacity: 0.48, blending: THREE.AdditiveBlending, depthWrite: false
     }));
     dustTail.group.add(dustParticles);
     halleyGroup.add(dustTail.group);
+
+    // 5. Sun-Side Sublimation Outgassing Jet Plume (Erupts sunward from nucleus before sweeping back)
+    const sunJet = createVolumetricTailRibbon(0.75, 0.34, 0xffffff, 0x7dd3fc, 0.0, 5.0);
+    halleyGroup.add(sunJet.group);
 
     heliocentricGroup.add(halleyGroup);
 
     const halleyMeta = {
         name: "Halley's Comet", wikiTitle: "Halley's_Comet", type: '1P/Halley Periodic Comet (75.3 yrs)',
-        visR: 0.35, isComet: true,
+        visR: 0.38, isComet: true,
         a: HALLEY_ELEMENTS.a, e: HALLEY_ELEMENTS.e, I: HALLEY_ELEMENTS.I,
         tilt: 0, radiusKm: 5.5, gravity: 0.0005, escapeKps: 0.002, temp: '-70 °C (Active)', dayLen: '2.2d–7.4d (Tumbling)',
         atmo: 'Sublimating H₂O (80%), CO (10%), CO₂, CH₄ — Dual Ion & Dust Tails',
@@ -2936,7 +3023,12 @@ function createHelioPlanetMat(colA, colB, banded, hasPolarCaps = false, rimHex =
     cosmosBodiesMap.set("Halley's Comet", {
         name: "Halley's Comet", type: halleyMeta.type, obj: halleyGroup, spinMesh: halleyNucleus,
         moons: [], meta: halleyMeta, radius: 0.45, statsHTML: halleyStatsHTML,
-        halleyRig: { comaInner: halleyComaInner, comaOuter: halleyComaOuter, ionTail, dustTail, ionParticles, dustParticles }
+        halleyRig: {
+            nucleusMat: halleyNucleusMat,
+            comaCore: halleyComaCore, comaInner: halleyComaInner, comaOuter: halleyComaOuter,
+            ionTail, dustTail, sunJet,
+            ionParticles, ionPartMeta, dustParticles, dustPartMeta
+        }
     });
     chipsContainer.innerHTML += `<button class="planet-chip" data-body="Halley's Comet" onclick="focusCosmosBody(this.dataset.body)">☄️ Halley's Comet</button>`;
 })();
@@ -4274,36 +4366,68 @@ function animate() {
             }
         });
 
-        // Live 1P/Halley Keplerian Propagation & Solar-Wind Dual Tail Physics
+        // Live 1P/Halley Keplerian Propagation & Photorealistic Solar-Wind Dual Tail Physics
         const hEntry = cosmosBodiesMap.get("Halley's Comet");
         if (hEntry && hEntry.halleyRig) {
             const hState = computeHalleyState(simDays);
             hEntry.obj.position.copy(hState.visPos);
-            hEntry.spinMesh.rotation.x += 0.45 * dt;
-            hEntry.spinMesh.rotation.y += 0.72 * dt;
+            hEntry.spinMesh.rotation.x += 0.38 * dt;
+            hEntry.spinMesh.rotation.y += 0.62 * dt;
 
-            // Activity factor: subtle icy coma at 35 AU aphelion -> blazing dramatic tails inside 6 AU!
-            const activity = Math.max(0.24, Math.min(1.65, Math.pow(4.2 / Math.max(0.55, hState.rAU), 0.78)));
+            // Activity factor: crisp delicate glow at 35 AU -> blazing dual-tail spectacle inside 6 AU!
+            const activity = Math.max(0.32, Math.min(1.75, Math.pow(4.6 / Math.max(0.55, hState.rAU), 0.72)));
             const rig = hEntry.halleyRig;
-            rig.comaInner.scale.setScalar(0.52 + 0.55 * activity);
-            rig.comaOuter.scale.setScalar(1.15 + 1.45 * activity);
-            rig.comaOuter.material.opacity = Math.min(0.85, 0.25 + 0.45 * activity);
+            rig.nucleusMat.uniforms.uActivity.value = activity;
+
+            rig.comaCore.scale.setScalar(0.34 + 0.32 * activity);
+            rig.comaInner.scale.setScalar(0.75 + 0.72 * activity);
+            rig.comaOuter.scale.setScalar(1.55 + 1.85 * activity);
+            rig.comaOuter.material.opacity = Math.min(0.85, 0.28 + 0.42 * activity);
 
             // Type I Blue Ion Tail points strictly anti-solar (+rHat directly away from Sun)
             const antiSun = hState.visPos.clone().normalize();
             const qIon = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1, 0, 0), antiSun);
             rig.ionTail.group.quaternion.copy(qIon);
-            rig.ionTail.group.scale.set(0.32 + 0.95 * activity, 0.45 + 0.65 * activity, 0.45 + 0.65 * activity);
-            rig.ionTail.mat.uniforms.uIntensity.value = Math.min(0.95, 0.24 + 0.52 * activity);
-            rig.ionParticles.material.opacity = Math.min(0.85, 0.22 + 0.42 * activity);
+            rig.ionTail.group.scale.set(0.38 + 0.92 * activity, 0.50 + 0.65 * activity, 0.50 + 0.65 * activity);
+            rig.ionTail.mat.uniforms.uIntensity.value = Math.min(0.95, 0.28 + 0.52 * activity);
+            rig.ionParticles.material.opacity = Math.min(0.85, 0.26 + 0.42 * activity);
 
             // Type II Golden-White Dust Tail lags behind orbital velocity vector (radiation pressure)
-            const dustDir = antiSun.clone().multiplyScalar(0.82).addScaledVector(hState.velDir, -0.38).normalize();
+            const dustDir = antiSun.clone().multiplyScalar(0.82).addScaledVector(hState.velDir, -0.40).normalize();
             const qDust = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1, 0, 0), dustDir);
             rig.dustTail.group.quaternion.copy(qDust);
-            rig.dustTail.group.scale.set(0.28 + 0.88 * activity, 0.42 + 0.62 * activity, 0.42 + 0.62 * activity);
-            rig.dustTail.mat.uniforms.uIntensity.value = Math.min(0.78, 0.16 + 0.44 * activity);
-            rig.dustParticles.material.opacity = Math.min(0.72, 0.16 + 0.36 * activity);
+            rig.dustTail.group.scale.set(0.34 + 0.88 * activity, 0.48 + 0.62 * activity, 0.48 + 0.62 * activity);
+            rig.dustTail.mat.uniforms.uIntensity.value = Math.min(0.82, 0.20 + 0.46 * activity);
+            rig.dustParticles.material.opacity = Math.min(0.75, 0.18 + 0.38 * activity);
+
+            // Sunward Outgassing Jet points directly toward the Sun (-antiSun)
+            const toSun = antiSun.clone().negate();
+            rig.sunJet.group.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), toSun);
+            rig.sunJet.group.scale.setScalar(0.45 + 0.65 * activity);
+            rig.sunJet.mat.uniforms.uIntensity.value = Math.min(0.78, 0.20 + 0.42 * activity);
+
+            // Animate live flowing ion & dust particles streaming out of the coma!
+            const iArr = rig.ionParticles.geometry.attributes.position.array;
+            for (let i = 0; i < rig.ionPartMeta.length; i++) {
+                const pm = rig.ionPartMeta[i];
+                pm.prog = (pm.prog + pm.speed * dt * (0.7 + 0.6 * activity)) % 1.0;
+                const r = pm.radScale * (0.14 + pm.prog * 1.15);
+                iArr[i*3] = pm.prog * 7.8;
+                iArr[i*3+1] = Math.cos(pm.angle) * r;
+                iArr[i*3+2] = Math.sin(pm.angle) * r;
+            }
+            rig.ionParticles.geometry.attributes.position.needsUpdate = true;
+
+            const dArr = rig.dustParticles.geometry.attributes.position.array;
+            for (let i = 0; i < rig.dustPartMeta.length; i++) {
+                const pm = rig.dustPartMeta[i];
+                pm.prog = (pm.prog + pm.speed * dt * (0.6 + 0.5 * activity)) % 1.0;
+                const r = pm.radScale * (0.16 + pm.prog * 1.28);
+                dArr[i*3] = pm.prog * 6.0;
+                dArr[i*3+1] = 0.85 * pm.prog * pm.prog + Math.cos(pm.angle) * r;
+                dArr[i*3+2] = Math.sin(pm.angle) * r;
+            }
+            rig.dustParticles.geometry.attributes.position.needsUpdate = true;
 
             // Keep top bar stats live when Halley's Comet is focused
             if (focusedCosmosBody === "Halley's Comet") {

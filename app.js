@@ -1,5 +1,5 @@
 // ============================================================================
-// VYUHAK v24 GALACTIC ULTRA // VOLUMETRIC FBM MILKY WAY DISK, DARK DUST LANES & SMOOTH 60FPS STARS
+// VYUHAK v25 WARP // CONTINUOUS ZOOM-OUT/IN SCALE TRANSITIONS, VOLUMETRIC MILKY WAY & KEPLERIAN COSMOS
 // ============================================================================
 
 // --- 1. AUDIO ENGINE WITH MUTE ---
@@ -26,6 +26,14 @@ function playSound(type) {
         osc.type = 'square'; osc.frequency.setValueAtTime(440, audioCtx.currentTime); osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.08);
         gain.gain.setValueAtTime(0, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0.035, audioCtx.currentTime + 0.04); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.22);
         osc.start(); osc.stop(audioCtx.currentTime + 0.22);
+    } else if (type === 'warp-out') {
+        osc.type = 'sine'; osc.frequency.setValueAtTime(190, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(520, audioCtx.currentTime + 0.35);
+        gain.gain.setValueAtTime(0, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0.045, audioCtx.currentTime + 0.08); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.42);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.42);
+    } else if (type === 'warp-in') {
+        osc.type = 'sine'; osc.frequency.setValueAtTime(520, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(170, audioCtx.currentTime + 0.35);
+        gain.gain.setValueAtTime(0, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0.045, audioCtx.currentTime + 0.08); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.42);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.42);
     }
     osc.connect(gain); gain.connect(audioCtx.destination);
 }
@@ -230,8 +238,10 @@ let camModeIdx = 0;
 let activeCamera = 'FREE';
 let lastScannedTime = 0;
 
-// Smooth Camera Fly-To Controller
+// Smooth Camera Fly-To & Continuous Scale Warp Controller
 let flyAnim = null;
+let scaleAnim = null;
+
 function smoothFlyTo(targetPos, lookAtPos, durationMs = 900) {
     flyAnim = {
         startPos: camera.position.clone(),
@@ -240,6 +250,215 @@ function smoothFlyTo(targetPos, lookAtPos, durationMs = 900) {
         endTarget: lookAtPos.clone(),
         startTime: performance.now(),
         duration: durationMs
+    };
+}
+
+function getCurrentScale() {
+    if (isGalaxyView) return 'GALAXY';
+    if (isSolarSystemView) return 'COSMOS';
+    return 'EARTH';
+}
+
+function getEarthDaySideCameraPos() {
+    const sunDir = getRealTimeSunDirection(earthMesh.rotation.y);
+    const dist = window.innerWidth < window.innerHeight ? 4.3 : 2.9;
+    const camDir = sunDir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), 0.35);
+    camDir.y = Math.max(-0.2, Math.min(0.42, camDir.y + 0.28));
+    return camDir.normalize().multiplyScalar(dist);
+}
+
+function resetAllGroupScales() {
+    earthSystemGroup.scale.setScalar(1);
+    heliocentricGroup.scale.setScalar(1);
+    galaxyGroup.scale.setScalar(1);
+    camera.fov = 45;
+    camera.updateProjectionMatrix();
+    const veil = document.getElementById('scale-warp-veil');
+    if (veil) veil.classList.remove('active');
+}
+
+function applyScaleDOMAndVisibility(targetScale) {
+    const solarBtn = document.getElementById('btn-solar-view');
+    const solarDot = document.getElementById('solar-dot');
+    const cosmosBar = document.getElementById('cosmos-bar');
+    const galBtn = document.getElementById('btn-galaxy-view');
+    const galDot = document.getElementById('galaxy-dot');
+    const galBar = document.getElementById('galaxy-bar');
+
+    // Clear all active scale states
+    isSolarSystemView = (targetScale === 'COSMOS');
+    isGalaxyView = (targetScale === 'GALAXY');
+
+    solarBtn.classList.toggle('on-purple', isSolarSystemView);
+    solarDot.classList.toggle('bg-purple-400', isSolarSystemView);
+    solarDot.classList.toggle('bg-slate-500', !isSolarSystemView);
+    cosmosBar.classList.toggle('hidden', !isSolarSystemView);
+
+    galBtn.classList.toggle('on-indigo', isGalaxyView);
+    galDot.classList.toggle('bg-indigo-400', isGalaxyView);
+    galDot.classList.toggle('bg-slate-500', !isGalaxyView);
+    galBar.classList.toggle('hidden', !isGalaxyView);
+
+    earthSystemGroup.visible = (targetScale === 'EARTH');
+    heliocentricGroup.visible = (targetScale === 'COSMOS');
+    galaxyGroup.visible = (targetScale === 'GALAXY');
+    if (milkyWaySkyMesh) milkyWaySkyMesh.visible = (targetScale !== 'GALAXY') && showMilkyWaySky;
+
+    document.getElementById('earth-dossier').classList.toggle('hidden', targetScale !== 'EARTH');
+    document.getElementById('cosmos-dossier').classList.toggle('hidden', targetScale !== 'COSMOS');
+    document.getElementById('galaxy-dossier').classList.toggle('hidden', targetScale !== 'GALAXY');
+
+    const dossierTab = document.getElementById('tab-btn-dossier');
+    if (targetScale === 'EARTH') {
+        dossierTab.textContent = 'Ground Data';
+        controls.minDistance = 1.15;
+        controls.maxDistance = 16;
+    } else if (targetScale === 'COSMOS') {
+        dossierTab.textContent = 'Cosmos Data';
+        activeCamera = 'FREE'; camModeIdx = 0;
+        document.getElementById('cam-label').textContent = 'Free';
+        controls.minDistance = 1.8;
+        controls.maxDistance = 150;
+        fetchLiveSpaceWeather();
+    } else if (targetScale === 'GALAXY') {
+        dossierTab.textContent = 'Galaxy Data';
+        activeCamera = 'FREE'; camModeIdx = 0;
+        document.getElementById('cam-label').textContent = 'Free';
+        controls.minDistance = 4.0;
+        controls.maxDistance = 140;
+    }
+}
+
+// Continuous "Powers of Ten" Zoom-Out / Zoom-In Transition between EARTH <-> COSMOS <-> GALAXY
+function transitionToScale(targetScale, options = {}) {
+    const fromScale = getCurrentScale();
+    if (fromScale === targetScale && !scaleAnim) {
+        if (options.onArrived) options.onArrived();
+        return;
+    }
+
+    // Cancel any previous animations cleanly
+    flyAnim = null;
+    if (scaleAnim) {
+        scaleAnim = null;
+        resetAllGroupScales();
+    }
+
+    const scaleRank = { EARTH: 0, COSMOS: 1, GALAXY: 2 };
+    const zoomingOut = scaleRank[targetScale] > scaleRank[fromScale];
+    playSound(zoomingOut ? 'warp-out' : 'warp-in');
+
+    // --- PHASE 1: DEPARTURE TRAJECTORY FROM CURRENT VIEW ---
+    const departStartPos = camera.position.clone();
+    const departStartTarget = controls.target.clone();
+    let departEndPos = departStartPos.clone();
+    let departEndTarget = departStartTarget.clone();
+    let outGroup = fromScale === 'EARTH' ? earthSystemGroup : (fromScale === 'COSMOS' ? heliocentricGroup : galaxyGroup);
+
+    if (zoomingOut) {
+        // Pull rapidly outward from current view along camera radial vector
+        const radial = camera.position.clone().sub(controls.target);
+        if (radial.lengthSq() < 0.001) radial.set(0, 1, 2);
+        radial.normalize();
+        const pullDist = fromScale === 'EARTH' ? 18.0 : 125.0;
+        departEndPos = controls.target.clone().add(radial.multiplyScalar(pullDist));
+        departEndTarget = new THREE.Vector3(0, 0, 0);
+    } else {
+        // Zooming IN: Dive directly toward the home anchor in the current view!
+        if (fromScale === 'GALAXY' && solarSystemPinObj) {
+            const pinPos = new THREE.Vector3();
+            solarSystemPinObj.getWorldPosition(pinPos);
+            const approachDir = camera.position.clone().sub(pinPos).normalize();
+            departEndTarget = pinPos.clone();
+            departEndPos = pinPos.clone().add(approachDir.multiplyScalar(0.65));
+        } else if (fromScale === 'COSMOS' && cosmosBodiesMap.has('Earth')) {
+            const earthPos = new THREE.Vector3();
+            cosmosBodiesMap.get('Earth').obj.getWorldPosition(earthPos);
+            const approachDir = camera.position.clone().sub(earthPos).normalize();
+            departEndTarget = earthPos.clone();
+            departEndPos = earthPos.clone().add(approachDir.multiplyScalar(0.75));
+        }
+    }
+
+    // --- PHASE 2: ARRIVAL TRAJECTORY INTO DESTINATION VIEW ---
+    const computeArrival = () => {
+        let arriveStartPos, arriveStartTarget, arriveEndPos, arriveEndTarget;
+        if (targetScale === 'COSMOS') {
+            const earthObj = cosmosBodiesMap.get('Earth');
+            const earthPos = new THREE.Vector3();
+            if (earthObj) earthObj.obj.getWorldPosition(earthPos);
+            const sunOverviewPos = new THREE.Vector3(26.6, 17.1, 32.3);
+
+            // Update Cosmos UI for Sun overview
+            focusedCosmosBody = 'Sun';
+            document.querySelectorAll('.planet-chip').forEach(ch => ch.classList.toggle('active', ch.dataset.body === 'Sun'));
+            const sunEntry = cosmosBodiesMap.get('Sun');
+            if (sunEntry) {
+                document.getElementById('pt-name').textContent = sunEntry.name;
+                document.getElementById('pt-type').textContent = sunEntry.type;
+                document.getElementById('pt-stats').innerHTML = sunEntry.statsHTML;
+                updateCosmosDossier('Sun', getDaysSinceJ2000() + simDaysOffset);
+            }
+
+            if (zoomingOut) {
+                // Emerging from Earth into the Solar System!
+                arriveStartTarget = earthPos.clone();
+                arriveStartPos = earthPos.clone().add(new THREE.Vector3(1.2, 0.9, 1.5));
+            } else {
+                // Diving in from Milky Way into the Solar System!
+                arriveStartTarget = new THREE.Vector3(0, 0, 0);
+                arriveStartPos = new THREE.Vector3(75, 52, 92);
+            }
+            arriveEndPos = sunOverviewPos;
+            arriveEndTarget = new THREE.Vector3(0, 0, 0);
+        } else if (targetScale === 'GALAXY') {
+            const pinPos = new THREE.Vector3(13.335, 0, 0);
+            if (solarSystemPinObj) solarSystemPinObj.getWorldPosition(pinPos);
+
+            // Update Galaxy UI for Milky Way overview
+            focusedGalaxyRegion = 'Milky Way';
+            const mw = GALAXY_REGIONS['Milky Way'];
+            document.querySelectorAll('#galaxy-chips .planet-chip').forEach(ch => ch.classList.toggle('active', ch.dataset.region === 'Milky Way'));
+            document.getElementById('gt-name').textContent = 'Milky Way';
+            document.getElementById('gt-type').textContent = mw.type;
+            document.getElementById('gt-stats').innerHTML = mw.stats;
+            document.getElementById('gd-title').textContent = mw.title;
+            document.getElementById('gd-subtitle').innerHTML = mw.subtitle;
+
+            // Emerging from the Solar System Pinpoint out to the full Milky Way!
+            arriveStartTarget = pinPos.clone();
+            arriveStartPos = pinPos.clone().add(new THREE.Vector3(1.6, 1.4, 2.0));
+            arriveEndPos = mw.camPos.clone();
+            arriveEndTarget = mw.lookAt.clone();
+        } else {
+            // Arriving at EARTH (Always zooming IN from Cosmos or Galaxy!)
+            const finalPos = options.earthTargetCamPos ? options.earthTargetCamPos.clone() : getEarthDaySideCameraPos();
+            const farDir = finalPos.clone().normalize();
+            arriveStartPos = farDir.multiplyScalar(15.5);
+            arriveStartTarget = new THREE.Vector3(0, 0, 0);
+            arriveEndPos = finalPos;
+            arriveEndTarget = new THREE.Vector3(0, 0, 0);
+        }
+        return { arriveStartPos, arriveStartTarget, arriveEndPos, arriveEndTarget };
+    };
+
+    scaleAnim = {
+        phase: 'DEPART',
+        fromScale,
+        targetScale,
+        zoomingOut,
+        outGroup,
+        startTime: performance.now(),
+        departDuration: 520,
+        arriveDuration: 880,
+        departStartPos,
+        departStartTarget,
+        departEndPos,
+        departEndTarget,
+        computeArrival,
+        arrival: null,
+        onArrived: options.onArrived || null,
+        toastMsg: options.toastMsg || null
     };
 }
 
@@ -352,9 +571,14 @@ function updateLockUI(locked) {
 }
 
 function toggleGeoLock() {
+    if (isGalaxyView || isSolarSystemView) {
+        transitionToScale('EARTH', {
+            toastMsg: 'Zooming In to Earth & Locking Hover',
+            onArrived: () => { if (!isGeoLocked) toggleGeoLock(); }
+        });
+        return;
+    }
     if (isISSMode) toggleISSMode();
-    if (isGalaxyView) exitGalaxyModeSilent(true);
-    if (isSolarSystemView) toggleSolarSystemView();
     isGeoLocked = !isGeoLocked;
     if (isGeoLocked) {
         const exactCoords = worldPositionToLatLon(activeSpacecraft.position, earthMesh.rotation.y);
@@ -402,8 +626,13 @@ async function pollLiveISS() {
 }
 
 function toggleISSMode() {
-    if (isGalaxyView) exitGalaxyModeSilent(true);
-    if (isSolarSystemView) toggleSolarSystemView();
+    if (isGalaxyView || isSolarSystemView) {
+        transitionToScale('EARTH', {
+            toastMsg: 'Zooming In to Live ISS Orbit',
+            onArrived: () => { if (!isISSMode) toggleISSMode(); }
+        });
+        return;
+    }
     isISSMode = !isISSMode;
     const btn = document.getElementById('btn-iss-mode');
     const dot = document.getElementById('iss-dot');
@@ -449,11 +678,7 @@ function toggleISSMode() {
 
 // --- 7. TRUE HELIOCENTRIC SOLAR SYSTEM MODE & SMOOTH CAMERA ---
 function positionCameraOnDaySide(instant = false) {
-    const sunDir = getRealTimeSunDirection(earthMesh.rotation.y);
-    const dist = window.innerWidth < window.innerHeight ? 4.3 : 2.9;
-    const camDir = sunDir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), 0.35);
-    camDir.y = Math.max(-0.2, Math.min(0.42, camDir.y + 0.28));
-    camDir.normalize().multiplyScalar(dist);
+    const camDir = getEarthDaySideCameraPos();
     if (instant) {
         camera.position.copy(camDir);
         controls.target.set(0, 0, 0);
@@ -464,47 +689,10 @@ function positionCameraOnDaySide(instant = false) {
 }
 
 function toggleSolarSystemView() {
-    if (isGalaxyView) exitGalaxyModeSilent();
-    isSolarSystemView = !isSolarSystemView;
-    const btn = document.getElementById('btn-solar-view');
-    const dot = document.getElementById('solar-dot');
-    const bar = document.getElementById('cosmos-bar');
-    playSound('click');
-
     if (isSolarSystemView) {
-        btn.classList.add('on-purple');
-        dot.classList.replace('bg-slate-500', 'bg-purple-400');
-        bar.classList.remove('hidden');
-        activeCamera = 'FREE';
-        camModeIdx = 0;
-        document.getElementById('cam-label').textContent = 'Free';
-
-        // Switch scene to True Heliocentric Solar System Orrery
-        earthSystemGroup.visible = false;
-        heliocentricGroup.visible = true;
-        document.getElementById('earth-dossier').classList.add('hidden');
-        document.getElementById('cosmos-dossier').classList.remove('hidden');
-        document.getElementById('tab-btn-dossier').textContent = 'Cosmos Data';
-        controls.minDistance = 1.8;
-        controls.maxDistance = 150;
-        focusCosmosBody('Sun');
-        fetchLiveSpaceWeather();
-        showToast('Heliocentric Keplerian Solar System (Live UTC)');
+        transitionToScale('EARTH', { toastMsg: 'Zoomed In to Earth Orbital View' });
     } else {
-        btn.classList.remove('on-purple');
-        dot.classList.replace('bg-purple-400', 'bg-slate-500');
-        bar.classList.add('hidden');
-
-        // Return to High-Precision Earth Orbital Frame
-        heliocentricGroup.visible = false;
-        earthSystemGroup.visible = true;
-        document.getElementById('cosmos-dossier').classList.add('hidden');
-        document.getElementById('earth-dossier').classList.remove('hidden');
-        document.getElementById('tab-btn-dossier').textContent = 'Ground Data';
-        controls.minDistance = 1.15;
-        controls.maxDistance = 16;
-        positionCameraOnDaySide(false);
-        showToast('Returned to Earth Orbital View');
+        transitionToScale('COSMOS', { toastMsg: 'Heliocentric Keplerian Solar System (Live UTC)' });
     }
 }
 
@@ -556,44 +744,10 @@ function exitGalaxyModeSilent(restoreEarth = false) {
 }
 
 function toggleGalaxyView() {
-    if (isSolarSystemView) exitCosmosModeSilent();
-    isGalaxyView = !isGalaxyView;
-    const btn = document.getElementById('btn-galaxy-view');
-    const dot = document.getElementById('galaxy-dot');
-    const bar = document.getElementById('galaxy-bar');
-    playSound('click');
-
     if (isGalaxyView) {
-        btn.classList.add('on-indigo');
-        dot.classList.replace('bg-slate-500', 'bg-indigo-400');
-        bar.classList.remove('hidden');
-        activeCamera = 'FREE';
-        camModeIdx = 0;
-        document.getElementById('cam-label').textContent = 'Free';
-
-        earthSystemGroup.visible = false;
-        heliocentricGroup.visible = false;
-        galaxyGroup.visible = true;
-        if (milkyWaySkyMesh) milkyWaySkyMesh.visible = false;
-
-        document.getElementById('earth-dossier').classList.add('hidden');
-        document.getElementById('cosmos-dossier').classList.add('hidden');
-        document.getElementById('galaxy-dossier').classList.remove('hidden');
-        document.getElementById('tab-btn-dossier').textContent = 'Galaxy Data';
-
-        controls.minDistance = 4.0;
-        controls.maxDistance = 140;
-        focusGalaxyRegion('Milky Way');
-        showToast('3D Milky Way Barred Spiral Galaxy (105,700 ly)');
+        transitionToScale('EARTH', { toastMsg: 'Zoomed In to Earth Orbital View' });
     } else {
-        exitGalaxyModeSilent();
-        earthSystemGroup.visible = true;
-        document.getElementById('earth-dossier').classList.remove('hidden');
-        document.getElementById('tab-btn-dossier').textContent = 'Ground Data';
-        controls.minDistance = 1.15;
-        controls.maxDistance = 16;
-        positionCameraOnDaySide(false);
-        showToast('Returned to Earth Orbital View');
+        transitionToScale('GALAXY', { toastMsg: '3D Milky Way Barred Spiral Galaxy (105,700 ly)' });
     }
 }
 
@@ -1312,9 +1466,15 @@ async function searchAndDeploy() {
 }
 
 function parkSatelliteAt(lat, lon) {
+    if (isGalaxyView || isSolarSystemView) {
+        const targetPos = latLonToWorldPosition(lat, lon, orbitRadius, earthMesh.rotation.y);
+        transitionToScale('EARTH', {
+            earthTargetCamPos: targetPos.clone().multiplyScalar(1.75),
+            onArrived: () => parkSatelliteAt(lat, lon)
+        });
+        return;
+    }
     if (isISSMode) toggleISSMode();
-    if (isGalaxyView) exitGalaxyModeSilent(true);
-    if (isSolarSystemView) toggleSolarSystemView();
     playSound('lock');
     lockedLat = lat;
     lockedLon = lon;
@@ -2552,6 +2712,10 @@ let lastCleanTapTime = 0, lastCleanTapX = 0, lastCleanTapY = 0;
 
 renderer.domElement.addEventListener('pointerdown', (e) => {
     flyAnim = null; // User touch immediately takes control!
+    if (scaleAnim && scaleAnim.phase === 'ARRIVE') {
+        scaleAnim = null;
+        resetAllGroupScales();
+    }
     activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY, moved: false });
     if (activePointers.size > 1) gestureWasMultiTouch = true;
 });
@@ -2644,6 +2808,7 @@ function updateEccentricity(val) {
 }
 
 function switchEngine(mode) {
+    if (scaleAnim) { scaleAnim = null; resetAllGroupScales(); }
     playSound('click'); activeEngine = mode;
     document.getElementById('globe-viewport').style.display = (mode === '3D') ? 'block' : 'none';
     document.getElementById('map-viewport').style.display = (mode === '2D') ? 'block' : 'none';
@@ -2660,8 +2825,10 @@ function switchEngine(mode) {
 }
 
 function cycleCamera() {
-    if (isGalaxyView) exitGalaxyModeSilent(true);
-    if (isSolarSystemView) toggleSolarSystemView();
+    if (isGalaxyView || isSolarSystemView) {
+        transitionToScale('EARTH', { toastMsg: 'Zoomed In to Earth View' });
+        return;
+    }
     playSound('click');
     camModeIdx = (camModeIdx + 1) % camModes.length;
     activeCamera = camModes[camModeIdx];
@@ -2729,6 +2896,55 @@ function animate() {
     const dt = Math.min(clock.getDelta(), 0.1);
     const elapsed = clock.elapsedTime;
     solarTimeUniform.value = elapsed;
+
+    // Continuous "Powers of Ten" Scale Warp Transition Engine
+    if (scaleAnim) {
+        const nowMs = performance.now();
+        const veil = document.getElementById('scale-warp-veil');
+
+        if (scaleAnim.phase === 'DEPART') {
+            const t = Math.min(1, (nowMs - scaleAnim.startTime) / scaleAnim.departDuration);
+            const easeIn = t * t * t; // Smooth accelerating zoom out/in
+            camera.position.lerpVectors(scaleAnim.departStartPos, scaleAnim.departEndPos, easeIn);
+            controls.target.lerpVectors(scaleAnim.departStartTarget, scaleAnim.departEndTarget, easeIn);
+
+            // Subtle FOV warp & outgoing group recede when zooming out
+            camera.fov = 45 + 19 * easeIn;
+            camera.updateProjectionMatrix();
+            if (scaleAnim.zoomingOut && scaleAnim.outGroup) {
+                scaleAnim.outGroup.scale.setScalar(1.0 - 0.55 * easeIn);
+            }
+            if (t > 0.72 && veil) veil.classList.add('active');
+
+            if (t >= 1) {
+                // Midpoint Scale Handoff!
+                if (scaleAnim.outGroup) scaleAnim.outGroup.scale.setScalar(1.0);
+                applyScaleDOMAndVisibility(scaleAnim.targetScale);
+                scaleAnim.arrival = scaleAnim.computeArrival();
+                camera.position.copy(scaleAnim.arrival.arriveStartPos);
+                controls.target.copy(scaleAnim.arrival.arriveStartTarget);
+                scaleAnim.phase = 'ARRIVE';
+                scaleAnim.startTime = nowMs;
+                if (scaleAnim.toastMsg) showToast(scaleAnim.toastMsg);
+            }
+        } else if (scaleAnim.phase === 'ARRIVE') {
+            const t = Math.min(1, (nowMs - scaleAnim.startTime) / scaleAnim.arriveDuration);
+            const easeOut = 1 - Math.pow(1 - t, 3); // Smooth decelerating arrival
+            camera.position.lerpVectors(scaleAnim.arrival.arriveStartPos, scaleAnim.arrival.arriveEndPos, easeOut);
+            controls.target.lerpVectors(scaleAnim.arrival.arriveStartTarget, scaleAnim.arrival.arriveEndTarget, easeOut);
+
+            camera.fov = 64 - 19 * easeOut;
+            camera.updateProjectionMatrix();
+            if (t > 0.14 && veil) veil.classList.remove('active');
+
+            if (t >= 1) {
+                const cb = scaleAnim.onArrived;
+                scaleAnim = null;
+                resetAllGroupScales();
+                if (cb) cb();
+            }
+        }
+    }
 
     // Smooth Cubic Ease-Out Camera Fly-To
     if (flyAnim) {

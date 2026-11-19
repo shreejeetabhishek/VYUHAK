@@ -247,3 +247,79 @@ input[type=range]::-webkit-slider-thumb { border: 2px solid #02040a; height: 20p
     background: rgba(159, 18, 57, 0.38);
     color: #ffe4e6;
 }
+
+/* Smart 3D-to-2D Floating Labels Layer */
+#labels-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 35;
+    pointer-events: none;
+    overflow: hidden;
+}
+.cosmic-label {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: none;
+    white-space: nowrap;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: rgba(6, 11, 20, 0.74);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    color: #e2e8f0;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95);
+    pointer-events: auto;
+    cursor: pointer;
+    will-change: transform;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: border-color 0.18s, background-color 0.18s;
+}
+.cosmic-label:active {
+    background: rgba(56, 189, 248, 0.35);
+    border-color: #38bdf8;
+}
+.cosmic-label.lbl-city {
+    border-color: rgba(52, 211, 153, 0.45);
+    color: #d1fae5;
+    font-size: 8.5px;
+    padding: 1.5px 5.5px;
+}
+.cosmic-label.lbl-constellation {
+    background: transparent;
+    border: none;
+    color: rgba(125, 211, 252, 0.62);
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    pointer-events: none;
+    padding: 0;
+}
+.cosmic-label.lbl-planet {
+    border-color: rgba(192, 132, 252, 0.48);
+    color: #f3e8ff;
+}
+.cosmic-label.lbl-moon {
+    font-size: 8px;
+    padding: 1px 5px;
+    border-color: rgba(148, 163, 184, 0.32);
+    color: #cbd5e1;
+    background: rgba(6, 11, 20, 0.62);
+}
+.cosmic-label.lbl-galaxy {
+    border-color: rgba(129, 140, 248, 0.5);
+    color: #e0e7ff;
+}
+.cosmic-label.lbl-universe {
+    border-color: rgba(245, 158, 11, 0.5);
+    color: #fef3c7;
+}
+.cosmic-label.lbl-multiverse {
+    border-color: rgba(251, 113, 133, 0.52);
+    color: #ffe4e6;
+}

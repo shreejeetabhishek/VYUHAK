@@ -1,12 +1,15 @@
-# VYUHAK v31 ATLAS // Constellations, Deep-Space Landmarks & 5-Scale Cosmos
+# VYUHAK v32 LABELS // Smart 3D Cosmic Atlas & Multi-Scale Intelligence
 
-VYUHAK (*Virtual Yield Uplink & Heuristic Aerospace Kinematics*) is a serverless, mobile-first 3D/2D orbital intelligence and 5-scale cosmic visualization platform.
+VYUHAK (*Virtual Yield Uplink & Heuristic Aerospace Kinematics*) is a serverless, mobile-first 3D/2D Earth Observation, Heliocentric Solar System, Volumetric Milky Way Galaxy, Observable Universe, and Multiverse platform.
 
-## What's New in v31 ATLAS
-- **Real-Sky Constellation Star-Connecting Lines (Earth & Solar Views):** Plots 12 iconic constellations (**Orion, Ursa Major, Ursa Minor / Polaris, Cassiopeia, Scorpius, Leo, Cygnus, Crux, Canis Major, Taurus, Gemini, Pegasus**) using real Right Ascension & Declination star coordinates in a single GPU draw call, with a **`Constellations: ON/OFF`** toggle in Settings.
-- **Expanded Solar System:** Added the **Habitable (Goldilocks) Zone** ring, outer **Oort Cloud** shell, dwarf planets (**Ceres, Pluto, Eris**), **Halley's Comet** (with ion tail), and **Voyager 1**.
-- **Expanded Milky Way Galaxy:** Added clickable 3D markers and live dossiers for the **Scutum-Centaurus Arm**, **Alpha Centauri**, **Orion Nebula (M42)**, **Pillars of Creation (M16)**, **Large Magellanic Cloud (LMC)**, and **Triangulum (M33)**.
-- **Expanded Observable Universe & Interactive Multiverse:** Added **Virgo Supercluster**, **Great Attractor**, **Shapley Supercluster**, **Sloan Great Wall**, **Boötes Void**, and **GN-z11** to Universe view, plus clickable theoretical bubble chips (**Pocket α**, **Quantum Branch**, **Brane Bulk**, **High-Entropy**) in Multiverse view.
+## What's New in v32 LABELS
+- **Smart 3D-to-2D Floating Label Engine:** Displays crisp, screen-space projected names across every cosmic scale without cluttering mobile screens:
+  - **Earth View:** Moon, 9 major world cities (hemisphere-occluded so back-side cities stay hidden), plus subtle sky-projected names for all 12 constellations.
+  - **Solar View:** Sun, all 8 planets, Ceres, Pluto, Eris, Halley's Comet, Voyager 1, and proximity-triggered planetary moons (appearing automatically when zoomed close to their parent planet).
+  - **Galaxy View:** Sagittarius A*, Perseus Arm, Scutum-Centaurus, Alpha Centauri, Orion Nebula (M42), Pillars of Creation, LMC, Andromeda (M31), and Triangulum (M33).
+  - **Universe & Multiverse Views:** Laniakea, Virgo, Great Attractor, Shapley, Sloan Great Wall, Boötes Void, GN-z11, Our Universe, Pocket α, Quantum Branch, Brane Bulk, and High-Entropy.
+- **Automatic Overlap Culling & Tap-to-Fly:** Priority-sorted collision detection keeps mobile screens clean, and tapping any label smoothly flies the camera directly to that object (or locks the satellite onto a city).
+- **Clean Toggle & Bugfix:** Added **`3D Labels: ON/OFF`** in Settings, auto-hides labels during scale transitions and in 2D mode, and fixed apostrophe escaping on the `Halley's Comet` selector chip.
 
 ## Deployment
 Upload `index.html`, `styles.css`, `app.js`, and `README.md` directly to your GitHub Pages repository.

@@ -1,5 +1,5 @@
 // ============================================================================
-// VYUHAK v31 ATLAS // REAL-SKY CONSTELLATIONS, DEEP-SPACE LANDMARKS & 5-SCALE COSMOS
+// VYUHAK v32 LABELS // SMART 3D FLOATING LABELS, OVERLAP CULLING & TAP-TO-FLY COSMIC ATLAS
 // ============================================================================
 
 // --- 1. AUDIO ENGINE WITH MUTE ---
@@ -176,7 +176,11 @@ let focusedUniverseRegion = 'Cosmic Web';
 let lastAutoScaleSwitch = 0;
 let showMilkyWaySky = true;
 let showConstellations = true;
+let showLabels = true;
 let constellationLinesMesh = null;
+const constellationLabelAnchors = [];
+const galLandmarkAnchors = [];
+const uniLandmarkAnchors = [];
 let focusedGalaxyRegion = 'Milky Way';
 let focusedCosmosBody = 'Sun';
 let cosmosWarpIdx = 0;
@@ -1179,6 +1183,16 @@ function toggleConstellations() {
     playSound('click');
 }
 
+function toggleLabels() {
+    showLabels = !showLabels;
+    const btn = document.getElementById('btn-toggle-labels');
+    btn.textContent = `3D Labels: ${showLabels ? 'ON' : 'OFF'}`;
+    btn.classList.toggle('btn-active', showLabels);
+    const layer = document.getElementById('labels-layer');
+    if (layer && !showLabels) layer.style.display = 'none';
+    playSound('click');
+}
+
 async function fetchLiveSpaceWeather(force = false) {
     try {
         const [windRes, kpRes] = await Promise.allSettled([
@@ -2021,6 +2035,31 @@ scene.add(universeGroup);
         depthWrite: false
     }));
     scene.add(constellationLinesMesh);
+
+    // Compute centroid anchor for each of the 12 constellations for subtle floating sky labels
+    const CONSTELLATION_GROUPS = [
+        ['Orion', ['betelgeuse','bellatrix','rigel','saiph','alnilam']],
+        ['Ursa Major', ['dubhe','merak','phecda','megrez','alioth','mizar','alkaid']],
+        ['Ursa Minor', ['polaris','kochab','pherkad','zetaUMi']],
+        ['Cassiopeia', ['caph','schedar','gammaCas','ruchbah','segin']],
+        ['Scorpius', ['acrab','antares','epsSco','sargas','shaula']],
+        ['Leo', ['regulus','algieba','zosma','denebola']],
+        ['Cygnus', ['deneb','sadr','albireo','gienahCyg']],
+        ['Crux', ['acrux','gacrux','mimosa','imai']],
+        ['Canis Major', ['sirius','mirzam','wezen','adhara']],
+        ['Taurus', ['aldebaran','elnath','zetaTau','ain']],
+        ['Gemini', ['castor','pollux','alhena','mebsuta']],
+        ['Pegasus', ['markab','scheat','algenib','alpheratz']]
+    ];
+    CONSTELLATION_GROUPS.forEach(([cname, keys]) => {
+        const sum = new THREE.Vector3();
+        let cnt = 0;
+        keys.forEach(k => { if (starPosMap[k]) { sum.add(starPosMap[k]); cnt++; } });
+        if (cnt > 0) {
+            sum.divideScalar(cnt).normalize().multiplyScalar(rSphere);
+            constellationLabelAnchors.push({ name: cname, pos: sum });
+        }
+    });
 })();
 
 // --- A2. 360° REALISTIC MILKY WAY SKYBAND (TILTED 60.2° GALACTIC PLANE + GREAT RIFT DUST LANES) ---
@@ -2647,7 +2686,7 @@ function createHelioPlanetMat(colA, colB, banded, hasPolarCaps = false, rimHex =
         }
         heliocentricGroup.add(g);
         cosmosBodiesMap.set(item.name, { name: item.name, type: item.type, obj: g, spinMesh: m, moons: [], meta: item, radius: item.visR, statsHTML: item.statsHTML });
-        chipsContainer.innerHTML += `<button class="planet-chip" data-body="${item.name}" onclick="focusCosmosBody('${item.name.replace("'", "\'")}')">${item.name}</button>`;
+        chipsContainer.innerHTML += `<button class="planet-chip" data-body="${item.name}" onclick="focusCosmosBody(this.dataset.body)">${item.name}</button>`;
     });
 })();
 
@@ -2952,11 +2991,11 @@ function gaussianRandom() {
 
     // Extra Galactic Landmarks: Orion Nebula (M42), Pillars of Creation (M16), Alpha Centauri, LMC & Triangulum (M33)
     const galLandmarks = [
-        { pos: [14.6, -0.2, 2.2], color: 0xf472b6, size: 1.8, parent: milkyWayDiskGroup },
-        { pos: [10.2, 0.2, -3.2], color: 0xfb7185, size: 1.6, parent: milkyWayDiskGroup },
-        { pos: [13.6, 0.1, 0.5],  color: 0xfef08a, size: 0.9, parent: milkyWayDiskGroup },
-        { pos: [-32, -18, -36],   color: 0x7dd3fc, size: 5.5, parent: galaxyGroup },
-        { pos: [72, 24, -48],     color: 0xc084fc, size: 6.2, parent: galaxyGroup }
+        { name: 'Orion Nebula',        pos: [14.6, -0.2, 2.2], color: 0xf472b6, size: 1.8, parent: milkyWayDiskGroup, prio: 70 },
+        { name: 'Pillars of Creation', pos: [10.2, 0.2, -3.2], color: 0xfb7185, size: 1.6, parent: milkyWayDiskGroup, prio: 68 },
+        { name: 'Alpha Centauri',      pos: [13.6, 0.1, 0.5],  color: 0xfef08a, size: 0.9, parent: milkyWayDiskGroup, prio: 65 },
+        { name: 'LMC',                 pos: [-32, -18, -36],   color: 0x7dd3fc, size: 5.5, parent: galaxyGroup,       prio: 82 },
+        { name: 'Triangulum (M33)',    pos: [72, 24, -48],     color: 0xc084fc, size: 6.2, parent: galaxyGroup,       prio: 80 }
     ];
     galLandmarks.forEach(lm => {
         const sp = new THREE.Sprite(new THREE.SpriteMaterial({
@@ -2965,6 +3004,17 @@ function gaussianRandom() {
         sp.position.set(lm.pos[0], lm.pos[1], lm.pos[2]);
         sp.scale.set(lm.size, lm.size, 1);
         lm.parent.add(sp);
+        galLandmarkAnchors.push({ name: lm.name, obj: sp, prio: lm.prio });
+    });
+    // Add invisible anchor nodes on rotating disk for Perseus Arm & Scutum-Centaurus Arm
+    [
+        ['Perseus Arm', -14, 0.4, 10, 74],
+        ['Scutum-Centaurus', 8.5, 0.4, -9.5, 72]
+    ].forEach(([armName, x, y, z, prio]) => {
+        const n = new THREE.Object3D();
+        n.position.set(x, y, z);
+        milkyWayDiskGroup.add(n);
+        galLandmarkAnchors.push({ name: armName, obj: n, prio });
     });
 })();
 
@@ -3047,20 +3097,23 @@ let universeHomePin = null;
     bootesVoid.position.set(11.0, -6.5, 13.5);
     universeGroup.add(bootesVoid);
 
+    uniLandmarkAnchors.push({ name: 'Boötes Void', region: 'Boötes Void', scale: 'UNIVERSE', obj: bootesVoid, prio: 86 });
+
     // Glowing markers for Virgo, Great Attractor, Shapley, Sloan Great Wall & GN-z11
     [
-        [4.5, 1.5, 3.0, 0x7dd3fc, 1.8],
-        [-6.2, -1.8, 4.5, 0xf59e0b, 2.2],
-        [-12.5, 4.2, -9.5, 0xc084fc, 2.4],
-        [16.0, 5.5, -14.0, 0xfdba74, 2.6],
-        [-21.0, 12.0, 20.0, 0xf43f5e, 2.0]
-    ].forEach(([x, y, z, col, sz]) => {
+        ['Virgo',           4.5, 1.5, 3.0,    0x7dd3fc, 1.8, 84],
+        ['Great Attractor', -6.2, -1.8, 4.5,  0xf59e0b, 2.2, 85],
+        ['Shapley',         -12.5, 4.2, -9.5, 0xc084fc, 2.4, 82],
+        ['Sloan Great Wall',16.0, 5.5, -14.0, 0xfdba74, 2.6, 80],
+        ['GN-z11',          -21.0, 12.0, 20.0,0xf43f5e, 2.0, 78]
+    ].forEach(([uName, x, y, z, col, sz, prio]) => {
         const sp = new THREE.Sprite(new THREE.SpriteMaterial({
             map: sunGlowTex, color: col, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false
         }));
         sp.position.set(x, y, z);
         sp.scale.set(sz, sz, 1);
         universeGroup.add(sp);
+        uniLandmarkAnchors.push({ name: uName, region: uName, scale: 'UNIVERSE', obj: sp, prio });
     });
 
     // 2. Observable Universe CMB Horizon Sphere (Planck-style amber/blue temperature fluctuations)
@@ -3137,6 +3190,16 @@ let universeHomePin = null;
         const bubble = new THREE.Mesh(new THREE.SphereGeometry(r, 32, 24), bMat);
         bubble.position.set(x, y, z);
         universeGroup.add(bubble);
+        const namedBubbles = {
+            '78,22,-45': 'Pocket α',
+            '-74,-18,-55': 'Quantum Branch',
+            '45,-42,68': 'Brane Bulk',
+            '-52,48,52': 'High-Entropy'
+        };
+        const bKey = `${x},${y},${z}`;
+        if (namedBubbles[bKey]) {
+            uniLandmarkAnchors.push({ name: namedBubbles[bKey], region: namedBubbles[bKey], scale: 'MULTIVERSE', obj: bubble, prio: 90 });
+        }
     });
 })();
 
@@ -3588,6 +3651,274 @@ function updateSpeed(val) {
     document.getElementById('speed-val').textContent = mult + "x " + (mult == 1.0 ? "(Realistic)" : "");
 }
 
+// --- 9B. SMART 3D-TO-2D FLOATING LABEL ENGINE (OVERLAP CULLING + TAP-TO-FLY) ---
+const smartLabels = [];
+const _lblVec = new THREE.Vector3();
+const _lblCamDir = new THREE.Vector3();
+const _lblNormal = new THREE.Vector3();
+
+function registerSmartLabel(cfg) {
+    const layer = document.getElementById('labels-layer');
+    const el = document.createElement('div');
+    el.className = 'cosmic-label ' + (cfg.cssClass || '');
+    el.textContent = cfg.text;
+    if (cfg.onClick) {
+        el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            playSound('click');
+            cfg.onClick();
+        });
+    }
+    layer.appendChild(el);
+    smartLabels.push({
+        ...cfg,
+        el,
+        approxW: Math.max(42, cfg.text.length * 6.2 + 16),
+        approxH: 18
+    });
+}
+
+(function initSmartLabels() {
+    // 1. EARTH VIEW: Moon + Major World Cities
+    registerSmartLabel({
+        text: 'Moon',
+        scale: 'EARTH',
+        cssClass: 'lbl-planet',
+        priority: 95,
+        getWorldPos: () => earthFrameMoon.getWorldPosition(_lblVec),
+        onClick: () => {
+            const mp = earthFrameMoon.getWorldPosition(new THREE.Vector3());
+            smoothFlyTo(mp.clone().add(new THREE.Vector3(0.6, 0.35, 0.9)), mp, 850);
+            showToast('Focused on Moon (Luna)');
+        }
+    });
+
+    const MAJOR_CITIES = [
+        ['New Delhi', 28.61, 77.21, 86],
+        ['Tokyo', 35.68, 139.65, 84],
+        ['London', 51.51, -0.13, 84],
+        ['New York', 40.71, -74.01, 84],
+        ['Sydney', -33.87, 151.21, 80],
+        ['Cairo', 30.04, 31.24, 78],
+        ['São Paulo', -23.55, -46.63, 78],
+        ['Paris', 48.86, 2.35, 76],
+        ['Singapore', 1.35, 103.82, 76]
+    ];
+    MAJOR_CITIES.forEach(([cityName, lat, lon, prio]) => {
+        registerSmartLabel({
+            text: cityName,
+            scale: 'EARTH',
+            cssClass: 'lbl-city',
+            priority: prio,
+            isVisibleExtra: (camDist) => {
+                if (camDist > 7.5) return false;
+                const p = latLonToWorldPosition(lat, lon, 1.015, earthMesh.rotation.y);
+                _lblNormal.copy(p).normalize();
+                _lblCamDir.copy(camera.position).sub(p).normalize();
+                return _lblNormal.dot(_lblCamDir) > 0.24;
+            },
+            getWorldPos: () => {
+                const p = latLonToWorldPosition(lat, lon, 1.02, earthMesh.rotation.y);
+                return _lblVec.copy(p);
+            },
+            onClick: () => parkSatelliteAt(lat, lon)
+        });
+    });
+
+    // 2. SKY CONSTELLATIONS (Visible in Earth & Solar views when Constellations are ON)
+    constellationLabelAnchors.forEach(c => {
+        registerSmartLabel({
+            text: c.name,
+            scale: 'SKY',
+            cssClass: 'lbl-constellation',
+            priority: 30,
+            isVisibleExtra: () => showConstellations,
+            getWorldPos: () => _lblVec.copy(c.pos)
+        });
+    });
+
+    // 3. SOLAR SYSTEM VIEW: Sun, Planets, Dwarf Planets, Comet, Voyager 1 + Close-up Moons
+    cosmosBodiesMap.forEach((entry, name) => {
+        const isMajor = ['Sun','Mercury','Venus','Earth','Mars','Jupiter','Saturn','Uranus','Neptune'].includes(name);
+        registerSmartLabel({
+            text: name,
+            scale: 'COSMOS',
+            cssClass: 'lbl-planet',
+            priority: name === 'Sun' ? 100 : (name === 'Earth' ? 98 : (isMajor ? 88 : 74)),
+            getWorldPos: () => {
+                entry.obj.getWorldPosition(_lblVec);
+                _lblVec.y += (entry.radius || 0.4) * 1.15;
+                return _lblVec;
+            },
+            onClick: () => focusCosmosBody(name)
+        });
+
+        // Planetary moons appear only when zoomed close to their parent planet!
+        if (entry.moons && entry.moons.length > 0 && entry.meta && entry.meta.moons) {
+            entry.moons.forEach((mObj, idx) => {
+                const mMeta = entry.meta.moons[idx];
+                if (!mMeta) return;
+                registerSmartLabel({
+                    text: mMeta.name.replace(' (Luna)', ''),
+                    scale: 'COSMOS',
+                    cssClass: 'lbl-moon',
+                    priority: 62,
+                    isVisibleExtra: () => {
+                        const pWorld = new THREE.Vector3();
+                        entry.obj.getWorldPosition(pWorld);
+                        return camera.position.distanceTo(pWorld) < 10.5;
+                    },
+                    getWorldPos: () => {
+                        mObj.mesh.getWorldPosition(_lblVec);
+                        _lblVec.y += 0.16;
+                        return _lblVec;
+                    },
+                    onClick: () => focusCosmosBody(name)
+                });
+            });
+        }
+    });
+
+    // 4. GALAXY VIEW: Core, Arms, Nebulae, Andromeda, LMC, Triangulum
+    registerSmartLabel({
+        text: 'Sagittarius A*',
+        scale: 'GALAXY',
+        cssClass: 'lbl-galaxy',
+        priority: 98,
+        getWorldPos: () => _lblVec.set(0, 1.2, 0),
+        onClick: () => focusGalaxyRegion('Sagittarius A*')
+    });
+    registerSmartLabel({
+        text: 'Andromeda (M31)',
+        scale: 'GALAXY',
+        cssClass: 'lbl-galaxy',
+        priority: 92,
+        getWorldPos: () => {
+            andromedaGroupObj.getWorldPosition(_lblVec);
+            _lblVec.y += 3.5;
+            return _lblVec;
+        },
+        onClick: () => focusGalaxyRegion('Andromeda (M31)')
+    });
+    galLandmarkAnchors.forEach(lm => {
+        registerSmartLabel({
+            text: lm.name,
+            scale: 'GALAXY',
+            cssClass: 'lbl-galaxy',
+            priority: lm.prio,
+            getWorldPos: () => {
+                lm.obj.getWorldPosition(_lblVec);
+                _lblVec.y += 0.6;
+                return _lblVec;
+            },
+            onClick: () => focusGalaxyRegion(lm.name)
+        });
+    });
+
+    // 5. UNIVERSE & MULTIVERSE VIEWS
+    registerSmartLabel({
+        text: 'Laniakea',
+        scale: 'UNIVERSE',
+        cssClass: 'lbl-universe',
+        priority: 95,
+        getWorldPos: () => _lblVec.set(0, 1.4, 0),
+        onClick: () => focusUniverseRegion('Laniakea')
+    });
+    registerSmartLabel({
+        text: 'Our Universe',
+        scale: 'MULTIVERSE',
+        cssClass: 'lbl-multiverse',
+        priority: 100,
+        getWorldPos: () => _lblVec.set(0, 38, 0),
+        onClick: () => selectScale('UNIVERSE')
+    });
+    uniLandmarkAnchors.forEach(lm => {
+        registerSmartLabel({
+            text: lm.name,
+            scale: lm.scale,
+            cssClass: lm.scale === 'MULTIVERSE' ? 'lbl-multiverse' : 'lbl-universe',
+            priority: lm.prio,
+            getWorldPos: () => {
+                lm.obj.getWorldPosition(_lblVec);
+                _lblVec.y += lm.scale === 'MULTIVERSE' ? 22 : 1.5;
+                return _lblVec;
+            },
+            onClick: () => lm.scale === 'MULTIVERSE' ? focusMultiverseBubble(lm.region) : focusUniverseRegion(lm.region)
+        });
+    });
+
+    // Sort once by priority descending so overlap culling always keeps major objects visible
+    smartLabels.sort((a, b) => b.priority - a.priority);
+})();
+
+function updateSmartLabels(camDist) {
+    const layer = document.getElementById('labels-layer');
+    if (!layer) return;
+    if (!showLabels || activeEngine !== '3D' || scaleAnim) {
+        layer.style.display = 'none';
+        return;
+    }
+    layer.style.display = 'block';
+
+    const curScale = getCurrentScale();
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const topSafe = curScale === 'EARTH' ? 140 : 215;
+    const bottomSafe = h - 78;
+    const placedBoxes = [];
+
+    // Reserve space around the YOU ARE HERE pin if visible so labels never overlap it
+    const yahEl = document.getElementById('you-are-here-pin');
+    if (yahEl && !yahEl.classList.contains('hidden')) {
+        const yx = parseFloat(yahEl.style.left) || -999;
+        const yy = parseFloat(yahEl.style.top) || -999;
+        placedBoxes.push({ x1: yx - 10, y1: yy - 14, x2: yx + 115, y2: yy + 14 });
+    }
+
+    for (let i = 0; i < smartLabels.length; i++) {
+        const item = smartLabels[i];
+        const scaleMatch = item.scale === curScale || (item.scale === 'SKY' && (curScale === 'EARTH' || curScale === 'COSMOS'));
+        if (!scaleMatch || (item.isVisibleExtra && !item.isVisibleExtra(camDist))) {
+            item.el.style.display = 'none';
+            continue;
+        }
+
+        const worldPos = item.getWorldPos();
+        worldPos.project(camera);
+        if (worldPos.z >= 1.0) {
+            item.el.style.display = 'none';
+            continue;
+        }
+
+        const sx = (worldPos.x * 0.5 + 0.5) * w;
+        const sy = (-worldPos.y * 0.5 + 0.5) * h;
+
+        if (sx < 34 || sx > w - 34 || sy < topSafe || sy > bottomSafe) {
+            item.el.style.display = 'none';
+            continue;
+        }
+
+        const halfW = item.approxW * 0.5 + 5;
+        const box = { x1: sx - halfW, y1: sy - item.approxH - 4, x2: sx + halfW, y2: sy + 4 };
+        let overlaps = false;
+        for (let j = 0; j < placedBoxes.length; j++) {
+            const b = placedBoxes[j];
+            if (box.x1 < b.x2 && box.x2 > b.x1 && box.y1 < b.y2 && box.y2 > b.y1) {
+                overlaps = true;
+                break;
+            }
+        }
+        if (overlaps) {
+            item.el.style.display = 'none';
+            continue;
+        }
+
+        placedBoxes.push(box);
+        item.el.style.display = 'block';
+        item.el.style.transform = `translate3d(${sx.toFixed(1)}px, ${sy.toFixed(1)}px, 0) translate(-50%, -125%)`;
+    }
+}
+
 // --- 10. FRAME-RATE INDEPENDENT ANIMATION LOOP + ADAPTIVE TOUCH SENSITIVITY ---
 const clock = new THREE.Clock();
 
@@ -3891,6 +4222,7 @@ function animate() {
         camera.lookAt(0,0,0);
     }
 
+    updateSmartLabels(camDist);
     renderer.render(scene, camera);
 }
 

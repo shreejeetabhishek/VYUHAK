@@ -1,11 +1,12 @@
-# VYUHAK v22 GALACTIC // Earth, Solar System & Milky Way Intelligence
+# VYUHAK v23 GALACTIC // Earth, Solar System & Milky Way Intelligence
 
 VYUHAK (*Virtual Yield Uplink & Heuristic Aerospace Kinematics*) is a serverless, mobile-first 3D/2D Earth Observation, Heliocentric Solar System, and Milky Way Galaxy platform powered by Three.js custom GLSL shaders, Leaflet.js, and 100% free, keyless live APIs.
 
-## What's New in v22 GALACTIC
-- **360° Real-Time Milky Way Skyband:** Surrounds Earth & Cosmos views with a procedural FBM Milky Way skyband tilted at the true **60.2°** galactic plane inclination relative to Earth's ecliptic, featuring the glowing Sagittarius galactic core, Great Rift dark dust lanes, and subtle H-II emission nebulae.
-- **Interactive 45,000-Star 3D Barred Spiral Milky Way (`Galaxy` Mode):** Renders 45,000 GPU-accelerated shader stars along the Milky Way's 4 logarithmic spiral arms + central 27° galactic bar + Sagittarius A* supermassive black hole core + pulsing **Solar System pinpoint at 26,670 light-years** + distant Andromeda (M31).
-- **Galaxy Region Selector & Full Galaxy Data Dossier:** Tap `Milky Way`, `Sagittarius A*`, `Solar System`, `Perseus Arm`, or `Andromeda (M31)` for smooth camera fly-to transitions and live astrophysical telemetry + Wikipedia summaries in the lower slide-up drawer.
+## What's Fixed & Upgraded in v23
+- **Seamless Galaxy-to-Earth Transitions:** Tapping `Hover`, `ISS`, `Cam`, or deploying to any location from `Galaxy` mode now cleanly restores the Earth Orbital Frame, camera distance, and `Ground Data` drawer without blank screens.
+- **3,500-Star 3D Andromeda (M31) Spiral & Dynamic Target Tracking:** Andromeda now renders as a real tilted 3D mini-spiral in the stationary Local Group halo, and focusing on `Solar System` or `Andromeda (M31)` dynamically locks onto their live 3D world positions.
+- **Organic Gaussian Milky Way Core & Logarithmic Arms:** Replaced the rigid central bar with a soft Box-Muller Gaussian elliptical bulge and smooth logarithmic spiral winding.
+- **Unobstructed Single-Toast Notifications:** Moved toast notifications above the bottom dock and replaced stacking with a clean single auto-updating pill.
 
 ## Deployment
 Upload `index.html`, `styles.css`, `app.js`, and `README.md` directly to your GitHub Pages repository.

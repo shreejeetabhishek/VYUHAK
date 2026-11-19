@@ -1,5 +1,5 @@
 // ============================================================================
-// VYUHAK v22 GALACTIC // 360° MILKY WAY SKYBAND, 45K-STAR 3D BARRED SPIRAL GALAXY & KEPLERIAN COSMOS
+// VYUHAK v23 GALACTIC // ORGANIC MILKY WAY, 3D ANDROMEDA SPIRAL, SEAMLESS MODE SWITCH & CLEAN TOASTS
 // ============================================================================
 
 // --- 1. AUDIO ENGINE WITH MUTE ---
@@ -30,13 +30,20 @@ function playSound(type) {
     osc.connect(gain); gain.connect(audioCtx.destination);
 }
 
+let toastTimer = null;
 function showToast(message) {
     const container = document.getElementById('toast-container');
+    container.innerHTML = '';
+    if (toastTimer) clearTimeout(toastTimer);
     const el = document.createElement('div');
     el.className = 'toast-msg';
     el.textContent = message;
     container.appendChild(el);
-    setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity 0.25s'; setTimeout(() => el.remove(), 250); }, 2200);
+    toastTimer = setTimeout(() => {
+        el.style.opacity = '0';
+        el.style.transition = 'opacity 0.25s';
+        setTimeout(() => { if (el.parentNode) el.remove(); }, 250);
+    }, 2000);
 }
 
 // --- 2. CLIENT-SIDE API CACHE ---
@@ -346,7 +353,7 @@ function updateLockUI(locked) {
 
 function toggleGeoLock() {
     if (isISSMode) toggleISSMode();
-    if (isGalaxyView) exitGalaxyModeSilent();
+    if (isGalaxyView) exitGalaxyModeSilent(true);
     if (isSolarSystemView) toggleSolarSystemView();
     isGeoLocked = !isGeoLocked;
     if (isGeoLocked) {
@@ -395,7 +402,7 @@ async function pollLiveISS() {
 }
 
 function toggleISSMode() {
-    if (isGalaxyView) exitGalaxyModeSilent();
+    if (isGalaxyView) exitGalaxyModeSilent(true);
     if (isSolarSystemView) toggleSolarSystemView();
     isISSMode = !isISSMode;
     const btn = document.getElementById('btn-iss-mode');
@@ -530,7 +537,7 @@ function exitCosmosModeSilent() {
     document.getElementById('cosmos-dossier').classList.add('hidden');
 }
 
-function exitGalaxyModeSilent() {
+function exitGalaxyModeSilent(restoreEarth = false) {
     isGalaxyView = false;
     document.getElementById('btn-galaxy-view').classList.remove('on-indigo');
     document.getElementById('galaxy-dot').classList.replace('bg-indigo-400', 'bg-slate-500');
@@ -538,6 +545,14 @@ function exitGalaxyModeSilent() {
     galaxyGroup.visible = false;
     if (milkyWaySkyMesh) milkyWaySkyMesh.visible = showMilkyWaySky;
     document.getElementById('galaxy-dossier').classList.add('hidden');
+    if (restoreEarth) {
+        earthSystemGroup.visible = true;
+        document.getElementById('earth-dossier').classList.remove('hidden');
+        document.getElementById('tab-btn-dossier').textContent = 'Ground Data';
+        controls.minDistance = 1.15;
+        controls.maxDistance = 16;
+        positionCameraOnDaySide(false);
+    }
 }
 
 function toggleGalaxyView() {
@@ -633,7 +648,18 @@ async function focusGalaxyRegion(name) {
     document.getElementById('gd-mass').textContent = r.mass;
     document.getElementById('gd-tilt').textContent = r.tilt;
 
-    smoothFlyTo(r.camPos, r.lookAt, 950);
+    // Dynamically track rotating Solar System pin or static Andromeda world position
+    let targetLook = r.lookAt.clone();
+    let targetCam = r.camPos.clone();
+    if (name === 'Solar System' && solarSystemPinObj) {
+        solarSystemPinObj.getWorldPosition(targetLook);
+        const radial = targetLook.clone().normalize();
+        targetCam = targetLook.clone().add(radial.multiplyScalar(7.5)).add(new THREE.Vector3(0, 6.2, 0));
+    } else if (name === 'Andromeda (M31)' && andromedaGroupObj) {
+        andromedaGroupObj.getWorldPosition(targetLook);
+        targetCam = targetLook.clone().add(new THREE.Vector3(-12, 7, 14));
+    }
+    smoothFlyTo(targetCam, targetLook, 950);
 
     const bioEl = document.getElementById('gd-bio');
     bioEl.textContent = 'Fetching live astrophysical dossier...';
@@ -1287,7 +1313,7 @@ async function searchAndDeploy() {
 
 function parkSatelliteAt(lat, lon) {
     if (isISSMode) toggleISSMode();
-    if (isGalaxyView) exitGalaxyModeSilent();
+    if (isGalaxyView) exitGalaxyModeSilent(true);
     if (isSolarSystemView) toggleSolarSystemView();
     playSound('lock');
     lockedLat = lat;
@@ -1957,10 +1983,22 @@ function createHelioPlanetMat(colA, colB, banded, hasPolarCaps = false, rimHex =
 })();
 
 
-// --- E2. 45,000-STAR 3D BARRED SPIRAL MILKY WAY GALAXY (LOGARITHMIC ARMS + SGR A* + SOLAR SYSTEM) ---
+// --- E2. ORGANIC 45,000-STAR MILKY WAY + 3D ANDROMEDA (M31) SPIRAL IN LOCAL GROUP ---
+let milkyWayDiskGroup = new THREE.Group();
 let solarSystemMarkerRing = null;
+let solarSystemPinObj = null;
+let andromedaGroupObj = new THREE.Group();
+
+function gaussianRandom() {
+    let u = 0, v = 0;
+    while (u === 0) u = Math.random();
+    while (v === 0) v = Math.random();
+    return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+}
+
 (function buildMilkyWay3D() {
-    // Populate Galaxy Chips
+    galaxyGroup.add(milkyWayDiskGroup);
+
     const gChips = document.getElementById('galaxy-chips');
     Object.keys(GALAXY_REGIONS).forEach((key, idx) => {
         gChips.innerHTML += `<button class="planet-chip ${idx === 0 ? 'active' : ''}" data-region="${key}" onclick="focusGalaxyRegion('${key}')">${key}</button>`;
@@ -1971,52 +2009,60 @@ let solarSystemMarkerRing = null;
     const colors = new Float32Array(starCount * 3);
     const sizes = new Float32Array(starCount);
 
-    const colCore = new THREE.Color(0xfff1d6);
-    const colBar = new THREE.Color(0xfdba74);
+    const colCore = new THREE.Color(0xfff4e0);
+    const colBulge = new THREE.Color(0xfdba74);
     const colArmBlue = new THREE.Color(0x93c5fd);
     const colArmWhite = new THREE.Color(0xe0f2fe);
     const colNebula = new THREE.Color(0xf472b6);
 
-    const numArms = 4; // Scutum-Centaurus, Perseus, Sagittarius-Carina, Norma-Outer
-    const maxR = 26.5; // 26.5 units = 53,000 ly radius (106,000 ly diameter)
+    const numArms = 4;
+    const maxR = 26.5;
 
     for (let i = 0; i < starCount; i++) {
         let x, y, z, col;
         const rnd = Math.random();
 
-        if (rnd < 0.18) {
-            // Central Galactic Bar & Bulge (27 deg angle, ~27,000 ly length -> ±6.5 units)
-            const t = (Math.random() - 0.5) * 2.0;
-            const barLen = 6.2 * Math.sign(t) * Math.pow(Math.abs(t), 1.35);
-            const barWid = (Math.random() - 0.5) * 2.4 * (1.0 - Math.abs(barLen) / 7.5);
+        if (rnd < 0.22) {
+            // Soft, Organic Gaussian Elliptical Bulge + Blended Bar (Zero rigid stick!)
             const barAngle = 27 * Math.PI / 180;
-            x = barLen * Math.cos(barAngle) - barWid * Math.sin(barAngle);
-            z = barLen * Math.sin(barAngle) + barWid * Math.cos(barAngle);
-            y = (Math.random() - 0.5) * 1.9 * Math.exp(-Math.hypot(x, z) * 0.22);
-            col = colCore.clone().lerp(colBar, Math.min(1, Math.hypot(x, z) / 6.5));
-            sizes[i] = 0.65 + Math.random() * 1.1;
-        } else {
-            // Logarithmic Spiral Arms
+            const localX = gaussianRandom() * 3.1;
+            const localZ = gaussianRandom() * 1.85;
+            x = localX * Math.cos(barAngle) - localZ * Math.sin(barAngle);
+            z = localX * Math.sin(barAngle) + localZ * Math.cos(barAngle);
+            const distC = Math.hypot(x, z);
+            y = gaussianRandom() * (1.25 * Math.exp(-distC * 0.16) + 0.15);
+            col = colCore.clone().lerp(colBulge, Math.min(1, distC / 7.0));
+            sizes[i] = 0.55 + Math.random() * 0.95;
+        } else if (rnd < 0.88) {
+            // 4 Logarithmic Spiral Arms with Gaussian Arm Width
             const armIdx = i % numArms;
-            const r = 2.2 + Math.pow(Math.random(), 1.25) * (maxR - 2.2);
-            const spinAngle = r * 0.34; // Logarithmic winding
+            const r = 1.6 + Math.pow(Math.random(), 1.2) * (maxR - 1.6);
+            const spinAngle = Math.log(r * 0.65 + 1.0) * 2.55;
             const armAngle = (armIdx / numArms) * Math.PI * 2 + spinAngle;
-            const spread = (Math.random() - 0.5) * (0.45 + r * 0.045);
+            const spread = gaussianRandom() * (0.28 + r * 0.015);
             const angle = armAngle + spread;
 
             x = Math.cos(angle) * r;
             z = Math.sin(angle) * r;
-            // Thin galactic disk (~1,000 ly thick -> ±0.45 units, flaring slightly at edges)
-            y = (Math.random() - 0.5) * (0.65 * Math.exp(-r * 0.06) + 0.18);
+            y = gaussianRandom() * (0.45 * Math.exp(-r * 0.06) + 0.14);
 
             const tCol = Math.min(1, r / maxR);
-            if (Math.random() < 0.035 && r > 6 && r < 21) {
-                col = colNebula; // H-II star-forming nebulae knots
-                sizes[i] = 1.4 + Math.random() * 1.6;
+            if (Math.random() < 0.032 && r > 5 && r < 22) {
+                col = colNebula;
+                sizes[i] = 1.2 + Math.random() * 1.4;
             } else {
-                col = colBar.clone().lerp(Math.random() < 0.5 ? colArmBlue : colArmWhite, Math.pow(tCol, 0.7));
-                sizes[i] = 0.45 + Math.random() * 0.95;
+                col = colBulge.clone().lerp(Math.random() < 0.55 ? colArmBlue : colArmWhite, Math.pow(tCol, 0.65));
+                sizes[i] = 0.42 + Math.random() * 0.85;
             }
+        } else {
+            // Diffuse Inter-Arm Disk & Halo Stars
+            const r = Math.pow(Math.random(), 0.85) * maxR;
+            const a = Math.random() * Math.PI * 2;
+            x = Math.cos(a) * r;
+            z = Math.sin(a) * r;
+            y = gaussianRandom() * (1.1 * Math.exp(-r * 0.05) + 0.35);
+            col = colBulge.clone().lerp(colArmWhite, Math.min(1, r / maxR));
+            sizes[i] = 0.35 + Math.random() * 0.55;
         }
 
         positions[i*3] = x;
@@ -2041,7 +2087,7 @@ let solarSystemMarkerRing = null;
             void main() {
                 vColor = color;
                 vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                gl_PointSize = aSize * uPixelRatio * (95.0 / max(-mvPosition.z, 1.0));
+                gl_PointSize = aSize * uPixelRatio * (88.0 / max(-mvPosition.z, 1.0));
                 gl_Position = projectionMatrix * mvPosition;
             }
         `,
@@ -2050,8 +2096,8 @@ let solarSystemMarkerRing = null;
             void main() {
                 float d = length(gl_PointCoord - vec2(0.5));
                 if (d > 0.5) discard;
-                float strength = pow(1.0 - d * 2.0, 2.2);
-                gl_FragColor = vec4(vColor, strength * 0.88);
+                float strength = pow(1.0 - d * 2.0, 2.3);
+                gl_FragColor = vec4(vColor, strength * 0.84);
             }
         `,
         vertexColors: true,
@@ -2059,14 +2105,14 @@ let solarSystemMarkerRing = null;
         blending: THREE.AdditiveBlending,
         depthWrite: false
     });
-    galaxyGroup.add(new THREE.Points(galGeo, galMat));
+    milkyWayDiskGroup.add(new THREE.Points(galGeo, galMat));
 
-    // Sagittarius A* Supermassive Black Hole Radiant Core
+    // Soft Sagittarius A* Supermassive Black Hole Core Glow
     const sgrCore = new THREE.Sprite(new THREE.SpriteMaterial({
-        map: sunGlowTex, color: 0xffe4b5, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false
+        map: sunGlowTex, color: 0xffe4b5, transparent: true, opacity: 0.78, blending: THREE.AdditiveBlending, depthWrite: false
     }));
-    sgrCore.scale.set(9.5, 9.5, 1);
-    galaxyGroup.add(sgrCore);
+    sgrCore.scale.set(11.5, 11.5, 1);
+    milkyWayDiskGroup.add(sgrCore);
 
     // Solar System Pinpoint at 26,670 ly (13.335 units from Sgr A*) + Galactic Orbit Ring
     const sunGalR = 13.335;
@@ -2075,14 +2121,14 @@ let solarSystemMarkerRing = null;
         const a = (i / 128) * Math.PI * 2;
         sunOrbitPts.push(new THREE.Vector3(Math.cos(a) * sunGalR, 0, Math.sin(a) * sunGalR));
     }
-    galaxyGroup.add(new THREE.LineLoop(
+    milkyWayDiskGroup.add(new THREE.LineLoop(
         new THREE.BufferGeometry().setFromPoints(sunOrbitPts),
-        new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.32 })
+        new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.30 })
     ));
 
-    const sunPin = new THREE.Mesh(new THREE.SphereGeometry(0.28, 16, 16), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
-    sunPin.position.set(sunGalR, 0, 0);
-    galaxyGroup.add(sunPin);
+    solarSystemPinObj = new THREE.Mesh(new THREE.SphereGeometry(0.28, 16, 16), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+    solarSystemPinObj.position.set(sunGalR, 0, 0);
+    milkyWayDiskGroup.add(solarSystemPinObj);
 
     solarSystemMarkerRing = new THREE.Mesh(
         new THREE.RingGeometry(0.45, 0.62, 32),
@@ -2090,15 +2136,39 @@ let solarSystemMarkerRing = null;
     );
     solarSystemMarkerRing.rotation.x = Math.PI / 2;
     solarSystemMarkerRing.position.set(sunGalR, 0.02, 0);
-    galaxyGroup.add(solarSystemMarkerRing);
+    milkyWayDiskGroup.add(solarSystemMarkerRing);
 
-    // Distant Andromeda (M31) Neighbor in Outer Local Group Halo
-    const m31 = new THREE.Sprite(new THREE.SpriteMaterial({
-        map: sunGlowTex, color: 0xc7d2fe, transparent: true, opacity: 0.68, blending: THREE.AdditiveBlending, depthWrite: false
+    // --- NON-ROTATING LOCAL GROUP: 3,500-STAR 3D ANDROMEDA (M31) MINI-SPIRAL ---
+    andromedaGroupObj.position.set(55, 16, -65);
+    andromedaGroupObj.rotation.set(0.95, 0.4, 0.35);
+
+    const m31Count = 3500;
+    const m31Pos = new Float32Array(m31Count * 3);
+    const m31Col = new Float32Array(m31Count * 3);
+    const m31Sizes = new Float32Array(m31Count);
+    for (let i = 0; i < m31Count; i++) {
+        const arm = i % 2;
+        const r = Math.pow(Math.random(), 1.35) * 11.0;
+        const angle = arm * Math.PI + r * 0.45 + gaussianRandom() * 0.35;
+        m31Pos[i*3] = Math.cos(angle) * r;
+        m31Pos[i*3+1] = gaussianRandom() * (0.45 * Math.exp(-r * 0.15) + 0.08);
+        m31Pos[i*3+2] = Math.sin(angle) * r;
+        const c = colCore.clone().lerp(new THREE.Color(0xa5b4fc), Math.min(1, r / 10.0));
+        m31Col[i*3] = c.r; m31Col[i*3+1] = c.g; m31Col[i*3+2] = c.b;
+        m31Sizes[i] = 0.45 + Math.random() * 0.8;
+    }
+    const m31Geo = new THREE.BufferGeometry();
+    m31Geo.setAttribute('position', new THREE.BufferAttribute(m31Pos, 3));
+    m31Geo.setAttribute('color', new THREE.BufferAttribute(m31Col, 3));
+    m31Geo.setAttribute('aSize', new THREE.BufferAttribute(m31Sizes, 1));
+    andromedaGroupObj.add(new THREE.Points(m31Geo, galMat));
+
+    const m31Core = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: sunGlowTex, color: 0xe0e7ff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false
     }));
-    m31.position.set(55, 16, -65);
-    m31.scale.set(18, 6.5, 1);
-    galaxyGroup.add(m31);
+    m31Core.scale.set(6.5, 6.5, 1);
+    andromedaGroupObj.add(m31Core);
+    galaxyGroup.add(andromedaGroupObj);
 })();
 
 // --- F. SPACE METEORS ---
@@ -2479,6 +2549,7 @@ function switchEngine(mode) {
 }
 
 function cycleCamera() {
+    if (isGalaxyView) exitGalaxyModeSilent(true);
     if (isSolarSystemView) toggleSolarSystemView();
     playSound('click');
     camModeIdx = (camModeIdx + 1) % camModes.length;
@@ -2587,7 +2658,7 @@ function animate() {
 
     // Update 3D Milky Way Galaxy Rotation & Solar System Pin Pulse
     if (isGalaxyView) {
-        galaxyGroup.rotation.y += 0.012 * dt;
+        milkyWayDiskGroup.rotation.y += 0.012 * dt;
         if (solarSystemMarkerRing) {
             const gPulse = 1.0 + 0.28 * Math.sin(elapsed * 3.8);
             solarSystemMarkerRing.scale.set(gPulse, gPulse, 1);

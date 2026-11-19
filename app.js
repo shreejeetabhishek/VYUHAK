@@ -1,5 +1,5 @@
 // ============================================================================
-// VYUHAK v28 INFINITY // CLEAN HUD PROJECTION, CINEMATIC SCALE TRANSITIONS & VOLUMETRIC MILKY WAY
+// VYUHAK v29 SEQUENCE // FULL SEQUENTIAL MULTI-SCALE ZOOM JOURNEY (EARTH <-> COSMOS <-> GALAXY <-> UNIVERSE)
 // ============================================================================
 
 // --- 1. AUDIO ENGINE WITH MUTE ---
@@ -350,7 +350,154 @@ function applyScaleDOMAndVisibility(targetScale) {
     }
 }
 
-// Continuous "Powers of Ten" Zoom-Out / Zoom-In Transition between EARTH <-> COSMOS <-> GALAXY
+// Continuous Sequential "Powers of Ten" Scale Journey (EARTH <-> COSMOS <-> GALAXY <-> UNIVERSE)
+// Visibly traverses EVERY intermediate scale in sequence (e.g., Earth -> Cosmos -> Galaxy -> Universe)
+const SCALE_ORDER = ['EARTH', 'COSMOS', 'GALAXY', 'UNIVERSE'];
+
+function getScaleGroup(scaleName) {
+    if (scaleName === 'EARTH') return earthSystemGroup;
+    if (scaleName === 'COSMOS') return heliocentricGroup;
+    if (scaleName === 'GALAXY') return galaxyGroup;
+    return universeGroup;
+}
+
+function syncScaleHeaderUI(scaleName) {
+    if (scaleName === 'COSMOS') {
+        focusedCosmosBody = 'Sun';
+        document.querySelectorAll('.planet-chip').forEach(ch => ch.classList.toggle('active', ch.dataset.body === 'Sun'));
+        const sunEntry = cosmosBodiesMap.get('Sun');
+        if (sunEntry) {
+            document.getElementById('pt-name').textContent = sunEntry.name;
+            document.getElementById('pt-type').textContent = sunEntry.type;
+            document.getElementById('pt-stats').innerHTML = sunEntry.statsHTML;
+            updateCosmosDossier('Sun', getDaysSinceJ2000() + simDaysOffset);
+        }
+    } else if (scaleName === 'GALAXY') {
+        focusedGalaxyRegion = 'Milky Way';
+        const mw = GALAXY_REGIONS['Milky Way'];
+        document.querySelectorAll('#galaxy-chips .planet-chip').forEach(ch => ch.classList.toggle('active', ch.dataset.region === 'Milky Way'));
+        document.getElementById('gt-name').textContent = 'Milky Way';
+        document.getElementById('gt-type').textContent = mw.type;
+        document.getElementById('gt-stats').innerHTML = mw.stats;
+        document.getElementById('gd-title').textContent = mw.title;
+        document.getElementById('gd-subtitle').innerHTML = mw.subtitle;
+    } else if (scaleName === 'UNIVERSE') {
+        focusedUniverseRegion = 'Cosmic Web';
+        const u = UNIVERSE_REGIONS['Cosmic Web'];
+        document.querySelectorAll('#universe-chips .planet-chip').forEach(ch => ch.classList.toggle('active', ch.dataset.region === 'Cosmic Web'));
+        document.getElementById('ut-name').textContent = 'Cosmic Web';
+        document.getElementById('ut-type').textContent = u.type;
+        document.getElementById('ut-stats').innerHTML = u.stats;
+        document.getElementById('ud-title').textContent = u.title;
+        document.getElementById('ud-subtitle').innerHTML = u.subtitle;
+        updateUniverseBio('Cosmic Web');
+    }
+}
+
+function computeStageTrajectory(stage, zoomingOut, options) {
+    const scale = stage.scale;
+    const kind = stage.kind; // 'DEPART' | 'TRANSIT' | 'ARRIVE'
+
+    // Helper world positions of home anchors
+    const getCosmosEarthPos = () => {
+        const p = new THREE.Vector3(11.5, 0, 0);
+        if (cosmosBodiesMap.has('Earth')) cosmosBodiesMap.get('Earth').obj.getWorldPosition(p);
+        return p;
+    };
+    const getGalaxySunPos = () => {
+        const p = new THREE.Vector3(13.335, 0, 0);
+        if (solarSystemPinObj) solarSystemPinObj.getWorldPosition(p);
+        return p;
+    };
+
+    if (kind === 'DEPART') {
+        const startPos = camera.position.clone();
+        const startTarget = controls.target.clone();
+        let endPos = startPos.clone();
+        let endTarget = startTarget.clone();
+
+        if (zoomingOut) {
+            const radial = camera.position.clone().sub(controls.target);
+            if (radial.lengthSq() < 0.001) radial.set(0, 1, 2);
+            radial.normalize();
+            const pullDist = scale === 'EARTH' ? 16.5 : 112.0;
+            endPos = controls.target.clone().add(radial.multiplyScalar(pullDist));
+            endTarget = new THREE.Vector3(0, 0, 0);
+        } else {
+            if (scale === 'UNIVERSE') {
+                const dir = camera.position.clone().normalize();
+                endTarget = new THREE.Vector3(0, 0, 0);
+                endPos = dir.multiplyScalar(1.8);
+            } else if (scale === 'GALAXY') {
+                const pin = getGalaxySunPos();
+                const dir = camera.position.clone().sub(pin).normalize();
+                endTarget = pin.clone();
+                endPos = pin.clone().add(dir.multiplyScalar(1.15));
+            } else if (scale === 'COSMOS') {
+                const ep = getCosmosEarthPos();
+                const dir = camera.position.clone().sub(ep).normalize();
+                endTarget = ep.clone();
+                endPos = ep.clone().add(dir.multiplyScalar(1.05));
+            }
+        }
+        return { startPos, startTarget, endPos, endTarget };
+    }
+
+    if (kind === 'TRANSIT') {
+        // Full visible zoom-through of an intermediate scale (COSMOS or GALAXY)
+        if (scale === 'COSMOS') {
+            const ep = getCosmosEarthPos();
+            const closePos = ep.clone().add(new THREE.Vector3(1.3, 0.95, 1.65));
+            const farPos = new THREE.Vector3(76, 52, 92);
+            return zoomingOut
+                ? { startPos: closePos, startTarget: ep.clone(), endPos: farPos, endTarget: new THREE.Vector3(0, 0, 0) }
+                : { startPos: farPos, startTarget: new THREE.Vector3(0, 0, 0), endPos: closePos, endTarget: ep.clone() };
+        }
+        if (scale === 'GALAXY') {
+            const pin = getGalaxySunPos();
+            const closePos = pin.clone().add(new THREE.Vector3(1.7, 1.4, 2.1));
+            const farPos = new THREE.Vector3(0, 74, 94);
+            return zoomingOut
+                ? { startPos: closePos, startTarget: pin.clone(), endPos: farPos, endTarget: new THREE.Vector3(0, 0, 0) }
+                : { startPos: farPos, startTarget: new THREE.Vector3(0, 0, 0), endPos: closePos, endTarget: pin.clone() };
+        }
+    }
+
+    // kind === 'ARRIVE'
+    if (scale === 'COSMOS') {
+        const ep = getCosmosEarthPos();
+        const sunOverviewPos = new THREE.Vector3(26.6, 17.1, 32.3);
+        const startTarget = zoomingOut ? ep.clone() : new THREE.Vector3(0, 0, 0);
+        const startPos = zoomingOut ? ep.clone().add(new THREE.Vector3(1.3, 0.95, 1.65)) : new THREE.Vector3(78, 54, 96);
+        return { startPos, startTarget, endPos: sunOverviewPos, endTarget: new THREE.Vector3(0, 0, 0) };
+    }
+    if (scale === 'GALAXY') {
+        const pin = getGalaxySunPos();
+        const mw = GALAXY_REGIONS['Milky Way'];
+        const startTarget = zoomingOut ? pin.clone() : new THREE.Vector3(0, 0, 0);
+        const startPos = zoomingOut ? pin.clone().add(new THREE.Vector3(1.7, 1.4, 2.1)) : new THREE.Vector3(0, 78, 98);
+        return { startPos, startTarget, endPos: mw.camPos.clone(), endTarget: mw.lookAt.clone() };
+    }
+    if (scale === 'UNIVERSE') {
+        const u = UNIVERSE_REGIONS['Cosmic Web'];
+        return {
+            startPos: new THREE.Vector3(0, 2.4, 3.8),
+            startTarget: new THREE.Vector3(0, 0, 0),
+            endPos: u.camPos.clone(),
+            endTarget: u.lookAt.clone()
+        };
+    }
+    // EARTH arrival (zooming in from Cosmos)
+    const finalPos = options.earthTargetCamPos ? options.earthTargetCamPos.clone() : getEarthDaySideCameraPos();
+    const farDir = finalPos.clone().normalize();
+    return {
+        startPos: farDir.multiplyScalar(15.8),
+        startTarget: new THREE.Vector3(0, 0, 0),
+        endPos: finalPos,
+        endTarget: new THREE.Vector3(0, 0, 0)
+    };
+}
+
 function transitionToScale(targetScale, options = {}) {
     const fromScale = getCurrentScale();
     if (fromScale === targetScale && !scaleAnim) {
@@ -358,155 +505,51 @@ function transitionToScale(targetScale, options = {}) {
         return;
     }
 
-    // Cancel any previous animations cleanly
     flyAnim = null;
     if (scaleAnim) {
         scaleAnim = null;
         resetAllGroupScales();
     }
 
-    const scaleRank = { EARTH: 0, COSMOS: 1, GALAXY: 2, UNIVERSE: 3 };
-    const zoomingOut = scaleRank[targetScale] > scaleRank[fromScale];
-    playSound(zoomingOut ? 'warp-out' : 'warp-in');
+    const fromIdx = SCALE_ORDER.indexOf(fromScale);
+    const toIdx = SCALE_ORDER.indexOf(targetScale);
+    const zoomingOut = toIdx > fromIdx;
+    const step = zoomingOut ? 1 : -1;
+    const isAuto = !!options.isAutoScroll;
 
-    // --- PHASE 1: DEPARTURE TRAJECTORY FROM CURRENT VIEW ---
-    const departStartPos = camera.position.clone();
-    const departStartTarget = controls.target.clone();
-    let departEndPos = departStartPos.clone();
-    let departEndTarget = departStartTarget.clone();
-    let outGroup = fromScale === 'EARTH' ? earthSystemGroup : (fromScale === 'COSMOS' ? heliocentricGroup : (fromScale === 'GALAXY' ? galaxyGroup : universeGroup));
-
-    if (zoomingOut) {
-        // Pull rapidly outward from current view along camera radial vector
-        const radial = camera.position.clone().sub(controls.target);
-        if (radial.lengthSq() < 0.001) radial.set(0, 1, 2);
-        radial.normalize();
-        const pullDist = fromScale === 'EARTH' ? 18.0 : 125.0;
-        departEndPos = controls.target.clone().add(radial.multiplyScalar(pullDist));
-        departEndTarget = new THREE.Vector3(0, 0, 0);
-    } else {
-        // Zooming IN: Dive directly toward the home anchor in the current view!
-        if (fromScale === 'UNIVERSE') {
-            const origin = new THREE.Vector3(0, 0, 0);
-            const approachDir = camera.position.clone().normalize();
-            departEndTarget = origin;
-            departEndPos = approachDir.multiplyScalar(1.2);
-        } else if (fromScale === 'GALAXY' && solarSystemPinObj) {
-            const pinPos = new THREE.Vector3();
-            solarSystemPinObj.getWorldPosition(pinPos);
-            const approachDir = camera.position.clone().sub(pinPos).normalize();
-            departEndTarget = pinPos.clone();
-            departEndPos = pinPos.clone().add(approachDir.multiplyScalar(0.65));
-        } else if (fromScale === 'COSMOS' && cosmosBodiesMap.has('Earth')) {
-            const earthPos = new THREE.Vector3();
-            cosmosBodiesMap.get('Earth').obj.getWorldPosition(earthPos);
-            const approachDir = camera.position.clone().sub(earthPos).normalize();
-            departEndTarget = earthPos.clone();
-            departEndPos = earthPos.clone().add(approachDir.multiplyScalar(0.75));
-        }
+    // Build sequential path visiting EVERY intermediate scale
+    const path = [];
+    for (let i = fromIdx; ; i += step) {
+        path.push(SCALE_ORDER[i]);
+        if (i === toIdx) break;
     }
 
-    // --- PHASE 2: ARRIVAL TRAJECTORY INTO DESTINATION VIEW ---
-    const computeArrival = () => {
-        let arriveStartPos, arriveStartTarget, arriveEndPos, arriveEndTarget;
-        if (targetScale === 'COSMOS') {
-            const earthObj = cosmosBodiesMap.get('Earth');
-            const earthPos = new THREE.Vector3();
-            if (earthObj) earthObj.obj.getWorldPosition(earthPos);
-            const sunOverviewPos = new THREE.Vector3(26.6, 17.1, 32.3);
-
-            // Update Cosmos UI for Sun overview
-            focusedCosmosBody = 'Sun';
-            document.querySelectorAll('.planet-chip').forEach(ch => ch.classList.toggle('active', ch.dataset.body === 'Sun'));
-            const sunEntry = cosmosBodiesMap.get('Sun');
-            if (sunEntry) {
-                document.getElementById('pt-name').textContent = sunEntry.name;
-                document.getElementById('pt-type').textContent = sunEntry.type;
-                document.getElementById('pt-stats').innerHTML = sunEntry.statsHTML;
-                updateCosmosDossier('Sun', getDaysSinceJ2000() + simDaysOffset);
-            }
-
-            if (zoomingOut) {
-                // Emerging from Earth into the Solar System!
-                arriveStartTarget = earthPos.clone();
-                arriveStartPos = earthPos.clone().add(new THREE.Vector3(1.2, 0.9, 1.5));
-            } else {
-                // Diving in from Milky Way into the Solar System!
-                arriveStartTarget = new THREE.Vector3(0, 0, 0);
-                arriveStartPos = new THREE.Vector3(75, 52, 92);
-            }
-            arriveEndPos = sunOverviewPos;
-            arriveEndTarget = new THREE.Vector3(0, 0, 0);
-        } else if (targetScale === 'GALAXY') {
-            const pinPos = new THREE.Vector3(13.335, 0, 0);
-            if (solarSystemPinObj) solarSystemPinObj.getWorldPosition(pinPos);
-
-            // Update Galaxy UI for Milky Way overview
-            focusedGalaxyRegion = 'Milky Way';
-            const mw = GALAXY_REGIONS['Milky Way'];
-            document.querySelectorAll('#galaxy-chips .planet-chip').forEach(ch => ch.classList.toggle('active', ch.dataset.region === 'Milky Way'));
-            document.getElementById('gt-name').textContent = 'Milky Way';
-            document.getElementById('gt-type').textContent = mw.type;
-            document.getElementById('gt-stats').innerHTML = mw.stats;
-            document.getElementById('gd-title').textContent = mw.title;
-            document.getElementById('gd-subtitle').innerHTML = mw.subtitle;
-
-            if (zoomingOut) {
-                arriveStartTarget = pinPos.clone();
-                arriveStartPos = pinPos.clone().add(new THREE.Vector3(1.6, 1.4, 2.0));
-            } else {
-                arriveStartTarget = new THREE.Vector3(0, 0, 0);
-                arriveStartPos = new THREE.Vector3(0, 75, 95);
-            }
-            arriveEndPos = mw.camPos.clone();
-            arriveEndTarget = mw.lookAt.clone();
-        } else if (targetScale === 'UNIVERSE') {
-            focusedUniverseRegion = 'Cosmic Web';
-            const u = UNIVERSE_REGIONS['Cosmic Web'];
-            document.querySelectorAll('#universe-chips .planet-chip').forEach(ch => ch.classList.toggle('active', ch.dataset.region === 'Cosmic Web'));
-            document.getElementById('ut-name').textContent = 'Cosmic Web';
-            document.getElementById('ut-type').textContent = u.type;
-            document.getElementById('ut-stats').innerHTML = u.stats;
-            document.getElementById('ud-title').textContent = u.title;
-            document.getElementById('ud-subtitle').innerHTML = u.subtitle;
-            updateUniverseBio('Cosmic Web');
-
-            arriveStartTarget = new THREE.Vector3(0, 0, 0);
-            arriveStartPos = new THREE.Vector3(0, 2.5, 4.0);
-            arriveEndPos = u.camPos.clone();
-            arriveEndTarget = u.lookAt.clone();
+    const stages = path.map((scaleName, idx) => {
+        const isFirst = idx === 0;
+        const isLast = idx === path.length - 1;
+        const kind = isFirst ? 'DEPART' : (isLast ? 'ARRIVE' : 'TRANSIT');
+        let duration;
+        if (isAuto) {
+            duration = kind === 'DEPART' ? 620 : 980;
         } else {
-            // Arriving at EARTH (Always zooming IN from Cosmos or Galaxy!)
-            const finalPos = options.earthTargetCamPos ? options.earthTargetCamPos.clone() : getEarthDaySideCameraPos();
-            const farDir = finalPos.clone().normalize();
-            arriveStartPos = farDir.multiplyScalar(15.5);
-            arriveStartTarget = new THREE.Vector3(0, 0, 0);
-            arriveEndPos = finalPos;
-            arriveEndTarget = new THREE.Vector3(0, 0, 0);
+            // Slower, majestic pacing so every in/out sequence is clearly visible
+            if (kind === 'DEPART') duration = 1350;
+            else if (kind === 'TRANSIT') duration = 1750;
+            else duration = 1850;
         }
-        return { arriveStartPos, arriveStartTarget, arriveEndPos, arriveEndTarget };
-    };
+        return { scale: scaleName, kind, duration, group: getScaleGroup(scaleName) };
+    });
 
-    const scaleDelta = Math.max(1, Math.abs(scaleRank[targetScale] - scaleRank[fromScale]));
-    const isAuto = !!options.isAutoScroll;
-    const departDur = isAuto ? 540 : (850 + scaleDelta * 300);   // 1150ms (1 hop), 1450ms (2 hops), 1750ms (3 hops)
-    const arriveDur = isAuto ? 920 : (1150 + scaleDelta * 500);  // 1650ms (1 hop), 2150ms (2 hops), 2650ms (3 hops)
+    playSound(zoomingOut ? 'warp-out' : 'warp-in');
 
+    const firstTraj = computeStageTrajectory(stages[0], zoomingOut, options);
     scaleAnim = {
-        phase: 'DEPART',
-        fromScale,
-        targetScale,
+        stages,
+        stageIdx: 0,
         zoomingOut,
-        outGroup,
+        options,
         startTime: performance.now(),
-        departDuration: departDur,
-        arriveDuration: arriveDur,
-        departStartPos,
-        departStartTarget,
-        departEndPos,
-        departEndTarget,
-        computeArrival,
-        arrival: null,
+        traj: firstTraj,
         onArrived: options.onArrived || null,
         toastMsg: options.toastMsg || null
     };
@@ -2967,7 +3010,7 @@ let lastCleanTapTime = 0, lastCleanTapX = 0, lastCleanTapY = 0;
 
 renderer.domElement.addEventListener('pointerdown', (e) => {
     flyAnim = null; // User touch immediately takes control!
-    if (scaleAnim && scaleAnim.phase === 'ARRIVE') {
+    if (scaleAnim && scaleAnim.stages[scaleAnim.stageIdx].kind === 'ARRIVE') {
         scaleAnim = null;
         resetAllGroupScales();
     }
@@ -3156,47 +3199,55 @@ function animate() {
     const elapsed = clock.elapsedTime;
     solarTimeUniform.value = elapsed;
 
-    // Continuous "Powers of Ten" Scale Warp Transition Engine
+    // Continuous Sequential Multi-Stage Scale Journey Engine
     if (scaleAnim) {
         const nowMs = performance.now();
         const veil = document.getElementById('scale-warp-veil');
+        const st = scaleAnim.stages[scaleAnim.stageIdx];
+        const t = Math.min(1, (nowMs - scaleAnim.startTime) / st.duration);
 
-        if (scaleAnim.phase === 'DEPART') {
-            const t = Math.min(1, (nowMs - scaleAnim.startTime) / scaleAnim.departDuration);
-            const easeIn = t * t * t; // Smooth accelerating zoom out/in
-            camera.position.lerpVectors(scaleAnim.departStartPos, scaleAnim.departEndPos, easeIn);
-            controls.target.lerpVectors(scaleAnim.departStartTarget, scaleAnim.departEndTarget, easeIn);
-
-            // Subtle FOV warp & outgoing group recede when zooming out
-            camera.fov = 45 + 19 * easeIn;
+        let ease;
+        if (st.kind === 'DEPART') {
+            // Smooth accelerating zoom-out / dive-in (starts moving immediately, no dead lag)
+            ease = Math.pow(t, 1.85);
+            camera.fov = 45 + 13 * ease;
             camera.updateProjectionMatrix();
-            if (scaleAnim.zoomingOut && scaleAnim.outGroup) {
-                scaleAnim.outGroup.scale.setScalar(1.0 - 0.55 * easeIn);
+            if (scaleAnim.zoomingOut && st.group) {
+                st.group.scale.setScalar(1.0 - 0.35 * ease);
             }
-            if (t > 0.72 && veil) veil.classList.add('active');
-
-            if (t >= 1) {
-                // Midpoint Scale Handoff!
-                if (scaleAnim.outGroup) scaleAnim.outGroup.scale.setScalar(1.0);
-                applyScaleDOMAndVisibility(scaleAnim.targetScale);
-                scaleAnim.arrival = scaleAnim.computeArrival();
-                camera.position.copy(scaleAnim.arrival.arriveStartPos);
-                controls.target.copy(scaleAnim.arrival.arriveStartTarget);
-                scaleAnim.phase = 'ARRIVE';
-                scaleAnim.startTime = nowMs;
-                if (scaleAnim.toastMsg) showToast(scaleAnim.toastMsg);
-            }
-        } else if (scaleAnim.phase === 'ARRIVE') {
-            const t = Math.min(1, (nowMs - scaleAnim.startTime) / scaleAnim.arriveDuration);
-            const easeOut = 1 - Math.pow(1 - t, 4); // Cinematic lingering deceleration
-            camera.position.lerpVectors(scaleAnim.arrival.arriveStartPos, scaleAnim.arrival.arriveEndPos, easeOut);
-            controls.target.lerpVectors(scaleAnim.arrival.arriveStartTarget, scaleAnim.arrival.arriveEndTarget, easeOut);
-
-            camera.fov = 64 - 19 * easeOut;
+            if (t > 0.84 && veil) veil.classList.add('active');
+        } else if (st.kind === 'TRANSIT') {
+            // Continuous flowing pass-through of intermediate scale (zero stop/stall)
+            const sCurve = t * t * (3.0 - 2.0 * t);
+            ease = t * 0.45 + sCurve * 0.55;
+            camera.fov = 58 - 6 * Math.sin(t * Math.PI);
+            camera.updateProjectionMatrix();
+            if (t > 0.12 && t < 0.84 && veil) veil.classList.remove('active');
+            if (t >= 0.84 && veil) veil.classList.add('active');
+        } else {
+            // Smooth lingering cubic deceleration into final destination
+            ease = 1.0 - Math.pow(1.0 - t, 3);
+            camera.fov = 58 - 13 * ease;
             camera.updateProjectionMatrix();
             if (t > 0.14 && veil) veil.classList.remove('active');
+        }
 
-            if (t >= 1) {
+        camera.position.lerpVectors(scaleAnim.traj.startPos, scaleAnim.traj.endPos, ease);
+        controls.target.lerpVectors(scaleAnim.traj.startTarget, scaleAnim.traj.endTarget, ease);
+
+        if (t >= 1) {
+            if (st.group) st.group.scale.setScalar(1.0);
+            scaleAnim.stageIdx++;
+            if (scaleAnim.stageIdx < scaleAnim.stages.length) {
+                const nextStage = scaleAnim.stages[scaleAnim.stageIdx];
+                applyScaleDOMAndVisibility(nextStage.scale);
+                syncScaleHeaderUI(nextStage.scale);
+                scaleAnim.traj = computeStageTrajectory(nextStage, scaleAnim.zoomingOut, scaleAnim.options);
+                camera.position.copy(scaleAnim.traj.startPos);
+                controls.target.copy(scaleAnim.traj.startTarget);
+                scaleAnim.startTime = nowMs;
+                if (nextStage.kind === 'ARRIVE' && scaleAnim.toastMsg) showToast(scaleAnim.toastMsg);
+            } else {
                 const cb = scaleAnim.onArrived;
                 scaleAnim = null;
                 resetAllGroupScales();

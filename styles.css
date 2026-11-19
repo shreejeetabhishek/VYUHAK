@@ -129,8 +129,8 @@ input[type=range]::-webkit-slider-thumb { border: 2px solid #02040a; height: 20p
     z-index: 40;
     pointer-events: none;
     opacity: 0;
-    background: radial-gradient(circle at center, rgba(186, 230, 253, 0.24) 0%, rgba(15, 23, 42, 0.45) 55%, rgba(2, 6, 23, 0.85) 100%);
-    transition: opacity 0.34s ease-in-out;
+    background: radial-gradient(circle at center, rgba(186, 230, 253, 0.14) 0%, rgba(15, 23, 42, 0.28) 55%, rgba(2, 6, 23, 0.62) 100%);
+    transition: opacity 0.28s ease-in-out;
 }
 #scale-warp-veil.active {
     opacity: 1;

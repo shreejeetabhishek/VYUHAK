@@ -1,5 +1,5 @@
 // ============================================================================
-// VYUHAK v36 TARGETED // ANCHOR-TARGETED NESTED PINCH-ZOOM (PINCH INTO HOME ANCHOR ONLY)
+// VYUHAK v37 INDIA // INDIA-CENTERED DEFAULT EARTH ORIENTATION & SEAMLESS MULTIVERSE
 // ============================================================================
 
 // --- 1. AUDIO ENGINE WITH MUTE ---
@@ -358,12 +358,11 @@ function getCurrentScale() {
     return 'EARTH';
 }
 
-function getEarthDaySideCameraPos() {
-    const sunDir = getRealTimeSunDirection(earthMesh.rotation.y);
-    const dist = window.innerWidth < window.innerHeight ? 4.3 : 2.9;
-    const camDir = sunDir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), 0.35);
-    camDir.y = Math.max(-0.2, Math.min(0.42, camDir.y + 0.28));
-    return camDir.normalize().multiplyScalar(dist);
+function getEarthIndiaCameraPos(customDist = null) {
+    // Center camera squarely over India (21.5° N, 79.0° E) at any time of day or Earth rotation
+    const indiaDir = latLonToWorldPosition(21.5, 79.0, 1.0, earthMesh.rotation.y).normalize();
+    const dist = customDist !== null ? customDist : (window.innerWidth < window.innerHeight ? 4.2 : 2.9);
+    return indiaDir.multiplyScalar(dist);
 }
 
 function resetAllGroupScales() {
@@ -645,7 +644,7 @@ function computeStageTrajectory(stage, zoomingOut, options) {
         };
     }
     // EARTH arrival (zooming in from Cosmos)
-    const finalPos = options.earthTargetCamPos ? options.earthTargetCamPos.clone() : getEarthDaySideCameraPos();
+    const finalPos = options.earthTargetCamPos ? options.earthTargetCamPos.clone() : getEarthIndiaCameraPos();
     const farDir = finalPos.clone().normalize();
     return {
         startPos: farDir.multiplyScalar(15.8),
@@ -928,7 +927,7 @@ function toggleISSMode() {
 
 // --- 7. TRUE HELIOCENTRIC SOLAR SYSTEM MODE & SMOOTH CAMERA ---
 function positionCameraOnDaySide(instant = false) {
-    const camDir = getEarthDaySideCameraPos();
+    const camDir = getEarthIndiaCameraPos();
     if (instant) {
         camera.position.copy(camDir);
         controls.target.set(0, 0, 0);
@@ -4474,6 +4473,8 @@ function animate() {
                         const distToEarth = camera.position.distanceTo(earthWorld);
                         if (distToEarth < 1.85) {
                             performSeamlessZoomHandoff('EARTH', 'Earth Orbital Scale', 13.5);
+                            camera.position.copy(getEarthIndiaCameraPos(13.5));
+                            controls.update();
                         }
                     }
                 }

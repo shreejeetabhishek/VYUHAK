@@ -1,9 +1,9 @@
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-body { margin: 0; overflow: hidden; background-color: #02040a; font-family: 'Inter', sans-serif; color: #e2e8f0; user-select: none; -webkit-user-select: none; }
+body { margin: 0; overflow: hidden; background-color: #010206; font-family: 'Inter', sans-serif; color: #e2e8f0; user-select: none; -webkit-user-select: none; }
 .mono-telemetry { font-variant-numeric: tabular-nums; }
 #globe-viewport, #map-viewport { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
 #map-viewport { display: none; z-index: 2; }
-.obsidian-glass { background: rgba(6, 11, 20, 0.85); backdrop-filter: blur(22px) saturate(180%); -webkit-backdrop-filter: blur(22px) saturate(180%); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); }
+.obsidian-glass { background: rgba(6, 11, 20, 0.84); backdrop-filter: blur(22px) saturate(180%); -webkit-backdrop-filter: blur(22px) saturate(180%); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); }
 .hide-scrollbar::-webkit-scrollbar { display: none; }
 .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 .btn-active { background: rgba(56, 189, 248, 0.25); border-color: #38bdf8; color: #38bdf8; }
@@ -30,6 +30,6 @@ input[type=range]::-webkit-slider-thumb { border: 2px solid #02040a; height: 20p
 @keyframes slideIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
 .skeleton-card { background: linear-gradient(90deg, rgba(30,41,59,0.4) 25%, rgba(51,65,85,0.5) 50%, rgba(30,41,59,0.4) 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
 @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-#toast-container { position: fixed; top: 130px; left: 50%; transform: translateX(-50%); z-index: 100; display: flex; flex-direction: column; gap: 6px; pointer-events: none; width: max-content; max-width: 90vw; }
+#toast-container { position: fixed; top: 136px; left: 50%; transform: translateX(-50%); z-index: 100; display: flex; flex-direction: column; gap: 6px; pointer-events: none; width: max-content; max-width: 90vw; }
 .toast-msg { background: rgba(15, 23, 42, 0.94); border: 1px solid rgba(56, 189, 248, 0.5); color: #e2e8f0; padding: 8px 14px; border-radius: 999px; font-size: 11px; font-weight: 600; box-shadow: 0 6px 20px rgba(0,0,0,0.6); animation: fadeUp 0.25s ease-out; }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }

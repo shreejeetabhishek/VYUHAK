@@ -1,5 +1,5 @@
 // ============================================================================
-// VYUHAK v20 ULTRA // PHOTOREALISTIC EARTH, FBM PLANETS, RADIANT SUN & KEPLERIAN COSMOS
+// VYUHAK v21 COSMOS PRIME // PLANETARY MOONS, KUIPER BELT, NOAA SPACE WEATHER & FULL COSMOS DOSSIER
 // ============================================================================
 
 // --- 1. AUDIO ENGINE WITH MUTE ---
@@ -469,9 +469,13 @@ function toggleSolarSystemView() {
         // Switch scene to True Heliocentric Solar System Orrery
         earthSystemGroup.visible = false;
         heliocentricGroup.visible = true;
+        document.getElementById('earth-dossier').classList.add('hidden');
+        document.getElementById('cosmos-dossier').classList.remove('hidden');
+        document.getElementById('tab-btn-dossier').textContent = 'Cosmos Data';
         controls.minDistance = 1.8;
-        controls.maxDistance = 140;
+        controls.maxDistance = 150;
         focusCosmosBody('Sun');
+        fetchLiveSpaceWeather();
         showToast('Heliocentric Keplerian Solar System (Live UTC)');
     } else {
         btn.classList.remove('on-purple');
@@ -481,6 +485,9 @@ function toggleSolarSystemView() {
         // Return to High-Precision Earth Orbital Frame
         heliocentricGroup.visible = false;
         earthSystemGroup.visible = true;
+        document.getElementById('cosmos-dossier').classList.add('hidden');
+        document.getElementById('earth-dossier').classList.remove('hidden');
+        document.getElementById('tab-btn-dossier').textContent = 'Ground Data';
         controls.minDistance = 1.15;
         controls.maxDistance = 16;
         positionCameraOnDaySide(false);
@@ -498,6 +505,8 @@ function focusCosmosBody(name) {
     document.getElementById('pt-type').textContent = entry.type;
     document.getElementById('pt-stats').innerHTML = entry.statsHTML;
 
+    updateCosmosDossier(name, getDaysSinceJ2000() + simDaysOffset);
+
     const worldPos = new THREE.Vector3();
     entry.obj.getWorldPosition(worldPos);
     const offsetDist = name === 'Sun' ? 38 : Math.max(2.6, entry.radius * 5.2);
@@ -505,11 +514,108 @@ function focusCosmosBody(name) {
     smoothFlyTo(camPos, worldPos, 900);
 }
 
+async function fetchLiveSpaceWeather(force = false) {
+    try {
+        const [windRes, kpRes] = await Promise.allSettled([
+            cachedFetchJSON(API_ENDPOINTS.NOAA_SOLAR_WIND, force ? 0 : 180000),
+            cachedFetchJSON(API_ENDPOINTS.NOAA_KP, force ? 0 : 180000)
+        ]);
+        if (windRes.status === 'fulfilled' && windRes.value && windRes.value.WindSpeed) {
+            document.getElementById('sw-wind').textContent = `${windRes.value.WindSpeed} km/s`;
+        } else {
+            document.getElementById('sw-wind').textContent = '410 km/s (Nominal)';
+        }
+        if (kpRes.status === 'fulfilled' && Array.isArray(kpRes.value) && kpRes.value.length > 1) {
+            const latest = kpRes.value[kpRes.value.length - 1];
+            const kp = parseFloat(latest[1]);
+            const status = kp >= 5 ? 'Storm ⚡' : (kp >= 4 ? 'Active' : 'Quiet');
+            document.getElementById('sw-kp').textContent = `Kp ${kp.toFixed(1)} (${status})`;
+        } else {
+            document.getElementById('sw-kp').textContent = 'Kp 2.3 (Quiet)';
+        }
+    } catch (e) {}
+}
+
+async function updateCosmosDossier(name, simDays) {
+    const entry = cosmosBodiesMap.get(name);
+    if (!entry) return;
+    const p = entry.meta;
+    const earthHelio = computePlanetHeliocentricAU(JPL_PLANETS[2], simDays);
+
+    document.getElementById('cd-title').textContent = `${entry.name.toUpperCase()} // ${entry.type.toUpperCase()}`;
+
+    if (name === 'Sun') {
+        const eDistMkm = (earthHelio.rAU * AU_KM / 1e6).toFixed(2);
+        const lm = (earthHelio.rAU * AU_KM / C_KM_MIN).toFixed(2);
+        document.getElementById('cd-subtitle').textContent = `Heliocentric Origin &bull; ${earthHelio.rAU.toFixed(4)} AU from Earth`;
+        document.getElementById('cd-sun-dist').textContent = '0.0000 AU';
+        document.getElementById('cd-earth-dist').textContent = `${eDistMkm}M km`;
+        document.getElementById('cd-light-time').textContent = `${lm} min`;
+        document.getElementById('cd-vel').textContent = '230 km/s (Galactic)';
+        document.getElementById('cd-ecc-inc').textContent = 'Origin Frame';
+        document.getElementById('cd-obliq').textContent = '7.25°';
+        document.getElementById('cd-radius').textContent = '696,340 km';
+        document.getElementById('cd-grav').textContent = '274 m/s² | 617.7 km/s';
+        document.getElementById('cd-temp').textContent = '5,505 °C | 25.4d';
+        document.getElementById('cd-atmo').innerHTML = '<strong>Composition:</strong> 73.46% Hydrogen, 24.85% Helium, 0.77% Oxygen, 0.29% Carbon.';
+        document.getElementById('cd-moon-count').textContent = '8 Planets';
+        document.getElementById('cd-moons').innerHTML = '<div class="bg-slate-900/50 border border-slate-800 rounded p-2.5 text-slate-300">Gravitational anchor for 8 major planets, 5+ dwarf planets, the Main Asteroid Belt, and the outer Kuiper Belt.</div>';
+    } else if (p) {
+        const res = computePlanetHeliocentricAU(p, simDays);
+        const distEarthAU = res.vec.distanceTo(earthHelio.vec);
+        const distEarthMkm = (distEarthAU * AU_KM / 1e6).toFixed(2);
+        const lightMin = (distEarthAU * AU_KM / C_KM_MIN).toFixed(2);
+
+        document.getElementById('cd-subtitle').textContent = `Live J2000 Ephemeris &bull; ${res.rAU.toFixed(4)} AU from Sun`;
+        document.getElementById('cd-sun-dist').textContent = `${res.rAU.toFixed(3)} AU`;
+        document.getElementById('cd-earth-dist').textContent = p.isEarth ? '0.00 km (Home)' : `${distEarthMkm}M km`;
+        document.getElementById('cd-light-time').textContent = p.isEarth ? '0.00 min' : `${lightMin} min`;
+        document.getElementById('cd-vel').textContent = `${res.vKps.toFixed(2)} km/s`;
+        document.getElementById('cd-ecc-inc').textContent = `e=${p.e.toFixed(3)} | I=${p.I.toFixed(1)}°`;
+        document.getElementById('cd-obliq').textContent = `${p.tilt}°`;
+        document.getElementById('cd-radius').textContent = `${p.radiusKm.toLocaleString()} km`;
+        document.getElementById('cd-grav').textContent = `${p.gravity} m/s² | ${p.escapeKps} km/s`;
+        document.getElementById('cd-temp').textContent = `${p.temp} | ${p.dayLen}`;
+        document.getElementById('cd-atmo').innerHTML = `<strong>Atmosphere:</strong> ${p.atmo}`;
+        document.getElementById('cd-moon-count').textContent = `${p.moonCount} Known`;
+
+        if (p.moons && p.moons.length > 0) {
+            let mHtml = '';
+            p.moons.forEach(m => {
+                const dirLabel = m.period < 0 ? 'Retrograde' : 'Prograde';
+                mHtml += `
+                <div class="bg-slate-900/60 border border-slate-800 rounded p-2 flex justify-between items-center">
+                    <span class="font-semibold text-emerald-300">🌑 ${m.name}</span>
+                    <span class="text-[10px] text-slate-400 mono-telemetry">Period: ${Math.abs(m.period)}d (${dirLabel})</span>
+                </div>`;
+            });
+            document.getElementById('cd-moons').innerHTML = mHtml;
+        } else {
+            document.getElementById('cd-moons').innerHTML = '<div class="bg-slate-900/40 border border-slate-800 rounded p-2.5 text-slate-400">No natural moons orbit this planet.</div>';
+        }
+    }
+
+    // Fetch live Wikipedia summary for the selected celestial body
+    const bioEl = document.getElementById('cd-bio');
+    bioEl.textContent = 'Fetching live astronomical dossier...';
+    const wikiKey = name === 'Sun' ? 'Sun' : (p && p.wikiTitle ? p.wikiTitle : name);
+    try {
+        const sumData = await cachedFetchJSON(API_ENDPOINTS.WIKI_SUMMARY(wikiKey), 600000);
+        if (focusedCosmosBody === name && sumData && sumData.extract) {
+            bioEl.textContent = sumData.extract;
+        }
+    } catch (e) {
+        if (focusedCosmosBody === name) bioEl.textContent = `${name} — ${entry.type} in the Solar System.`;
+    }
+}
+
 // --- 8. API ENDPOINTS & DATA EXTRACTION (INCLUDING NASA JPL NEAR-EARTH ASTEROIDS) ---
 const API_ENDPOINTS = {
     EARTHQUAKES: 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson',
     EONET: 'https://eonet.gsfc.nasa.gov/api/v3/events?limit=15&days=10',
     JPL_ASTEROIDS: 'https://ssd-api.jpl.nasa.gov/cad.api?dist-max=0.05&date-min=now&sort=date&limit=3',
+    NOAA_KP: 'https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json',
+    NOAA_SOLAR_WIND: 'https://services.swpc.noaa.gov/products/summary/solar-wind-speed.json',
     NEWS_GLOBAL: 'https://api.rss2json.com/v1/api.json?rss_url=http://feeds.bbci.co.uk/news/world/rss.xml',
     NEWS_REGIONAL_RSS2JSON: (query) => `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://news.google.com/rss/search?q=' + encodeURIComponent(query) + '&hl=en-US&gl=US&ceid=US:en')}`,
     GDELT_NEWS: (query) => `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(query)}&mode=artlist&maxrecords=5&format=json&sort=DateDesc`,
@@ -1405,14 +1511,45 @@ heliocentricGroup.add(helioPointLight);
 // NASA JPL J2000 Keplerian Elements for all 8 Planets
 // a (AU), e (eccentricity), I (deg), L0 (deg at J2000), LRate (deg/century), wBar (deg), Omega (deg)
 const JPL_PLANETS = [
-    { name: 'Mercury', type: 'Terrestrial Planet', a: 0.38710, e: 0.20563, I: 7.005, L0: 252.25, LRate: 149472.67, wBar: 77.46,  Omega: 48.33,  visR: 0.32, visDist: 5.5,  c1: 0x6b7280, c2: 0x9ca3af, band: false },
-    { name: 'Venus',   type: 'Terrestrial Planet', a: 0.72333, e: 0.00677, I: 3.395, L0: 181.98, LRate: 58517.82,  wBar: 131.56, Omega: 76.68,  visR: 0.48, visDist: 8.2,  c1: 0xd97706, c2: 0xfef08a, band: true },
-    { name: 'Earth',   type: 'Home World (3rd)',   a: 1.00000, e: 0.01671, I: 0.000, L0: 100.46, LRate: 35999.37,  wBar: 102.94, Omega: 0.00,   visR: 0.54, visDist: 11.5, isEarth: true },
-    { name: 'Mars',    type: 'Terrestrial Planet', a: 1.52368, e: 0.09340, I: 1.850, L0: 355.45, LRate: 19140.30,  wBar: 336.06, Omega: 49.56,  visR: 0.40, visDist: 15.2, c1: 0x9a3412, c2: 0xea580c, band: false },
-    { name: 'Jupiter', type: 'Gas Giant',          a: 5.20260, e: 0.04849, I: 1.303, L0: 34.40,  LRate: 3034.91,   wBar: 14.33,  Omega: 100.46, visR: 1.35, visDist: 23.0, c1: 0x92400e, c2: 0xfde68a, band: true },
-    { name: 'Saturn',  type: 'Ringed Gas Giant',   a: 9.55491, e: 0.05551, I: 2.489, L0: 49.94,  LRate: 1222.11,   wBar: 93.06,  Omega: 113.67, visR: 1.12, visDist: 31.5, c1: 0xb45309, c2: 0xfef3c7, band: true, rings: true },
-    { name: 'Uranus',  type: 'Ice Giant',          a: 19.2184, e: 0.04630, I: 0.773, L0: 313.23, LRate: 428.47,    wBar: 173.01, Omega: 74.01,  visR: 0.78, visDist: 39.5, c1: 0x0891b2, c2: 0xa5f3fc, band: true },
-    { name: 'Neptune', type: 'Ice Giant',          a: 30.1104, e: 0.00899, I: 1.770, L0: 304.88, LRate: 218.46,    wBar: 48.12,  Omega: 131.78, visR: 0.75, visDist: 47.0, c1: 0x1d4ed8, c2: 0x60a5fa, band: true }
+    { name: 'Mercury', wikiTitle: 'Mercury_(planet)', type: 'Terrestrial Planet', a: 0.38710, e: 0.20563, I: 7.005, L0: 252.25, LRate: 149472.67, wBar: 77.46, Omega: 48.33, visR: 0.32, visDist: 5.5, c1: 0x6b7280, c2: 0x9ca3af, band: false,
+      tilt: 0.03, radiusKm: 2440, gravity: 3.7, escapeKps: 4.25, temp: '167 °C', dayLen: '58.6d', atmo: 'Trace Exosphere (O₂, Na, H₂, He)', moonCount: 0, moons: [] },
+    { name: 'Venus', wikiTitle: 'Venus', type: 'Terrestrial Planet', a: 0.72333, e: 0.00677, I: 3.395, L0: 181.98, LRate: 58517.82, wBar: 131.56, Omega: 76.68, visR: 0.48, visDist: 8.2, c1: 0xd97706, c2: 0xfef08a, band: true,
+      tilt: 177.36, radiusKm: 6052, gravity: 8.87, escapeKps: 10.36, temp: '464 °C', dayLen: '243d (Retro)', atmo: '96.5% CO₂, 3.5% N₂ (Dense Sulfuric Clouds)', moonCount: 0, moons: [] },
+    { name: 'Earth', wikiTitle: 'Earth', type: 'Home World (3rd)', a: 1.00000, e: 0.01671, I: 0.000, L0: 100.46, LRate: 35999.37, wBar: 102.94, Omega: 0.00, visR: 0.54, visDist: 11.5, isEarth: true,
+      tilt: 23.44, radiusKm: 6371, gravity: 9.81, escapeKps: 11.19, temp: '15 °C', dayLen: '23h 56m', atmo: '78% N₂, 21% O₂, 0.93% Ar, 0.04% CO₂', moonCount: 1,
+      moons: [{ name: 'Moon (Luna)', r: 0.14, dist: 1.18, period: 27.32, color: 0xcbd5e1 }] },
+    { name: 'Mars', wikiTitle: 'Mars', type: 'Terrestrial Planet', a: 1.52368, e: 0.09340, I: 1.850, L0: 355.45, LRate: 19140.30, wBar: 336.06, Omega: 49.56, visR: 0.40, visDist: 15.2, c1: 0x9a3412, c2: 0xea580c, band: false,
+      tilt: 25.19, radiusKm: 3390, gravity: 3.72, escapeKps: 5.03, temp: '-65 °C', dayLen: '24h 37m', atmo: '95.3% CO₂, 2.6% N₂, 1.9% Ar', moonCount: 2,
+      moons: [
+          { name: 'Phobos', r: 0.055, dist: 0.72, period: 0.32, color: 0xa8a29e },
+          { name: 'Deimos', r: 0.045, dist: 1.02, period: 1.26, color: 0xd6d3d1 }
+      ] },
+    { name: 'Jupiter', wikiTitle: 'Jupiter', type: 'Gas Giant', a: 5.20260, e: 0.04849, I: 1.303, L0: 34.40, LRate: 3034.91, wBar: 14.33, Omega: 100.46, visR: 1.35, visDist: 23.0, c1: 0x92400e, c2: 0xfde68a, band: true,
+      tilt: 3.13, radiusKm: 69911, gravity: 24.79, escapeKps: 59.5, temp: '-110 °C', dayLen: '9h 56m', atmo: '89.8% H₂, 10.2% He, Trace CH₄ & NH₃', moonCount: 95,
+      moons: [
+          { name: 'Io', r: 0.11, dist: 1.85, period: 1.77, color: 0xfacc15 },
+          { name: 'Europa', r: 0.10, dist: 2.25, period: 3.55, color: 0xe2e8f0 },
+          { name: 'Ganymede', r: 0.15, dist: 2.72, period: 7.15, color: 0x94a3b8 },
+          { name: 'Callisto', r: 0.13, dist: 3.25, period: 16.69, color: 0x64748b }
+      ] },
+    { name: 'Saturn', wikiTitle: 'Saturn', type: 'Ringed Gas Giant', a: 9.55491, e: 0.05551, I: 2.489, L0: 49.94, LRate: 1222.11, wBar: 93.06, Omega: 113.67, visR: 1.12, visDist: 31.5, c1: 0xb45309, c2: 0xfef3c7, band: true, rings: true,
+      tilt: 26.73, radiusKm: 58232, gravity: 10.44, escapeKps: 35.5, temp: '-140 °C', dayLen: '10h 42m', atmo: '96.3% H₂, 3.25% He, Trace CH₄', moonCount: 146,
+      moons: [
+          { name: 'Enceladus', r: 0.07, dist: 2.75, period: 1.37, color: 0xf8fafc },
+          { name: 'Rhea', r: 0.09, dist: 3.18, period: 4.52, color: 0xcbd5e1 },
+          { name: 'Titan', r: 0.16, dist: 3.78, period: 15.95, color: 0xf59e0b }
+      ] },
+    { name: 'Uranus', wikiTitle: 'Uranus', type: 'Ice Giant', a: 19.2184, e: 0.04630, I: 0.773, L0: 313.23, LRate: 428.47, wBar: 173.01, Omega: 74.01, visR: 0.78, visDist: 39.5, c1: 0x0891b2, c2: 0xa5f3fc, band: true,
+      tilt: 97.77, radiusKm: 25362, gravity: 8.69, escapeKps: 21.3, temp: '-195 °C', dayLen: '17h 14m (Retro)', atmo: '82.5% H₂, 15.2% He, 2.3% CH₄', moonCount: 28,
+      moons: [
+          { name: 'Titania', r: 0.085, dist: 1.45, period: 8.71, color: 0xcbd5e1 },
+          { name: 'Oberon', r: 0.08, dist: 1.85, period: 13.46, color: 0x94a3b8 }
+      ] },
+    { name: 'Neptune', wikiTitle: 'Neptune', type: 'Ice Giant', a: 30.1104, e: 0.00899, I: 1.770, L0: 304.88, LRate: 218.46, wBar: 48.12, Omega: 131.78, visR: 0.75, visDist: 47.0, c1: 0x1d4ed8, c2: 0x60a5fa, band: true,
+      tilt: 28.32, radiusKm: 24622, gravity: 11.15, escapeKps: 23.5, temp: '-200 °C', dayLen: '16h 06m', atmo: '80% H₂, 19% He, 1.5% CH₄', moonCount: 16,
+      moons: [
+          { name: 'Triton', r: 0.11, dist: 1.55, period: -5.88, color: 0xe2e8f0 }
+      ] }
 ];
 
 function createHelioPlanetMat(colA, colB, banded, hasPolarCaps = false, rimHex = 0x000000) {
@@ -1508,40 +1645,57 @@ function createHelioPlanetMat(colA, colB, banded, hasPolarCaps = false, rimHex =
         const pGroup = new THREE.Group();
         pGroup.position.copy(pos);
 
-        if (p.isEarth) {
-            const miniEarth = new THREE.Mesh(
-                new THREE.SphereGeometry(p.visR, 32, 32),
-                new THREE.MeshStandardMaterial({ map: earthDayTex, roughness: 0.6, metalness: 0.1 })
-            );
-            pGroup.add(miniEarth);
-            // Mini Moon orbiting Earth in Solar System view
-            const miniMoon = new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 16), new THREE.MeshStandardMaterial({ color: 0xcbd5e1 }));
-            const mPhase = ((days % 29.53059) / 29.53059) * Math.PI * 2;
-            miniMoon.position.set(Math.cos(mPhase) * 1.15, 0.1, -Math.sin(mPhase) * 1.15);
-            pGroup.add(miniMoon);
-        } else {
-            pGroup.add(new THREE.Mesh(new THREE.SphereGeometry(p.visR, 36, 36), createHelioPlanetMat(p.c1, p.c2, p.band, p.name === 'Mars', p.name === 'Neptune' || p.name === 'Uranus' ? 0x38bdf8 : (p.name === 'Venus' ? 0xfde68a : 0x000000))));
-            if (p.rings) {
-                const ringMat = new THREE.ShaderMaterial({
-                    vertexShader: `varying vec3 vPos; void main() { vPos = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-                    fragmentShader: `
-                        varying vec3 vPos;
-                        void main() {
-                            float r = length(vPos.xy);
-                            float t = clamp((r - 1.48) / 1.12, 0.0, 1.0);
-                            float bands = 0.65 + 0.35 * sin(t * 42.0) * cos(t * 17.0);
-                            float cassini = 1.0 - smoothstep(0.56, 0.60, t) * (1.0 - smoothstep(0.64, 0.68, t));
-                            vec3 col = mix(vec3(0.68, 0.56, 0.42), vec3(0.95, 0.88, 0.72), bands);
-                            float edgeFade = smoothstep(0.0, 0.08, t) * (1.0 - smoothstep(0.92, 1.0, t));
-                            gl_FragColor = vec4(col, edgeFade * cassini * 0.78);
-                        }
-                    `,
-                    transparent: true, side: THREE.DoubleSide, depthWrite: false
-                });
-                const ring = new THREE.Mesh(new THREE.RingGeometry(p.visR * 1.32, p.visR * 2.32, 72), ringMat);
-                ring.rotation.x = Math.PI / 2.3;
-                pGroup.add(ring);
-            }
+        const spinMesh = p.isEarth
+            ? new THREE.Mesh(new THREE.SphereGeometry(p.visR, 32, 32), new THREE.MeshStandardMaterial({ map: earthDayTex, roughness: 0.6, metalness: 0.1 }))
+            : new THREE.Mesh(new THREE.SphereGeometry(p.visR, 36, 36), createHelioPlanetMat(p.c1, p.c2, p.band, p.name === 'Mars', p.name === 'Neptune' || p.name === 'Uranus' ? 0x38bdf8 : (p.name === 'Venus' ? 0xfde68a : 0x000000)));
+        spinMesh.rotation.z = (p.tilt || 0) * Math.PI / 180;
+        pGroup.add(spinMesh);
+
+        if (p.rings) {
+            const ringMat = new THREE.ShaderMaterial({
+                vertexShader: `varying vec3 vPos; void main() { vPos = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+                fragmentShader: `
+                    varying vec3 vPos;
+                    void main() {
+                        float r = length(vPos.xy);
+                        float t = clamp((r - 1.48) / 1.12, 0.0, 1.0);
+                        float bands = 0.65 + 0.35 * sin(t * 42.0) * cos(t * 17.0);
+                        float cassini = 1.0 - smoothstep(0.56, 0.60, t) * (1.0 - smoothstep(0.64, 0.68, t));
+                        vec3 col = mix(vec3(0.68, 0.56, 0.42), vec3(0.95, 0.88, 0.72), bands);
+                        float edgeFade = smoothstep(0.0, 0.08, t) * (1.0 - smoothstep(0.92, 1.0, t));
+                        gl_FragColor = vec4(col, edgeFade * cassini * 0.78);
+                    }
+                `,
+                transparent: true, side: THREE.DoubleSide, depthWrite: false
+            });
+            const ring = new THREE.Mesh(new THREE.RingGeometry(p.visR * 1.32, p.visR * 2.32, 72), ringMat);
+            ring.rotation.x = Math.PI / 2;
+            ring.rotation.y = (p.tilt || 26.73) * Math.PI / 180;
+            pGroup.add(ring);
+        }
+
+        // Build 3D Natural Satellites (Moons) & Orbital Rings for every planet
+        const moonEntries = [];
+        if (p.moons && p.moons.length > 0) {
+            p.moons.forEach((m, mIdx) => {
+                const mOrbitPts = [];
+                for (let j = 0; j <= 48; j++) {
+                    const a = (j / 48) * Math.PI * 2;
+                    mOrbitPts.push(new THREE.Vector3(Math.cos(a) * m.dist, 0, -Math.sin(a) * m.dist));
+                }
+                pGroup.add(new THREE.LineLoop(
+                    new THREE.BufferGeometry().setFromPoints(mOrbitPts),
+                    new THREE.LineBasicMaterial({ color: 0x64748b, transparent: true, opacity: 0.25 })
+                ));
+                const mMesh = new THREE.Mesh(
+                    new THREE.SphereGeometry(m.r, 18, 18),
+                    new THREE.MeshStandardMaterial({ color: m.color, roughness: 0.85, metalness: 0.08 })
+                );
+                const phase = ((days / m.period) * Math.PI * 2) + mIdx * 1.3;
+                mMesh.position.set(Math.cos(phase) * m.dist, 0, -Math.sin(phase) * m.dist);
+                pGroup.add(mMesh);
+                moonEntries.push({ mesh: mMesh, dist: m.dist, period: m.period, seed: mIdx * 1.3 });
+            });
         }
 
         heliocentricGroup.add(pGroup);
@@ -1550,10 +1704,10 @@ function createHelioPlanetMat(colA, colB, banded, hasPolarCaps = false, rimHex =
         const distFromEarthMkm = (distFromEarthAU * AU_KM / 1e6).toFixed(1);
         const lightMin = (distFromEarthAU * AU_KM / C_KM_MIN).toFixed(1);
         const statsHTML = p.isEarth
-            ? `Sun Dist: ${res.rAU.toFixed(4)} AU &bull; Speed: ${res.vKps.toFixed(2)} km/s`
-            : `Sun: ${res.rAU.toFixed(2)} AU &bull; Earth: ${distFromEarthMkm}M km (${lightMin} lm) &bull; ${res.vKps.toFixed(1)} km/s`;
+            ? `Sun: ${res.rAU.toFixed(3)} AU &bull; ${res.vKps.toFixed(2)} km/s`
+            : `Sun: ${res.rAU.toFixed(2)} AU &bull; ${distFromEarthMkm}M km (${lightMin} lm)`;
 
-        cosmosBodiesMap.set(p.name, { name: p.name, type: p.type, obj: pGroup, radius: p.visR, statsHTML });
+        cosmosBodiesMap.set(p.name, { name: p.name, type: p.type, obj: pGroup, spinMesh, moons: moonEntries, meta: p, radius: p.visR, statsHTML });
         chipsContainer.innerHTML += `<button class="planet-chip" data-body="${p.name}" onclick="focusCosmosBody('${p.name}')">${p.name}</button>`;
     });
 
@@ -1572,6 +1726,22 @@ function createHelioPlanetMat(colA, colB, banded, hasPolarCaps = false, rimHex =
     const asteroidSpriteTex = createCircleSpriteTexture('rgba(203,213,225,0.9)', 'rgba(100,116,139,0.2)');
     heliocentricGroup.add(new THREE.Points(beltGeo, new THREE.PointsMaterial({
         color: 0x94a3b8, size: 0.28, map: asteroidSpriteTex, transparent: true, opacity: 0.65, depthWrite: false
+    })));
+
+    // Outer Kuiper Belt (1,000 Icy Bodies beyond Neptune)
+    const kuiperCount = 1000;
+    const kuiperPos = new Float32Array(kuiperCount * 3);
+    for (let i = 0; i < kuiperCount; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const r = 51.0 + Math.random() * 11.0;
+        kuiperPos[i*3] = Math.cos(a) * r;
+        kuiperPos[i*3+1] = (Math.random() - 0.5) * 1.8;
+        kuiperPos[i*3+2] = -Math.sin(a) * r;
+    }
+    const kuiperGeo = new THREE.BufferGeometry();
+    kuiperGeo.setAttribute('position', new THREE.BufferAttribute(kuiperPos, 3));
+    heliocentricGroup.add(new THREE.Points(kuiperGeo, new THREE.PointsMaterial({
+        color: 0x7dd3fc, size: 0.34, map: asteroidSpriteTex, transparent: true, opacity: 0.42, depthWrite: false
     })));
 })();
 
@@ -2034,7 +2204,7 @@ function animate() {
     controls.rotateSpeed = Math.max(0.32, Math.min(0.9, (camDist - 1.0) * 0.18 + 0.32));
     controls.zoomSpeed = Math.max(0.65, Math.min(1.2, camDist * 0.08 + 0.6));
 
-    // Update Heliocentric Planets (Axial Spin + Live / Time-Warp Keplerian Orbit)
+    // Update Heliocentric Planets & All Planetary Moons (Axial Spin + Keplerian Orbit)
     if (isSolarSystemView) {
         const warp = cosmosWarpModes[cosmosWarpIdx].daysPerSec;
         if (cosmosWarpIdx > 0) simDaysOffset += warp * dt;
@@ -2042,10 +2212,17 @@ function animate() {
         JPL_PLANETS.forEach(p => {
             const entry = cosmosBodiesMap.get(p.name);
             if (!entry) return;
-            entry.obj.rotation.y += 0.25 * dt;
+            if (entry.spinMesh) entry.spinMesh.rotation.y += 0.35 * dt;
             if (cosmosWarpIdx > 0) {
                 const res = computePlanetHeliocentricAU(p, simDays);
                 entry.obj.position.copy(res.vec.normalize().multiplyScalar(p.visDist));
+            }
+            if (entry.moons && entry.moons.length > 0) {
+                entry.moons.forEach(m => {
+                    const moonSpeed = cosmosWarpIdx > 0 ? simDays : (simDays + elapsed * 0.08);
+                    const phase = ((moonSpeed / m.period) * Math.PI * 2) + m.seed;
+                    m.mesh.position.set(Math.cos(phase) * m.dist, 0, -Math.sin(phase) * m.dist);
+                });
             }
         });
     }

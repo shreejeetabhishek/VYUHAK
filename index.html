@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>VYUHAK v20 ULTRA // Real-Time Earth, ISS & Keplerian Solar System</title>
+    <title>VYUHAK v21 COSMOS PRIME // Real-Time Earth, ISS & Heliocentric Solar System</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -105,7 +105,7 @@
         </div>
         <div class="flex h-[44px] w-full border-b border-white/5 relative z-10">
             <button onclick="openTab('intel', this)" class="tab-btn active">Live Events <span id="intel-badge" class="ml-1.5 bg-red-500 text-white text-[9px] px-1.5 py-0.5 rounded-full hidden">0</span></button>
-            <button onclick="openTab('weather', this)" class="tab-btn">Ground Data</button>
+            <button id="tab-btn-dossier" onclick="openTab('weather', this)" class="tab-btn">Ground Data</button>
             <button onclick="openTab('mission', this)" class="tab-btn">Settings</button>
         </div>
         
@@ -121,8 +121,10 @@
             </div>
         </div>
         
-        <!-- Tab: Ground Data (Regional Surveillance Dossier) -->
-        <div id="tab-weather" class="tab-content hide-scrollbar space-y-5 pb-10">
+        <!-- Tab: Ground Data / Cosmos Data (Dynamic Dossier) -->
+        <div id="tab-weather" class="tab-content hide-scrollbar pb-10">
+            <!-- EARTH GROUND DATA DOSSIER -->
+            <div id="earth-dossier" class="space-y-5">
             <div class="flex justify-between items-center border-b border-slate-700 pb-2">
                 <div>
                     <h3 class="text-[11px] font-bold text-sky-400 tracking-widest uppercase">Target Footprint Dossier</h3>
@@ -227,6 +229,102 @@
                     <div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Scanning surface for notable places...</div>
                 </div>
             </div>
+            </div><!-- /#earth-dossier -->
+
+            <!-- COSMOS PLANETARY & SPACE WEATHER DOSSIER -->
+            <div id="cosmos-dossier" class="hidden space-y-5">
+                <div class="flex justify-between items-center border-b border-purple-500/30 pb-2">
+                    <div>
+                        <h3 id="cd-title" class="text-xs font-bold text-purple-300 tracking-widest uppercase">SUN // G2V STAR</h3>
+                        <div id="cd-subtitle" class="text-[10px] text-sky-300 mono-telemetry">Heliocentric Origin (0.0000 AU)</div>
+                    </div>
+                    <button onclick="fetchLiveSpaceWeather(true)" class="text-[10px] bg-purple-900/50 hover:bg-purple-700/50 text-purple-200 px-3 py-1 rounded font-bold border border-purple-500/30">Sync Live</button>
+                </div>
+
+                <!-- 1. Overview & Live Wikipedia Summary -->
+                <div>
+                    <h4 class="text-[10px] font-bold text-slate-400 tracking-widest mb-2 uppercase">1. Celestial Body Overview</h4>
+                    <div id="cd-bio" class="text-[11px] text-slate-200 leading-relaxed bg-slate-900/60 p-3 border border-slate-800 rounded-lg">
+                        Loading astronomical profile...
+                    </div>
+                </div>
+
+                <!-- 2. Real-Time Mathematical Ephemeris (NASA JPL J2000) -->
+                <div>
+                    <h4 class="text-[10px] font-bold text-sky-400 tracking-widest mb-2 uppercase">2. Live Mathematical Ephemeris (Keplerian)</h4>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Dist. from Sun</div>
+                            <div id="cd-sun-dist" class="text-xs font-bold text-amber-300 mt-0.5 mono-telemetry">--</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Dist. from Earth</div>
+                            <div id="cd-earth-dist" class="text-xs font-bold text-sky-300 mt-0.5 mono-telemetry">--</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">1-Way Light Time</div>
+                            <div id="cd-light-time" class="text-xs font-bold text-emerald-300 mt-0.5 mono-telemetry">--</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Orbital Velocity</div>
+                            <div id="cd-vel" class="text-xs font-bold text-white mt-0.5 mono-telemetry">--</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Eccentricity / Tilt</div>
+                            <div id="cd-ecc-inc" class="text-xs font-bold text-purple-300 mt-0.5 mono-telemetry">--</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Axial Obliquity</div>
+                            <div id="cd-obliq" class="text-xs font-bold text-pink-300 mt-0.5 mono-telemetry">--</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Physical & Atmospheric Telemetry -->
+                <div>
+                    <h4 class="text-[10px] font-bold text-amber-400 tracking-widest mb-2 uppercase">3. Physical & Atmospheric Telemetry</h4>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Equatorial Radius</div>
+                            <div id="cd-radius" class="text-xs font-bold text-white mt-0.5 mono-telemetry">--</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Gravity / Escape</div>
+                            <div id="cd-grav" class="text-xs font-bold text-emerald-300 mt-0.5 mono-telemetry">--</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Mean Temp / Day</div>
+                            <div id="cd-temp" class="text-xs font-bold text-amber-300 mt-0.5">--</div>
+                        </div>
+                    </div>
+                    <div id="cd-atmo" class="mt-2 bg-slate-900/50 border border-slate-800 rounded p-2.5 text-[11px] text-slate-300">
+                        Atmosphere: --
+                    </div>
+                </div>
+
+                <!-- 4. Natural Satellites (Moons) -->
+                <div>
+                    <h4 class="text-[10px] font-bold text-emerald-400 tracking-widest mb-2 uppercase">4. Natural Satellites (Moons) &bull; <span id="cd-moon-count" class="text-white">0</span></h4>
+                    <div id="cd-moons" class="space-y-1.5 text-[11px]">
+                        <div class="bg-slate-900/40 border border-slate-800 rounded p-2.5 text-slate-400">No natural satellites.</div>
+                    </div>
+                </div>
+
+                <!-- 5. Live Space Weather (NOAA SWPC Real-Time Telemetry) -->
+                <div>
+                    <h4 class="text-[10px] font-bold text-rose-400 tracking-widest mb-2 uppercase">5. Live Space Weather (NOAA SWPC)</h4>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="bg-slate-900/50 border border-rose-500/30 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Solar Wind Speed</div>
+                            <div id="sw-wind" class="text-sm font-bold text-amber-300 mt-0.5 mono-telemetry">Scanning...</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-rose-500/30 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Geomagnetic Kp-Index</div>
+                            <div id="sw-kp" class="text-sm font-bold text-emerald-300 mt-0.5 mono-telemetry">Scanning...</div>
+                        </div>
+                    </div>
+                </div>
+            </div><!-- /#cosmos-dossier -->
         </div>
 
         <!-- Tab: Settings -->

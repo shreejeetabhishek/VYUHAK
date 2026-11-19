@@ -1,5 +1,5 @@
 // ============================================================================
-// VYUHAK v32 LABELS // SMART 3D FLOATING LABELS, OVERLAP CULLING & TAP-TO-FLY COSMIC ATLAS
+// VYUHAK v33 HALLEY // LIVE 1P/HALLEY KEPLERIAN PHYSICS, DUAL PLASMA/DUST TAILS & HOLOGRAPHIC HUD
 // ============================================================================
 
 // --- 1. AUDIO ENGINE WITH MUTE ---
@@ -109,13 +109,98 @@ function getDaysSinceJ2000() {
     return (Date.now() - Date.UTC(2000, 0, 1, 12, 0, 0)) / 86400000;
 }
 
-// Solve Kepler's Equation M = E - e*sin(E) via Newton-Raphson iteration
+// Solve Kepler's Equation M = E - e*sin(E) via high-precision Newton-Raphson (supports e up to 0.99+)
 function solveKepler(M, e) {
-    let E = M;
-    for (let i = 0; i < 6; i++) {
-        E = E - (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
+    let E = M + e * Math.sin(M);
+    for (let i = 0; i < 18; i++) {
+        const f = E - e * Math.sin(E) - M;
+        const fp = 1 - e * Math.cos(E);
+        const delta = f / fp;
+        E -= delta;
+        if (Math.abs(delta) < 1e-11) break;
     }
     return E;
+}
+
+// Piecewise-linear radial scale mapping real AU -> compressed Solar System visual units
+const AU_VIS_ANCHORS = [
+    [0.000, 0.0], [0.387, 5.5], [0.723, 8.2], [1.000, 11.5], [1.524, 15.2],
+    [5.203, 23.0], [9.555, 31.5], [19.218, 39.5], [30.110, 47.0], [40.000, 53.5], [70.000, 66.0]
+];
+function auToVisualDist(rAU) {
+    if (rAU <= 0) return 0;
+    for (let i = 1; i < AU_VIS_ANCHORS.length; i++) {
+        const [a0, v0] = AU_VIS_ANCHORS[i - 1];
+        const [a1, v1] = AU_VIS_ANCHORS[i];
+        if (rAU <= a1) {
+            return v0 + ((rAU - a0) / (a1 - a0)) * (v1 - v0);
+        }
+    }
+    const [aLast, vLast] = AU_VIS_ANCHORS[AU_VIS_ANCHORS.length - 1];
+    return vLast + (rAU - aLast) * 0.25;
+}
+
+// NASA JPL Horizons J2000.0 Orbital Elements for Comet 1P/Halley
+const HALLEY_ELEMENTS = {
+    a: 17.834144,          // Semi-major axis (AU)
+    e: 0.9671429,          // Eccentricity (q = 0.586 AU, Q = 35.08 AU)
+    I: 162.26269,          // Inclination (deg, retrograde!)
+    Omega: 58.42008,       // Longitude of ascending node (deg)
+    omega: 111.33249,      // Argument of perihelion (deg)
+    tpDaysJ2000: -5077.6047, // 1986-02-09 09:29 UTC in days since J2000.0
+    periodDays: 27510.0    // 75.32 Julian years (next perihelion: July 28, 2061)
+};
+
+function computeHalleyAtEccentricAnomaly(E) {
+    const { a, e } = HALLEY_ELEMENTS;
+    const I = HALLEY_ELEMENTS.I * Math.PI / 180;
+    const Omega = HALLEY_ELEMENTS.Omega * Math.PI / 180;
+    const omega = HALLEY_ELEMENTS.omega * Math.PI / 180;
+
+    const sqrt1me2 = Math.sqrt(1 - e * e);
+    const xP = a * (Math.cos(E) - e);
+    const yP = a * sqrt1me2 * Math.sin(E);
+
+    // Orbital plane velocity direction (d/dE proportional to true velocity vector)
+    const vxP = -Math.sin(E);
+    const vyP = sqrt1me2 * Math.cos(E);
+
+    const cosO = Math.cos(Omega), sinO = Math.sin(Omega);
+    const cosW = Math.cos(omega), sinW = Math.sin(omega);
+    const cosI = Math.cos(I), sinI = Math.sin(I);
+
+    const Px = cosO * cosW - sinO * sinW * cosI;
+    const Py = sinO * cosW + cosO * sinW * cosI;
+    const Pz = sinW * sinI;
+    const Qx = -cosO * sinW - sinO * cosW * cosI;
+    const Qy = -sinO * sinW + cosO * cosW * cosI;
+    const Qz = cosW * sinI;
+
+    const xEcl = Px * xP + Qx * yP;
+    const yEcl = Py * xP + Qy * yP;
+    const zEcl = Pz * xP + Qz * yP;
+
+    const vxEcl = Px * vxP + Qx * vyP;
+    const vyEcl = Py * vxP + Qy * vyP;
+    const vzEcl = Pz * vxP + Qz * vyP;
+
+    const vecAU = new THREE.Vector3(xEcl, zEcl, -yEcl);
+    const rAU = vecAU.length();
+    const visPos = vecAU.clone().normalize().multiplyScalar(auToVisualDist(rAU));
+    const velDir = new THREE.Vector3(vxEcl, vzEcl, -vyEcl).normalize();
+    const vKps = 29.7847 * Math.sqrt(Math.max(0.0001, 2 / rAU - 1 / a));
+
+    return { vec: vecAU, visPos, velDir, rAU, vKps };
+}
+
+function computeHalleyState(daysSinceJ2000) {
+    const { tpDaysJ2000, periodDays, e } = HALLEY_ELEMENTS;
+    let phase = ((daysSinceJ2000 - tpDaysJ2000) / periodDays) % 1;
+    if (phase < 0) phase += 1;
+    let M = phase * Math.PI * 2;
+    if (M > Math.PI) M -= Math.PI * 2;
+    const E = solveKepler(M, e);
+    return computeHalleyAtEccentricAnomaly(E);
 }
 
 // Compute True Heliocentric Ecliptic Position (in AU) from NASA JPL J2000 Elements
@@ -188,7 +273,9 @@ const cosmosWarpModes = [
     { label: '1x Live', daysPerSec: 1 / 86400 },
     { label: '1 Day/s', daysPerSec: 1.0 },
     { label: '15 Days/s', daysPerSec: 15.0 },
-    { label: '60 Days/s', daysPerSec: 60.0 }
+    { label: '60 Days/s', daysPerSec: 60.0 },
+    { label: '1 Yr/s', daysPerSec: 365.25 },
+    { label: '5 Yrs/s', daysPerSec: 1826.25 }
 ];
 let simDaysOffset = 0;
 
@@ -1240,7 +1327,7 @@ async function updateCosmosDossier(name, simDays) {
         document.getElementById('cd-moon-count').textContent = '8 Planets';
         document.getElementById('cd-moons').innerHTML = '<div class="bg-slate-900/50 border border-slate-800 rounded p-2.5 text-slate-300">Gravitational anchor for 8 major planets, 5+ dwarf planets, the Main Asteroid Belt, and the outer Kuiper Belt.</div>';
     } else if (p) {
-        const res = computePlanetHeliocentricAU(p, simDays);
+        const res = p.isComet ? computeHalleyState(simDays) : computePlanetHeliocentricAU(p, simDays);
         const distEarthAU = res.vec.distanceTo(earthHelio.vec);
         const distEarthMkm = (distEarthAU * AU_KM / 1e6).toFixed(2);
         const lightMin = (distEarthAU * AU_KM / C_KM_MIN).toFixed(2);
@@ -2652,7 +2739,7 @@ function createHelioPlanetMat(colA, colB, banded, hasPolarCaps = false, rimHex =
         color: 0x93c5fd, size: 0.42, map: asteroidSpriteTex, transparent: true, opacity: 0.28, depthWrite: false
     })));
 
-    // Major Dwarf Planets, Comet & Deep-Space Probes
+    // Major Dwarf Planets & Deep-Space Probe
     const EXTRA_SOLAR = [
         { name: 'Ceres', wikiTitle: 'Ceres_(dwarf_planet)', type: 'Main Belt Dwarf Planet', visR: 0.22, pos: new THREE.Vector3(-14.5, 0.9, 12.2), color: 0x94a3b8,
           statsHTML: 'Sun: 2.77 AU &bull; Main Asteroid Belt', a: 2.77, e: 0.076, I: 10.6, L0: 95, LRate: 7800, wBar: 73, Omega: 80, tilt: 4, radiusKm: 473, gravity: 0.28, escapeKps: 0.51, temp: '-105 °C', dayLen: '9h 04m', atmo: 'Transient Water Vapor Exosphere', moonCount: 0, moons: [] },
@@ -2660,8 +2747,6 @@ function createHelioPlanetMat(colA, colB, banded, hasPolarCaps = false, rimHex =
           statsHTML: 'Sun: 39.48 AU &bull; Kuiper Belt', a: 39.48, e: 0.249, I: 17.16, L0: 238, LRate: 145, wBar: 224, Omega: 110, tilt: 122.5, radiusKm: 1188, gravity: 0.62, escapeKps: 1.21, temp: '-229 °C', dayLen: '6.39d (Retro)', atmo: 'Thin N₂, CH₄, CO Atmosphere', moonCount: 5, moons: [{ name: 'Charon', r: 0.08, dist: 0.55, period: 6.39, color: 0x94a3b8 }] },
         { name: 'Eris', wikiTitle: 'Eris_(dwarf_planet)', type: 'Scattered Disc Dwarf Planet', visR: 0.27, pos: new THREE.Vector3(-46.0, -14.0, -38.0), color: 0xe2e8f0,
           statsHTML: 'Sun: 67.86 AU &bull; Scattered Disc', a: 67.86, e: 0.436, I: 44.04, L0: 205, LRate: 64, wBar: 151, Omega: 36, tilt: 78, radiusKm: 1163, gravity: 0.82, escapeKps: 1.38, temp: '-243 °C', dayLen: '25.9h', atmo: 'Frozen Methane Surface', moonCount: 1, moons: [{ name: 'Dysnomia', r: 0.06, dist: 0.52, period: 15.79, color: 0xcbd5e1 }] },
-        { name: "Halley's Comet", wikiTitle: "Halley's_Comet", type: 'Periodic Comet (75-76 yrs)', visR: 0.20, pos: new THREE.Vector3(-22.0, 4.8, -18.5), color: 0x7dd3fc, isComet: true,
-          statsHTML: 'Next Perihelion: 2061 &bull; Retrograde', a: 17.83, e: 0.967, I: 162.3, L0: 38, LRate: 470, wBar: 111, Omega: 58, tilt: 0, radiusKm: 5.5, gravity: 0.0005, escapeKps: 0.002, temp: '-70 °C', dayLen: '2.2d', atmo: 'Sublimating H₂O, CO₂, CO Coma & Ion Tail', moonCount: 0, moons: [] },
         { name: 'Voyager 1', wikiTitle: 'Voyager_1', type: 'Interstellar Space Probe', visR: 0.22, pos: new THREE.Vector3(58.0, 26.0, -28.0), color: 0xfbbf24,
           statsHTML: 'Sun: ~165 AU &bull; Interstellar Space', a: 165.0, e: 0.0, I: 35.0, L0: 255, LRate: 0, wBar: 0, Omega: 0, tilt: 0, radiusKm: 0.003, gravity: 0, escapeKps: 0, temp: '-270 °C', dayLen: 'Launched 1977', atmo: 'Interstellar Medium (Beyond Heliopause)', moonCount: 0, moons: [] }
     ];
@@ -2671,23 +2756,189 @@ function createHelioPlanetMat(colA, colB, banded, hasPolarCaps = false, rimHex =
         g.position.copy(item.pos);
         const m = new THREE.Mesh(
             new THREE.SphereGeometry(item.visR, 20, 20),
-            new THREE.MeshStandardMaterial({ color: item.color, roughness: 0.7, metalness: 0.15, emissive: item.isComet ? 0x0284c7 : 0x000000 })
+            new THREE.MeshStandardMaterial({ color: item.color, roughness: 0.7, metalness: 0.15 })
         );
         g.add(m);
-        if (item.isComet) {
-            const tail = new THREE.Mesh(
-                new THREE.ConeGeometry(0.32, 3.8, 16, 1, true),
-                new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.35, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false })
-            );
-            tail.rotation.z = -Math.PI / 2;
-            tail.position.x = -1.9;
-            g.add(tail);
-            g.lookAt(0, 0, 0);
-        }
         heliocentricGroup.add(g);
         cosmosBodiesMap.set(item.name, { name: item.name, type: item.type, obj: g, spinMesh: m, moons: [], meta: item, radius: item.visR, statsHTML: item.statsHTML });
         chipsContainer.innerHTML += `<button class="planet-chip" data-body="${item.name}" onclick="focusCosmosBody(this.dataset.body)">${item.name}</button>`;
     });
+
+    // --- LIVE, MATHEMATICALLY ACCURATE COMET 1P/HALLEY (JPL J2000 RETROGRADE ORBIT + VOLUMETRIC DUAL TAILS) ---
+    const halleyOrbitPts = [];
+    for (let i = 0; i <= 320; i++) {
+        const E = (i / 320) * Math.PI * 2;
+        halleyOrbitPts.push(computeHalleyAtEccentricAnomaly(E).visPos);
+    }
+    heliocentricGroup.add(new THREE.LineLoop(
+        new THREE.BufferGeometry().setFromPoints(halleyOrbitPts),
+        new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.28 })
+    ));
+
+    const halleyGroup = new THREE.Group();
+    const halleyInit = computeHalleyState(days);
+    halleyGroup.position.copy(halleyInit.visPos);
+
+    // 1. Craggy dark icy-carbonaceous nucleus (15 x 8 km irregular potato shape)
+    const nucGeo = new THREE.IcosahedronGeometry(0.11, 2);
+    const nPos = nucGeo.attributes.position;
+    for (let i = 0; i < nPos.count; i++) {
+        const vx = nPos.getX(i), vy = nPos.getY(i), vz = nPos.getZ(i);
+        const bump = 1.0 + 0.22 * Math.sin(vx * 28.0) * Math.cos(vy * 22.0) + 0.14 * Math.sin(vz * 34.0);
+        nPos.setXYZ(i, vx * 1.35 * bump, vy * 0.82 * bump, vz * 0.9 * bump);
+    }
+    nucGeo.computeVertexNormals();
+    const halleyNucleus = new THREE.Mesh(
+        nucGeo,
+        new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.92, metalness: 0.08, emissive: 0x0c4a6e, emissiveIntensity: 0.35 })
+    );
+    halleyGroup.add(halleyNucleus);
+
+    // 2. Layered Volumetric Coma (Inner bright icy core + Outer diffuse gas envelope)
+    const halleyComaInner = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: createCircleSpriteTexture('rgba(240,252,255,0.95)', 'rgba(56,189,248,0.45)'),
+        transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false
+    }));
+    halleyComaInner.scale.set(0.75, 0.75, 1);
+    halleyGroup.add(halleyComaInner);
+
+    const halleyComaOuter = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: createCircleSpriteTexture('rgba(125,211,252,0.48)', 'rgba(14,165,233,0.0)'),
+        transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false
+    }));
+    halleyComaOuter.scale.set(1.9, 1.9, 1);
+    halleyGroup.add(halleyComaOuter);
+
+    // Helper: Feathered Volumetric Tail Plume (Crossed GLSL Shader Ribbons — ZERO hard edges!)
+    function createVolumetricTailRibbon(length, width, colorCoreHex, colorEdgeHex, curveStrength) {
+        const mat = new THREE.ShaderMaterial({
+            uniforms: {
+                uTime: solarTimeUniform,
+                uColCore: { value: new THREE.Color(colorCoreHex) },
+                uColEdge: { value: new THREE.Color(colorEdgeHex) },
+                uIntensity: { value: 0.65 },
+                uCurve: { value: curveStrength }
+            },
+            vertexShader: `
+                varying vec2 vUv;
+                uniform float uCurve;
+                void main() {
+                    vUv = uv;
+                    vec3 p = position;
+                    // Gentle parabolic curve for dust tail along +Y
+                    p.y += uCurve * uv.x * uv.x;
+                    // Fan width gently outward as tail travels downstream
+                    p.y *= (0.28 + 1.15 * pow(uv.x, 0.85));
+                    p.z *= (0.28 + 1.15 * pow(uv.x, 0.85));
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+                }
+            `,
+            fragmentShader: `
+                varying vec2 vUv;
+                uniform float uTime;
+                uniform vec3 uColCore;
+                uniform vec3 uColEdge;
+                uniform float uIntensity;
+
+                float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+                float noise(vec2 p) {
+                    vec2 i = floor(p), f = fract(p);
+                    f = f * f * (3.0 - 2.0 * f);
+                    return mix(mix(hash(i), hash(i+vec2(1,0)), f.x), mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), f.x), f.y);
+                }
+                void main() {
+                    float along = vUv.x; // 0 at coma -> 1 at far tail tip
+                    float across = abs(vUv.y - 0.5) * 2.0; // 0 at spine -> 1 at edge
+
+                    // Smooth radial Gaussian cross-section (completely eliminates geometric cone edge)
+                    float crossFade = exp(-across * across * 5.2) * (1.0 - smoothstep(0.75, 1.0, across));
+                    // Smooth onset at coma + exponential fade into deep space
+                    float lengthFade = smoothstep(0.0, 0.08, along) * pow(1.0 - along, 1.75);
+
+                    // Animated solar-wind plasma streamers flowing away from coma
+                    float flow1 = noise(vec2(along * 7.5 - uTime * 1.45, vUv.y * 12.0));
+                    float flow2 = noise(vec2(along * 14.0 - uTime * 2.3, vUv.y * 22.0));
+                    float wisps = 0.58 + 0.42 * (flow1 * 0.65 + flow2 * 0.35);
+
+                    vec3 col = mix(uColCore, uColEdge, smoothstep(0.05, 0.72, along + across * 0.35));
+                    float alpha = crossFade * lengthFade * wisps * uIntensity;
+                    gl_FragColor = vec4(col, alpha);
+                }
+            `,
+            transparent: true,
+            side: THREE.DoubleSide,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+
+        const group = new THREE.Group();
+        const geo1 = new THREE.PlaneGeometry(length, width, 24, 1);
+        geo1.translate(length / 2, 0, 0);
+        group.add(new THREE.Mesh(geo1, mat));
+
+        const geo2 = new THREE.PlaneGeometry(length, width, 24, 1);
+        geo2.translate(length / 2, 0, 0);
+        geo2.rotateX(Math.PI / 2);
+        group.add(new THREE.Mesh(geo2, mat));
+        return { group, mat };
+    }
+
+    // 3. Type I Ion (Plasma) Tail — Straight Anti-Solar Blue Streamers + Ion Particles
+    const ionTail = createVolumetricTailRibbon(6.8, 0.85, 0xe0f2fe, 0x0284c7, 0.0);
+    const ionPartCount = 140;
+    const ionPartPos = new Float32Array(ionPartCount * 3);
+    for (let i = 0; i < ionPartCount; i++) {
+        const t = Math.pow(Math.random(), 1.35);
+        const spread = (0.06 + t * 0.24);
+        ionPartPos[i*3] = t * 6.5;
+        ionPartPos[i*3+1] = gaussianRandom() * spread;
+        ionPartPos[i*3+2] = gaussianRandom() * spread;
+    }
+    const ionPartGeo = new THREE.BufferGeometry();
+    ionPartGeo.setAttribute('position', new THREE.BufferAttribute(ionPartPos, 3));
+    const ionParticles = new THREE.Points(ionPartGeo, new THREE.PointsMaterial({
+        color: 0x7dd3fc, size: 0.16, map: asteroidSpriteTex, transparent: true, opacity: 0.62, blending: THREE.AdditiveBlending, depthWrite: false
+    }));
+    ionTail.group.add(ionParticles);
+    halleyGroup.add(ionTail.group);
+
+    // 4. Type II Dust Tail — Broader, Curved Golden-White Radiation-Pressure Plume + Dust Particles
+    const dustTail = createVolumetricTailRibbon(5.4, 1.45, 0xfffbeb, 0xf59e0b, 0.65);
+    const dustPartCount = 110;
+    const dustPartPos = new Float32Array(dustPartCount * 3);
+    for (let i = 0; i < dustPartCount; i++) {
+        const t = Math.pow(Math.random(), 1.25);
+        const spread = (0.10 + t * 0.42);
+        dustPartPos[i*3] = t * 5.0;
+        dustPartPos[i*3+1] = 0.65 * t * t + gaussianRandom() * spread;
+        dustPartPos[i*3+2] = gaussianRandom() * spread;
+    }
+    const dustPartGeo = new THREE.BufferGeometry();
+    dustPartGeo.setAttribute('position', new THREE.BufferAttribute(dustPartPos, 3));
+    const dustParticles = new THREE.Points(dustPartGeo, new THREE.PointsMaterial({
+        color: 0xfef3c7, size: 0.18, map: asteroidSpriteTex, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false
+    }));
+    dustTail.group.add(dustParticles);
+    halleyGroup.add(dustTail.group);
+
+    heliocentricGroup.add(halleyGroup);
+
+    const halleyMeta = {
+        name: "Halley's Comet", wikiTitle: "Halley's_Comet", type: '1P/Halley Periodic Comet (75.3 yrs)',
+        visR: 0.35, isComet: true,
+        a: HALLEY_ELEMENTS.a, e: HALLEY_ELEMENTS.e, I: HALLEY_ELEMENTS.I,
+        tilt: 0, radiusKm: 5.5, gravity: 0.0005, escapeKps: 0.002, temp: '-70 °C (Active)', dayLen: '2.2d–7.4d (Tumbling)',
+        atmo: 'Sublimating H₂O (80%), CO (10%), CO₂, CH₄ — Dual Ion & Dust Tails',
+        moonCount: 0, moons: []
+    };
+    const halleyStatsHTML = `Sun: ${halleyInit.rAU.toFixed(2)} AU &bull; ${halleyInit.vKps.toFixed(2)} km/s &bull; Next Perihelion 2061`;
+
+    cosmosBodiesMap.set("Halley's Comet", {
+        name: "Halley's Comet", type: halleyMeta.type, obj: halleyGroup, spinMesh: halleyNucleus,
+        moons: [], meta: halleyMeta, radius: 0.45, statsHTML: halleyStatsHTML,
+        halleyRig: { comaInner: halleyComaInner, comaOuter: halleyComaOuter, ionTail, dustTail, ionParticles, dustParticles }
+    });
+    chipsContainer.innerHTML += `<button class="planet-chip" data-body="Halley's Comet" onclick="focusCosmosBody(this.dataset.body)">☄️ Halley's Comet</button>`;
 })();
 
 
@@ -3743,7 +3994,7 @@ function registerSmartLabel(cfg) {
         registerSmartLabel({
             text: name,
             scale: 'COSMOS',
-            cssClass: 'lbl-planet',
+            cssClass: name === "Halley's Comet" ? 'lbl-comet' : 'lbl-planet',
             priority: name === 'Sun' ? 100 : (name === 'Earth' ? 98 : (isMajor ? 88 : 74)),
             getWorldPos: () => {
                 entry.obj.getWorldPosition(_lblVec);
@@ -4001,7 +4252,7 @@ function animate() {
     controls.rotateSpeed = Math.max(0.32, Math.min(0.9, (camDist - 1.0) * 0.18 + 0.32));
     controls.zoomSpeed = Math.max(0.65, Math.min(1.2, camDist * 0.08 + 0.6));
 
-    // Update Heliocentric Planets & All Planetary Moons (Axial Spin + Keplerian Orbit)
+    // Update Heliocentric Planets, Moons & Live Comet 1P/Halley Physics
     if (isSolarSystemView) {
         const warp = cosmosWarpModes[cosmosWarpIdx].daysPerSec;
         if (cosmosWarpIdx > 0) simDaysOffset += warp * dt;
@@ -4022,6 +4273,44 @@ function animate() {
                 });
             }
         });
+
+        // Live 1P/Halley Keplerian Propagation & Solar-Wind Dual Tail Physics
+        const hEntry = cosmosBodiesMap.get("Halley's Comet");
+        if (hEntry && hEntry.halleyRig) {
+            const hState = computeHalleyState(simDays);
+            hEntry.obj.position.copy(hState.visPos);
+            hEntry.spinMesh.rotation.x += 0.45 * dt;
+            hEntry.spinMesh.rotation.y += 0.72 * dt;
+
+            // Activity factor: subtle icy coma at 35 AU aphelion -> blazing dramatic tails inside 6 AU!
+            const activity = Math.max(0.24, Math.min(1.65, Math.pow(4.2 / Math.max(0.55, hState.rAU), 0.78)));
+            const rig = hEntry.halleyRig;
+            rig.comaInner.scale.setScalar(0.52 + 0.55 * activity);
+            rig.comaOuter.scale.setScalar(1.15 + 1.45 * activity);
+            rig.comaOuter.material.opacity = Math.min(0.85, 0.25 + 0.45 * activity);
+
+            // Type I Blue Ion Tail points strictly anti-solar (+rHat directly away from Sun)
+            const antiSun = hState.visPos.clone().normalize();
+            const qIon = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1, 0, 0), antiSun);
+            rig.ionTail.group.quaternion.copy(qIon);
+            rig.ionTail.group.scale.set(0.32 + 0.95 * activity, 0.45 + 0.65 * activity, 0.45 + 0.65 * activity);
+            rig.ionTail.mat.uniforms.uIntensity.value = Math.min(0.95, 0.24 + 0.52 * activity);
+            rig.ionParticles.material.opacity = Math.min(0.85, 0.22 + 0.42 * activity);
+
+            // Type II Golden-White Dust Tail lags behind orbital velocity vector (radiation pressure)
+            const dustDir = antiSun.clone().multiplyScalar(0.82).addScaledVector(hState.velDir, -0.38).normalize();
+            const qDust = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1, 0, 0), dustDir);
+            rig.dustTail.group.quaternion.copy(qDust);
+            rig.dustTail.group.scale.set(0.28 + 0.88 * activity, 0.42 + 0.62 * activity, 0.42 + 0.62 * activity);
+            rig.dustTail.mat.uniforms.uIntensity.value = Math.min(0.78, 0.16 + 0.44 * activity);
+            rig.dustParticles.material.opacity = Math.min(0.72, 0.16 + 0.36 * activity);
+
+            // Keep top bar stats live when Halley's Comet is focused
+            if (focusedCosmosBody === "Halley's Comet") {
+                const simYear = new Date(Date.UTC(2000, 0, 1, 12, 0, 0) + simDays * 86400000).getUTCFullYear();
+                document.getElementById('pt-stats').innerHTML = `Sun: ${hState.rAU.toFixed(2)} AU &bull; ${hState.vKps.toFixed(2)} km/s &bull; ${simYear}`;
+            }
+        }
     }
 
 

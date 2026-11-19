@@ -1,15 +1,15 @@
-# VYUHAK v32 LABELS // Smart 3D Cosmic Atlas & Multi-Scale Intelligence
+# VYUHAK v33 HALLEY // Live 1P/Halley Ephemeris & Futuristic Holographic HUD
 
 VYUHAK (*Virtual Yield Uplink & Heuristic Aerospace Kinematics*) is a serverless, mobile-first 3D/2D Earth Observation, Heliocentric Solar System, Volumetric Milky Way Galaxy, Observable Universe, and Multiverse platform.
 
-## What's New in v32 LABELS
-- **Smart 3D-to-2D Floating Label Engine:** Displays crisp, screen-space projected names across every cosmic scale without cluttering mobile screens:
-  - **Earth View:** Moon, 9 major world cities (hemisphere-occluded so back-side cities stay hidden), plus subtle sky-projected names for all 12 constellations.
-  - **Solar View:** Sun, all 8 planets, Ceres, Pluto, Eris, Halley's Comet, Voyager 1, and proximity-triggered planetary moons (appearing automatically when zoomed close to their parent planet).
-  - **Galaxy View:** Sagittarius A*, Perseus Arm, Scutum-Centaurus, Alpha Centauri, Orion Nebula (M42), Pillars of Creation, LMC, Andromeda (M31), and Triangulum (M33).
-  - **Universe & Multiverse Views:** Laniakea, Virgo, Great Attractor, Shapley, Sloan Great Wall, Boötes Void, GN-z11, Our Universe, Pocket α, Quantum Branch, Brane Bulk, and High-Entropy.
-- **Automatic Overlap Culling & Tap-to-Fly:** Priority-sorted collision detection keeps mobile screens clean, and tapping any label smoothly flies the camera directly to that object (or locks the satellite onto a city).
-- **Clean Toggle & Bugfix:** Added **`3D Labels: ON/OFF`** in Settings, auto-hides labels during scale transitions and in 2D mode, and fixed apostrophe escaping on the `Halley's Comet` selector chip.
+## What's Upgraded in v33 HALLEY
+- **Live, Mathematically Accurate Comet 1P/Halley:**
+  - Computed in real time from NASA JPL Horizons J2000.0 elements (`a = 17.834 AU`, `e = 0.96714`, `I = 162.26°` retrograde, `Ω = 58.42°`, `ω = 111.33°`, `P = 75.32 yrs`) using an 18-iteration Newton-Raphson Kepler solver.
+  - Full 3D inclined retrograde elliptical orbit ring sweeping from inside Venus's orbit (`0.586 AU`) out past Neptune (`35.08 AU`).
+  - Replaced the static cone with a craggy dark icy-rock nucleus, layered volumetric glowing coma, **Type I anti-solar blue plasma/ion tail** (custom animated FBM GLSL ribbon + ion particles), and **Type II curved golden-white dust tail** lagging behind the velocity vector—dynamically growing and brightening as Halley approaches the Sun.
+  - Added **`1 Yr/s`** and **`5 Yrs/s`** Cosmos Time Warp speeds so you can watch Halley's Comet race toward its 2061 perihelion and whip around the Sun in real time.
+- **Ultra-Transparent Futuristic Holographic Name Labels:**
+  - Redesigned all 3D floating labels across Earth, Solar, Galaxy, Universe, and Multiverse into sleek translucent frosted-glass HUD micro-tags with thin neon-accent left bars, uppercase tracked typography, and luminous text glow.
 
 ## Deployment
 Upload `index.html`, `styles.css`, `app.js`, and `README.md` directly to your GitHub Pages repository.

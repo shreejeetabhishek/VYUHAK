@@ -106,6 +106,12 @@
             <button id="btn-iss-mode" onclick="toggleISSMode()" class="quick-pill">
                 <span id="iss-dot" class="dot bg-slate-500"></span>ISS
             </button>
+            <button id="btn-ground-track" onclick="toggleGroundTrack()" class="quick-pill on">
+                <span id="track-dot" class="dot bg-sky-400"></span>Track
+            </button>
+            <button onclick="applyOrbitPreset('LEO')" class="quick-pill text-slate-300" title="Low Earth Orbit (550 km)">LEO</button>
+            <button onclick="applyOrbitPreset('SSO')" class="quick-pill text-slate-300" title="Sun-Synchronous Polar Orbit (705 km, 98°)">SSO</button>
+            <button onclick="applyOrbitPreset('GEO')" class="quick-pill text-slate-300" title="Geostationary Belt (35,786 km, 0°)">GEO</button>
             <!-- 2D Map Weather Layers -->
             <button id="btn-radar" onclick="toggleRainRadar()" class="quick-pill hidden">
                 <span id="radar-dot" class="dot bg-slate-500"></span>Radar
@@ -129,6 +135,8 @@
                     <div class="mono-telemetry text-right text-[9px] text-sky-200" id="pt-stats">
                         1.00 AU &bull; 8.32 lm
                     </div>
+                    <button id="btn-cutaway" onclick="toggleCoreCutaway()" class="bg-amber-900/50 hover:bg-amber-700/60 border border-amber-400/45 text-amber-200 px-2 py-0.5 rounded text-[9px] font-bold shrink-0">Core Slice</button>
+                    <button id="btn-lagrange" onclick="toggleLagrangePoints()" class="bg-sky-900/55 hover:bg-sky-700/60 border border-sky-400/45 text-sky-200 px-2 py-0.5 rounded text-[9px] font-bold shrink-0">L1–L5</button>
                     <button id="btn-cosmos-warp" onclick="cycleCosmosWarp()" class="bg-purple-900/60 hover:bg-purple-700/60 border border-purple-400/50 text-purple-200 px-2 py-0.5 rounded text-[9px] font-bold shrink-0">1x Live</button>
                 </div>
             </div>
@@ -144,8 +152,12 @@
                     <span id="gt-name" class="font-bold text-indigo-300 uppercase tracking-wider">Milky Way</span>
                     <span id="gt-type" class="text-slate-400 ml-1.5">SBbc Barred Spiral</span>
                 </div>
-                <div class="mono-telemetry text-right text-[9px] text-sky-200 shrink-0" id="gt-stats">
-                    105,700 ly &bull; ~250B Stars
+                <div class="flex items-center gap-1.5 shrink-0">
+                    <div class="mono-telemetry text-right text-[9px] text-sky-200 hidden sm:block" id="gt-stats">
+                        105,700 ly &bull; ~250B Stars
+                    </div>
+                    <button id="btn-dm-halo" onclick="toggleDarkMatterHalo()" class="bg-indigo-900/60 hover:bg-indigo-700/60 border border-indigo-400/50 text-indigo-200 px-2 py-0.5 rounded text-[9px] font-bold">DM Halo</button>
+                    <button id="btn-exo-orrery" onclick="openExoplanetSystem('TRAPPIST-1e')" class="bg-teal-900/60 hover:bg-teal-700/60 border border-teal-400/50 text-teal-200 px-2 py-0.5 rounded text-[9px] font-bold">Exo-Lab</button>
                 </div>
             </div>
         </div>
@@ -155,13 +167,20 @@
             <div class="flex items-center gap-1 overflow-x-auto hide-scrollbar pb-0.5" id="universe-chips">
                 <!-- Populated dynamically by JS -->
             </div>
-            <div class="obsidian-glass rounded-lg px-3 py-2 text-[10px] text-slate-300 flex items-center justify-between gap-2 border border-amber-500/35">
-                <div class="min-w-0">
-                    <span id="ut-name" class="font-bold text-amber-300 uppercase tracking-wider">Observable Universe</span>
-                    <span id="ut-type" class="text-slate-400 ml-1.5">Cosmic Web &amp; CMB Horizon</span>
+            <div class="obsidian-glass rounded-lg px-3 py-2 text-[10px] text-slate-300 flex flex-col gap-1.5 border border-amber-500/35">
+                <div class="flex items-center justify-between gap-2">
+                    <div class="min-w-0">
+                        <span id="ut-name" class="font-bold text-amber-300 uppercase tracking-wider">Observable Universe</span>
+                        <span id="ut-type" class="text-slate-400 ml-1.5">Cosmic Web &amp; CMB Horizon</span>
+                    </div>
+                    <div class="mono-telemetry text-right text-[9px] text-amber-200 shrink-0" id="ut-stats">
+                        93B ly &bull; ~2T Galaxies
+                    </div>
                 </div>
-                <div class="mono-telemetry text-right text-[9px] text-amber-200 shrink-0" id="ut-stats">
-                    93B ly &bull; ~2T Galaxies
+                <div class="flex items-center gap-2 pt-1 border-t border-white/10">
+                    <span class="text-[9px] font-bold text-amber-300 uppercase shrink-0">Epoch z=<span id="z-val">0.0</span></span>
+                    <input type="range" id="redshift-slider" min="0" max="15" step="0.2" value="0" oninput="updateCosmicRedshift(this.value)" style="margin:0; height:14px;">
+                    <span id="z-epoch-label" class="text-[9px] text-sky-200 mono-telemetry shrink-0">Today (13.8B yr) | T_cmb 2.73K</span>
                 </div>
             </div>
         </div>
@@ -314,6 +333,15 @@
                     <div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Scanning surface for notable places...</div>
                 </div>
             </div>
+
+            <!-- 7. Orbital Mechanics & Next Overhead Pass Telemetry -->
+            <div>
+                <h4 class="text-[10px] font-bold text-purple-400 tracking-widest mb-2 uppercase">7. Orbital Mechanics &amp; Ground-Track Telemetry</h4>
+                <div id="orbit-pass-card" class="bg-slate-900/60 border border-purple-500/30 rounded p-3 text-[11px] text-slate-200 space-y-1 mono-telemetry">
+                    <div>Period: <strong class="text-sky-300" id="orb-period">109.4 min</strong> &bull; Revs/Day: <strong class="text-emerald-300" id="orb-revs">13.16</strong></div>
+                    <div>Swath Horizon: <strong class="text-amber-300" id="orb-horizon">3,680 km</strong> &bull; Regime: <strong class="text-purple-300" id="orb-regime">MEO / LEO Transition</strong></div>
+                </div>
+            </div>
             </div><!-- /#earth-dossier -->
 
             <!-- COSMOS PLANETARY & SPACE WEATHER DOSSIER -->
@@ -430,7 +458,7 @@
                     </div>
                 </div>
 
-                <!-- 5. Live Space Weather (NOAA SWPC Real-Time Telemetry) -->
+                <!-- 6. Live Space Weather (NOAA SWPC Real-Time Telemetry) -->
                 <div>
                     <h4 class="text-[10px] font-bold text-rose-400 tracking-widest mb-2 uppercase">6. Live Space Weather (NOAA SWPC)</h4>
                     <div class="grid grid-cols-2 gap-2">
@@ -442,6 +470,27 @@
                             <div class="text-[9px] text-slate-400 uppercase">Geomagnetic Kp-Index</div>
                             <div id="sw-kp" class="text-sm font-bold text-emerald-300 mt-0.5 mono-telemetry">Scanning...</div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- 7. Comparative Planetary Physics Lab -->
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <h4 class="text-[10px] font-bold text-sky-400 tracking-widest uppercase">7. Comparative World Physics (vs Earth)</h4>
+                        <select id="compare-body-select" onchange="updatePlanetComparison(this.value)" class="bg-slate-900 border border-slate-700 rounded px-2 py-0.5 text-[10px] text-sky-300 outline-none">
+                            <option value="Mars">Mars</option>
+                            <option value="Venus">Venus</option>
+                            <option value="Mercury">Mercury</option>
+                            <option value="Jupiter">Jupiter</option>
+                            <option value="Saturn">Saturn</option>
+                            <option value="Uranus">Uranus</option>
+                            <option value="Neptune">Neptune</option>
+                            <option value="Pluto">Pluto</option>
+                            <option value="Ceres">Ceres</option>
+                        </select>
+                    </div>
+                    <div id="planet-compare-card" class="bg-slate-900/60 border border-sky-500/25 rounded p-3 text-[11px] text-slate-200 space-y-1.5 mono-telemetry">
+                        Loading comparison...
                     </div>
                 </div>
             </div><!-- /#cosmos-dossier -->
@@ -513,11 +562,18 @@
                     </div>
                 </div>
 
-                <!-- 5. Known Earth-Like Exoplanets (Habitable Zone Worlds) -->
+                <!-- 5. Known Earth-Like Exoplanets & Interactive Star-System Mini-Orrery -->
                 <div>
                     <div class="flex justify-between items-center mb-2">
                         <h4 class="text-[10px] font-bold text-teal-400 tracking-widest uppercase">5. Known Earth-Like Exoplanets (Habitable Zone)</h4>
-                        <span class="text-[9px] text-slate-400">Tap to Locate in 3D</span>
+                        <span class="text-[9px] text-slate-400">Tap to Launch 3D System</span>
+                    </div>
+                    <div id="exoplanet-mini-panel" class="hidden mb-2 bg-teal-950/35 border border-teal-400/40 rounded-lg p-3 space-y-1.5">
+                        <div class="flex justify-between items-center">
+                            <span id="exo-mini-title" class="text-xs font-bold text-teal-300 uppercase">TRAPPIST-1 SYSTEM</span>
+                            <button onclick="closeExoplanetSystem()" class="text-[9px] bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-0.5 rounded font-bold">Exit 3D System</button>
+                        </div>
+                        <div id="exo-mini-desc" class="text-[10px] text-slate-300 leading-relaxed"></div>
                     </div>
                     <div id="exoplanet-list" class="space-y-1.5 text-[11px]"></div>
                 </div>

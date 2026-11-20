@@ -1,144 +1,776 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>VYUHAK | VK-Tracker-01 — Solar & Interior View</title>
-  <link rel="stylesheet" href="src/css/main.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>VYUHAK // 3D Earth Observation, Solar System, Galaxy &amp; Observable Universe Atlas</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="styles.css">
 </head>
-<body class="vhk-app mode-solar">
-  <!-- Top Telemetry & Mode HUD -->
-  <header class="vhk-top-hud" id="vhk-top-hud">
-    <div class="vhk-hud-bar">
-      <div class="vhk-tracker-id">
-        <span class="vhk-status-dot" aria-hidden="true"></span>
-        <span>VYUHAK</span>
-        <span class="vhk-divider">|</span>
-        <span class="vhk-unit">VK-Tracker-01</span>
-      </div>
-      <div class="vhk-coord-readout" id="vhk-coords">41.15&deg;, -91.38&deg;</div>
+<body>
+    <div id="globe-viewport"></div>
+    <div id="map-viewport"></div>
+
+    <!-- Seamless Scale Warp Vignette -->
+    <div id="scale-warp-veil"></div>
+
+    <!-- Non-blocking Toast Notification -->
+    <div id="toast-container"></div>
+
+    <!-- Live Logarithmic Cosmic Scale Bar (Bottom-Left) -->
+    <div id="scale-bar-hud" class="pointer-events-none">
+        <div id="scale-bar-label" class="text-[10px] font-bold text-sky-200 mono-telemetry tracking-wide">12,742 km</div>
+        <div class="scale-bar-line"></div>
+        <div id="scale-bar-realm" class="text-[8px] uppercase tracking-widest text-slate-400 mt-0.5">Earth Orbital Scale</div>
     </div>
 
-    <div class="vhk-telemetry-meta">
-      <span id="vhk-alt-vel">ALT 1200 km &bull; VEL 7.26 km/s</span>
-      <span class="vhk-color-mode" id="vhk-color-mode">True Color</span>
+    <!-- Persistent "YOU ARE HERE" 3D-to-2D Callout Pin -->
+    <div id="you-are-here-pin" class="hidden pointer-events-none">
+        <div class="yah-dot"></div>
+        <div class="yah-line"></div>
+        <div class="yah-label">YOU ARE HERE</div>
     </div>
 
-    <nav class="vhk-domain-tabs" aria-label="Primary Space Domains">
-      <button type="button" class="vhk-tab" data-domain="earth">Earth</button>
-      <button type="button" class="vhk-tab is-active" data-domain="solar">Solar</button>
-      <button type="button" class="vhk-tab" data-domain="galaxy">Galaxy</button>
-      <button type="button" class="vhk-tab" data-domain="universe">Universe</button>
-    </nav>
+    <!-- Smart 3D-to-2D Floating Landmark & Celestial Labels Layer -->
+    <div id="labels-layer"></div>
 
-    <div class="vhk-camera-bar" aria-label="Camera Mode & Quick Zoom">
-      <div class="vhk-seg">
-        <button type="button" class="vhk-seg-btn is-active" data-dim="3d">3D</button>
-        <button type="button" class="vhk-seg-btn" data-dim="2d">2D</button>
-      </div>
-      <button type="button" class="vhk-mini-btn" data-cam="free">Free</button>
-      <button type="button" class="vhk-mini-btn" data-cam="hover">Hover</button>
-      <button type="button" class="vhk-mini-btn" data-cam="iss">ISS</button>
-      <button type="button" class="vhk-mini-btn is-active" data-cam="track">Track</button>
-      <button type="button" class="vhk-mini-btn" data-zoom-preset="far">System</button>
-      <button type="button" class="vhk-mini-btn" data-zoom-preset="close">Close Zoom</button>
-    </div>
-
-    <div class="vhk-body-pills" id="vhk-body-pills" role="tablist" aria-label="Solar System Bodies">
-      <button type="button" class="vhk-body-pill" data-body="sun">Sun</button>
-      <button type="button" class="vhk-body-pill" data-body="mercury">Mercury</button>
-      <button type="button" class="vhk-body-pill is-active" data-body="venus">Venus</button>
-      <button type="button" class="vhk-body-pill" data-body="earth">Earth</button>
-      <button type="button" class="vhk-body-pill" data-body="mars">Mars</button>
-      <button type="button" class="vhk-body-pill" data-body="jupiter">Jupiter</button>
-      <button type="button" class="vhk-body-pill" data-body="saturn">Saturn</button>
-    </div>
-  </header>
-
-  <!-- Full-Viewport Interactive Solar Canvas -->
-  <main class="vhk-stage" id="vhk-stage">
-    <canvas id="vhk-solar-canvas" aria-label="Heliocentric Solar System Canvas"></canvas>
-
-    <!-- Non-blocking scale readout -->
-    <div class="vhk-scale-badge" aria-hidden="true">
-      <div class="vhk-scale-value" id="vhk-scale-value">1.12 billion km</div>
-      <div class="vhk-scale-line"></div>
-      <div class="vhk-scale-caption">HELIOCENTRIC SOLAR SYSTEM</div>
-    </div>
-
-    <!-- Lightweight camera distance scrubber (no layout thrashing) -->
-    <div class="vhk-zoom-dock">
-      <div class="vhk-zoom-row">
-        <span id="vhk-zoom-status">System View (Zoomed Out)</span>
-        <span id="vhk-dist-readout">DIST 120.0</span>
-      </div>
-      <input
-        type="range"
-        id="vhk-zoom-slider"
-        min="3"
-        max="160"
-        step="0.5"
-        value="120"
-        aria-label="Camera Distance"
-      />
-    </div>
-
-    <!-- Object Pop-Up: DIST / VEL / ESI/INFO & Interior/Core Details Shown ONLY When Zoomed Close or Inside Interior -->
-    <aside id="vhk-object-popup" class="vhk-popup" aria-live="polite" hidden>
-      <div class="vhk-popup-top">
-        <div class="vhk-popup-heading">
-          <div class="vhk-popup-badges">
-            <span class="vhk-badge-domain" id="vhk-popup-domain">SOLAR</span>
-            <span class="vhk-badge-type" id="vhk-popup-type">Terrestrial Planet</span>
-          </div>
-          <h2 class="vhk-popup-name" id="vhk-popup-name">Venus</h2>
+    <!-- ULTRA-COMPACT PREMIUM TOP HUD -->
+    <div id="top-hud-container">
+        <!-- Compact Single-Strip Telemetry Bar -->
+        <div class="obsidian-glass hud-pill pointer-events-auto rounded-xl px-3 py-2 w-full shadow-lg">
+            <div class="flex items-center justify-between gap-2">
+                <!-- Left: Brand + Active Craft -->
+                <div class="flex items-center gap-2 min-w-0">
+                    <div id="connection-led" class="status-led shrink-0"></div>
+                    <span class="text-[11px] font-bold tracking-widest text-sky-400 font-display shrink-0">VYUHAK</span>
+                    <span class="text-slate-600 text-[10px]">|</span>
+                    <span id="hud-sat-name" class="text-[10px] font-semibold text-sky-100 truncate">VK-Tracker-01</span>
+                </div>
+                <!-- Right: Live Coords + UTC + Mute -->
+                <div class="flex items-center gap-2 shrink-0">
+                    <span class="text-[10px] text-emerald-400 mono-telemetry font-medium"><span id="hud-lat">20.84</span>&deg;, <span id="hud-lon">85.10</span>&deg;</span>
+                    <span id="hud-time" class="text-[9px] font-bold text-amber-400/90 mono-telemetry hidden sm:inline">UTC --:--:--</span>
+                    <button id="btn-mute" onclick="toggleMute()" class="text-slate-400 hover:text-sky-300 transition p-0.5" title="Toggle Sound">
+                        <svg id="icon-sound-on" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
+                        <svg id="icon-sound-off" class="w-3.5 h-3.5 hidden text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path></svg>
+                    </button>
+                </div>
+            </div>
+            <!-- Micro Sub-Telemetry Strip -->
+            <div class="flex items-center justify-between text-[9px] text-slate-400 mt-1 pt-1 border-t border-white/5 mono-telemetry">
+                <span>ALT <strong class="text-slate-200" id="hud-alt">1200</strong> km &bull; VEL <strong class="text-slate-200" id="hud-vel">7.26</strong> km/s</span>
+                <span id="hud-optics" class="text-sky-300/90 font-sans font-semibold">True Color</span>
+            </div>
         </div>
-        <button type="button" class="vhk-interior-toggle" id="vhk-interior-toggle">
-          Enter Interior &rarr;
-        </button>
-      </div>
 
-      <div class="vhk-popup-summary" id="vhk-popup-summary">
-        Sun: 0.72 AU &bull; 53.9M km &bull; Pinch/zoom close or tap Enter Interior
-      </div>
-
-      <div class="vhk-popup-deep" id="vhk-popup-deep" hidden>
-        <div class="vhk-metrics">
-          <div class="vhk-metric">
-            <span class="vhk-metric-label">DIST</span>
-            <strong class="vhk-metric-val" id="vhk-m-dist">0.72 AU</strong>
-          </div>
-          <div class="vhk-metric">
-            <span class="vhk-metric-label">VEL</span>
-            <strong class="vhk-metric-val" id="vhk-m-vel">35.2 km/s</strong>
-          </div>
-          <div class="vhk-metric">
-            <span class="vhk-metric-label">ESI/INFO</span>
-            <strong class="vhk-metric-val" id="vhk-m-esi">ESI 0.44</strong>
-          </div>
+        <!-- Row 1: Primary 4-Scale Real Cosmic Rail (Earth | Solar | Galaxy | Universe) -->
+        <div class="pointer-events-auto flex items-center gap-1 overflow-x-auto hide-scrollbar w-full">
+            <button id="btn-earth-view" onclick="selectScale('EARTH')" class="scale-pill on">
+                <span id="earth-dot" class="dot bg-sky-400"></span>Earth
+            </button>
+            <button id="btn-solar-view" onclick="selectScale('COSMOS')" class="scale-pill">
+                <span id="solar-dot" class="dot bg-slate-500"></span>Solar
+            </button>
+            <button id="btn-galaxy-view" onclick="selectScale('GALAXY')" class="scale-pill">
+                <span id="galaxy-dot" class="dot bg-slate-500"></span>Galaxy
+            </button>
+            <button id="btn-universe-view" onclick="selectScale('UNIVERSE')" class="scale-pill">
+                <span id="universe-dot" class="dot bg-slate-500"></span>Universe
+            </button>
         </div>
-        <p class="vhk-popup-desc" id="vhk-popup-desc"></p>
-      </div>
-    </aside>
-  </main>
 
-  <!-- Bottom Navigation Bar -->
-  <footer class="vhk-bottom-nav">
-    <button type="button" class="vhk-nav-btn" data-nav="events">
-      <span>Live Events</span>
-      <span class="vhk-alert-pill">11</span>
-    </button>
-    <button type="button" class="vhk-nav-btn is-active" data-nav="solar">
-      <span>Solar Data</span>
-    </button>
-    <button type="button" class="vhk-nav-btn" data-nav="settings">
-      <span>Settings</span>
-    </button>
-  </footer>
+        <!-- Row 2: 3D/2D Mode Toggle & Free / Hover / ISS Switch -->
+        <div class="pointer-events-auto flex items-center gap-1.5 overflow-x-auto hide-scrollbar w-full">
+            <!-- 3D / 2D Segmented Switch -->
+            <div class="obsidian-glass rounded-full flex p-0.5 shrink-0 border border-white/10">
+                <button id="btn-3d" onclick="switchEngine('3D')" class="toggle-seg active">3D</button>
+                <button id="btn-2d" onclick="switchEngine('2D')" class="toggle-seg">2D</button>
+            </div>
+            <!-- Free Camera / Hover / ISS Switches -->
+            <button id="btn-cam-cycle" onclick="cycleCamera()" class="quick-pill text-sky-300">
+                <span class="dot bg-sky-400"></span><span id="cam-label">Free</span>
+            </button>
+            <button id="top-geo-lock" onclick="toggleGeoLock()" class="quick-pill">
+                <span id="top-lock-dot" class="dot bg-slate-500"></span>Hover
+            </button>
+            <button id="btn-iss-mode" onclick="toggleISSMode()" class="quick-pill">
+                <span id="iss-dot" class="dot bg-slate-500"></span>ISS
+            </button>
+            <button id="btn-ground-track" onclick="toggleGroundTrack()" class="quick-pill on">
+                <span id="track-dot" class="dot bg-sky-400"></span>Track
+            </button>
+            <button onclick="applyOrbitPreset('LEO')" class="quick-pill text-slate-300" title="Low Earth Orbit (550 km)">LEO</button>
+            <button onclick="applyOrbitPreset('SSO')" class="quick-pill text-slate-300" title="Sun-Synchronous Polar Orbit (705 km, 98°)">SSO</button>
+            <button onclick="applyOrbitPreset('GEO')" class="quick-pill text-slate-300" title="Geostationary Belt (35,786 km, 0°)">GEO</button>
+            <!-- 2D Map Weather Layers -->
+            <button id="btn-radar" onclick="toggleRainRadar()" class="quick-pill hidden">
+                <span id="radar-dot" class="dot bg-slate-500"></span>Radar
+            </button>
+            <button id="btn-2d-clouds" onclick="toggle2DClouds()" class="quick-pill hidden">
+                <span id="clouds2d-dot" class="dot bg-slate-500"></span>Clouds
+            </button>
+        </div>
 
-  <script src="src/js/bodies-data.js"></script>
-  <script src="src/js/popup-controller.js"></script>
-  <script src="src/js/solar-renderer.js"></script>
-  <script src="src/js/app.js"></script>
+        <!-- Solar System Planet Selector Bar (Visible ONLY in Cosmos Mode) -->
+        <div id="cosmos-bar" class="pointer-events-auto hidden flex flex-col gap-1.5 w-full">
+            <div class="flex items-center gap-1 overflow-x-auto hide-scrollbar pb-0.5" id="planet-chips">
+                <!-- Populated dynamically by JS -->
+            </div>
+            <div id="planet-telemetry" class="obsidian-glass rounded-lg px-3 py-2 text-[10px] text-slate-300 flex items-center justify-between gap-2 border border-purple-500/30">
+                <div>
+                    <span id="pt-name" class="font-bold text-purple-300 uppercase tracking-wider">Sun</span>
+                    <span id="pt-type" class="text-slate-400 ml-1.5">G2V Main-Sequence Star</span>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <div class="mono-telemetry text-right text-[9px] text-sky-200" id="pt-stats">
+                        1.00 AU &bull; 8.32 lm
+                    </div>
+                    <button id="btn-cutaway" onclick="toggleCoreCutaway()" class="bg-amber-900/50 hover:bg-amber-700/60 border border-amber-400/45 text-amber-200 px-2 py-0.5 rounded text-[9px] font-bold shrink-0">Core Slice</button>
+                    <button id="btn-lagrange" onclick="toggleLagrangePoints()" class="bg-sky-900/55 hover:bg-sky-700/60 border border-sky-400/45 text-sky-200 px-2 py-0.5 rounded text-[9px] font-bold shrink-0">L1–L5</button>
+                    <button id="btn-cosmos-warp" onclick="cycleCosmosWarp()" class="bg-purple-900/60 hover:bg-purple-700/60 border border-purple-400/50 text-purple-200 px-2 py-0.5 rounded text-[9px] font-bold shrink-0">1x Live</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Milky Way Galaxy Region Bar (Visible ONLY in Galaxy Mode) -->
+        <div id="galaxy-bar" class="pointer-events-auto hidden flex flex-col gap-1.5 w-full">
+            <div class="flex items-center gap-1 overflow-x-auto hide-scrollbar pb-0.5" id="galaxy-chips">
+                <!-- Populated dynamically by JS -->
+            </div>
+            <div class="obsidian-glass rounded-lg px-3 py-2 text-[10px] text-slate-300 flex items-center justify-between gap-2 border border-indigo-500/35">
+                <div class="min-w-0">
+                    <span id="gt-name" class="font-bold text-indigo-300 uppercase tracking-wider">Milky Way</span>
+                    <span id="gt-type" class="text-slate-400 ml-1.5">SBbc Barred Spiral</span>
+                </div>
+                <div class="flex items-center gap-1.5 shrink-0">
+                    <div class="mono-telemetry text-right text-[9px] text-sky-200 hidden sm:block" id="gt-stats">
+                        105,700 ly &bull; ~250B Stars
+                    </div>
+                    <button id="btn-dm-halo" onclick="toggleDarkMatterHalo()" class="bg-indigo-900/60 hover:bg-indigo-700/60 border border-indigo-400/50 text-indigo-200 px-2 py-0.5 rounded text-[9px] font-bold">DM Halo</button>
+                    <button id="btn-exo-orrery" onclick="openExoplanetSystem('TRAPPIST-1e')" class="bg-teal-900/60 hover:bg-teal-700/60 border border-teal-400/50 text-teal-200 px-2 py-0.5 rounded text-[9px] font-bold">Exo-Lab</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Observable Universe & Cosmic Web Bar (Visible ONLY in Universe Mode) -->
+        <div id="universe-bar" class="pointer-events-auto hidden flex flex-col gap-1.5 w-full">
+            <div class="flex items-center gap-1 overflow-x-auto hide-scrollbar pb-0.5" id="universe-chips">
+                <!-- Populated dynamically by JS -->
+            </div>
+            <div class="obsidian-glass rounded-lg px-3 py-2 text-[10px] text-slate-300 flex flex-col gap-1.5 border border-amber-500/35">
+                <div class="flex items-center justify-between gap-2">
+                    <div class="min-w-0">
+                        <span id="ut-name" class="font-bold text-amber-300 uppercase tracking-wider">Observable Universe</span>
+                        <span id="ut-type" class="text-slate-400 ml-1.5">Cosmic Web &amp; CMB Horizon</span>
+                    </div>
+                    <div class="mono-telemetry text-right text-[9px] text-amber-200 shrink-0" id="ut-stats">
+                        93B ly &bull; ~2T Galaxies
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 pt-1 border-t border-white/10">
+                    <span class="text-[9px] font-bold text-amber-300 uppercase shrink-0">Epoch z=<span id="z-val">0.0</span></span>
+                    <input type="range" id="redshift-slider" min="0" max="15" step="0.2" value="0" oninput="updateCosmicRedshift(this.value)" style="margin:0; height:14px;">
+                    <span id="z-epoch-label" class="text-[9px] text-sky-200 mono-telemetry shrink-0">Today (13.8B yr) | T_cmb 2.73K</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- On-Screen Real-Time Object Inspector Card (Shown on all Space Scales except Earth) -->
+        <div id="space-object-hud" class="pointer-events-auto hidden obsidian-glass rounded-xl px-3 py-2 w-full border border-sky-400/30 shadow-lg">
+            <div class="flex items-center justify-between gap-2">
+                <div class="min-w-0 flex items-center gap-1.5">
+                    <span id="soh-badge" class="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-sky-950/90 border border-sky-400/40 text-sky-300 shrink-0">SOLAR</span>
+                    <span id="soh-title" class="text-[11px] font-bold text-white truncate">Sun (G2V Star)</span>
+                </div>
+                <button id="soh-enter-btn" onclick="enterFocusedSpaceObject()" class="bg-sky-600/80 hover:bg-sky-500 text-white px-2.5 py-0.5 rounded-full text-[9px] font-bold tracking-wide shrink-0 transition">Enter System &rarr;</button>
+            </div>
+            <div id="soh-metrics" class="grid grid-cols-3 gap-1.5 mt-1.5 pt-1.5 border-t border-white/10 text-[9px] mono-telemetry">
+                <div class="truncate"><span class="text-slate-400">DIST:</span> <strong id="soh-m1" class="text-amber-300">0.00 AU</strong></div>
+                <div class="truncate"><span class="text-slate-400">VEL:</span> <strong id="soh-m2" class="text-sky-300">230 km/s</strong></div>
+                <div class="truncate"><span class="text-slate-400">ESI/INFO:</span> <strong id="soh-m3" class="text-emerald-300">5,505 °C</strong></div>
+            </div>
+            <div id="soh-summary" class="text-[9.5px] text-slate-300 mt-1 leading-snug line-clamp-2">
+                Main-sequence G2V star anchoring 8 planets, dwarf planets, and the Kuiper Belt.
+            </div>
+        </div>
+    </div>
+
+    <!-- BOTTOM DOCK (SWIPEABLE) -->
+    <div id="fixed-bottom-dock">
+        <div id="dock-handle" class="flex justify-center pt-2 pb-1 cursor-pointer" onclick="toggleDockCollapse()">
+            <div class="w-10 h-1 bg-slate-500/80 rounded-full"></div>
+        </div>
+        <div class="flex h-[44px] w-full border-b border-white/5 relative z-10">
+            <button onclick="openTab('intel', this)" class="tab-btn active">Live Events <span id="intel-badge" class="ml-1.5 bg-red-500 text-white text-[9px] px-1.5 py-0.5 rounded-full hidden">0</span></button>
+            <button id="tab-btn-dossier" onclick="openTab('weather', this)" class="tab-btn">Ground Data</button>
+            <button onclick="openTab('mission', this)" class="tab-btn">Settings</button>
+        </div>
+        
+        <!-- Tab: Live Global & Space Events -->
+        <div id="tab-intel" class="tab-content active hide-scrollbar">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Earth & Space Live Feed</h3>
+                <button onclick="fetchLiveIntel(true)" class="text-[10px] bg-sky-900/50 hover:bg-sky-700/50 text-sky-300 px-3 py-1 rounded font-bold border border-sky-500/30">Refresh</button>
+            </div>
+            <div id="intel-feed" class="space-y-2.5 pb-6">
+                <div class="skeleton-card h-14 rounded-lg"></div>
+                <div class="skeleton-card h-14 rounded-lg"></div>
+            </div>
+        </div>
+        
+        <!-- Tab: Ground Data / Cosmos Data (Dynamic Dossier) -->
+        <div id="tab-weather" class="tab-content hide-scrollbar pb-10">
+            <!-- EARTH GROUND DATA DOSSIER -->
+            <div id="earth-dossier" class="space-y-5">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-2">
+                <div>
+                    <h3 class="text-[11px] font-bold text-sky-400 tracking-widest uppercase">Target Footprint Dossier</h3>
+                    <div id="weather-loc" class="text-[10px] text-emerald-400 mono-telemetry">Scanning coordinates...</div>
+                </div>
+                <button onclick="scanCurrentFootprint()" class="text-[10px] bg-emerald-900/50 hover:bg-emerald-700/50 text-emerald-300 px-3 py-1.5 rounded font-bold border border-emerald-500/30">Scan Now</button>
+            </div>
+
+            <!-- 1. Territory, Population & Economy -->
+            <div>
+                <h4 class="text-[10px] font-bold text-slate-400 tracking-widest mb-2 uppercase">1. Territory, Population & Economy</h4>
+                <div id="geo-data" class="text-[12px] text-slate-200 leading-relaxed bg-slate-900/60 p-3 border border-slate-800 rounded-lg mb-2">
+                    Locking onto satellite footprint...
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                        <div class="text-[9px] text-slate-400 uppercase" id="reg-pop-label">Country Population</div>
+                        <div id="reg-pop" class="text-sm font-bold text-white mt-0.5">--</div>
+                    </div>
+                    <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                        <div class="text-[9px] text-slate-400 uppercase">Capital City</div>
+                        <div id="reg-cap" class="text-sm font-bold text-sky-300 mt-0.5">--</div>
+                    </div>
+                    <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                        <div class="text-[9px] text-slate-400 uppercase">Currency / Econ</div>
+                        <div id="reg-cur" class="text-sm font-bold text-emerald-400 mt-0.5">--</div>
+                    </div>
+                    <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                        <div class="text-[9px] text-slate-400 uppercase">Surface Area</div>
+                        <div id="reg-area" class="text-sm font-bold text-purple-300 mt-0.5">--</div>
+                    </div>
+                    <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                        <div class="text-[9px] text-slate-400 uppercase">Pop. Density</div>
+                        <div id="reg-dens" class="text-sm font-bold text-pink-300 mt-0.5">--</div>
+                    </div>
+                    <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                        <div class="text-[9px] text-slate-400 uppercase">Local Timezone</div>
+                        <div id="reg-tz" class="text-sm font-bold text-amber-300 mt-0.5">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Live Weather & Air Quality -->
+            <div>
+                <h4 class="text-[10px] font-bold text-slate-400 tracking-widest mb-2 uppercase">2. Live Weather & Air Quality (AQI)</h4>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    <div class="bg-slate-900/50 border border-slate-700/50 rounded p-2.5">
+                        <div class="text-[9px] text-slate-400">Temperature</div>
+                        <div id="w-temp" class="text-base font-bold text-amber-400">-- &deg;C</div>
+                    </div>
+                    <div class="bg-slate-900/50 border border-slate-700/50 rounded p-2.5">
+                        <div class="text-[9px] text-slate-400">Wind Speed</div>
+                        <div id="w-wind" class="text-base font-bold text-sky-400">-- km/h</div>
+                    </div>
+                    <div class="bg-slate-900/50 border border-slate-700/50 rounded p-2.5">
+                        <div class="text-[9px] text-slate-400">Humidity</div>
+                        <div id="w-hum" class="text-base font-bold text-emerald-400">-- %</div>
+                    </div>
+                    <div class="bg-slate-900/50 border border-slate-700/50 rounded p-2.5">
+                        <div class="text-[9px] text-slate-400">Sky Condition</div>
+                        <div id="w-cond" class="text-xs font-bold text-slate-200 mt-1">--</div>
+                    </div>
+                    <div class="bg-slate-900/50 border border-slate-700/50 rounded p-2.5">
+                        <div class="text-[9px] text-slate-400">Air Quality (US AQI)</div>
+                        <div id="w-aqi" class="text-sm font-bold text-teal-300 mt-0.5">--</div>
+                    </div>
+                    <div class="bg-slate-900/50 border border-slate-700/50 rounded p-2.5">
+                        <div class="text-[9px] text-slate-400">PM2.5 / UV Index</div>
+                        <div id="w-pm" class="text-xs font-bold text-indigo-300 mt-1">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Active Conflicts & Emergencies -->
+            <div>
+                <h4 class="text-[10px] font-bold text-red-400 tracking-widest mb-2 uppercase">3. Active Conflicts, Disasters & Emergencies (In Swath)</h4>
+                <div id="reg-conflicts" class="space-y-2 text-[11px]">
+                    <div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Scanning satellite footprint for active alerts...</div>
+                </div>
+            </div>
+
+            <!-- 4. Real-Time Regional News -->
+            <div>
+                <h4 class="text-[10px] font-bold text-sky-400 tracking-widest mb-2 uppercase">4. Real-Time Regional News</h4>
+                <div id="reg-news" class="space-y-2 text-[11px]">
+                    <div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Fetching live regional news...</div>
+                </div>
+            </div>
+
+            <!-- 5. Public Interest & Strategic Dossier -->
+            <div>
+                <h4 class="text-[10px] font-bold text-amber-400 tracking-widest mb-2 uppercase">5. Regional Public Interest & Strategic Dossier</h4>
+                <div id="reg-interest" class="space-y-2 text-[11px] text-slate-300">
+                    <div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Analyzing regional public interest topics...</div>
+                </div>
+            </div>
+
+            <!-- 6. Top Places & Landmarks -->
+            <div>
+                <h4 class="text-[10px] font-bold text-emerald-400 tracking-widest mb-2 uppercase">6. Top Places, Cities & Landmarks in Swath</h4>
+                <div id="wiki-data" class="space-y-2 text-[11px] text-slate-300">
+                    <div class="bg-slate-900/40 border border-slate-800 rounded p-3 text-slate-400">Scanning surface for notable places...</div>
+                </div>
+            </div>
+
+            <!-- 7. Orbital Mechanics & Next Overhead Pass Telemetry -->
+            <div>
+                <h4 class="text-[10px] font-bold text-purple-400 tracking-widest mb-2 uppercase">7. Orbital Mechanics &amp; Ground-Track Telemetry</h4>
+                <div id="orbit-pass-card" class="bg-slate-900/60 border border-purple-500/30 rounded p-3 text-[11px] text-slate-200 space-y-1 mono-telemetry">
+                    <div>Period: <strong class="text-sky-300" id="orb-period">109.4 min</strong> &bull; Revs/Day: <strong class="text-emerald-300" id="orb-revs">13.16</strong></div>
+                    <div>Swath Horizon: <strong class="text-amber-300" id="orb-horizon">3,680 km</strong> &bull; Regime: <strong class="text-purple-300" id="orb-regime">MEO / LEO Transition</strong></div>
+                </div>
+            </div>
+            </div><!-- /#earth-dossier -->
+
+            <!-- COSMOS PLANETARY & SPACE WEATHER DOSSIER -->
+            <div id="cosmos-dossier" class="hidden space-y-5">
+                <div class="flex justify-between items-center border-b border-purple-500/30 pb-2">
+                    <div>
+                        <h3 id="cd-title" class="text-xs font-bold text-purple-300 tracking-widest uppercase">SUN // G2V STAR</h3>
+                        <div id="cd-subtitle" class="text-[10px] text-sky-300 mono-telemetry">Heliocentric Origin (0.0000 AU)</div>
+                    </div>
+                    <button onclick="fetchLiveSpaceWeather(true)" class="text-[10px] bg-purple-900/50 hover:bg-purple-700/50 text-purple-200 px-3 py-1 rounded font-bold border border-purple-500/30">Sync Live</button>
+                </div>
+
+                <!-- 1. Overview & Live Wikipedia Summary -->
+                <div>
+                    <h4 class="text-[10px] font-bold text-slate-400 tracking-widest mb-2 uppercase">1. Celestial Body Overview</h4>
+                    <div id="cd-bio" class="text-[11px] text-slate-200 leading-relaxed bg-slate-900/60 p-3 border border-slate-800 rounded-lg">
+                        Loading astronomical profile...
+                    </div>
+                </div>
+
+                <!-- 2. Real-Time Mathematical Ephemeris (NASA JPL J2000) -->
+                <div>
+                    <h4 class="text-[10px] font-bold text-sky-400 tracking-widest mb-2 uppercase">2. Live Mathematical Ephemeris (Keplerian)</h4>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Dist. from Sun</div>
+                            <div id="cd-sun-dist" class="text-xs font-bold text-amber-300 mt-0.5 mono-telemetry">--</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Dist. from Earth</div>
+                            <div id="cd-earth-dist" class="text-xs font-bold text-sky-300 mt-0.5 mono-telemetry">--</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">1-Way Light Time</div>
+                            <div id="cd-light-time" class="text-xs font-bold text-emerald-300 mt-0.5 mono-telemetry">--</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Orbital Velocity</div>
+                            <div id="cd-vel" class="text-xs font-bold text-white mt-0.5 mono-telemetry">--</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Eccentricity / Tilt</div>
+                            <div id="cd-ecc-inc" class="text-xs font-bold text-purple-300 mt-0.5 mono-telemetry">--</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Axial Obliquity</div>
+                            <div id="cd-obliq" class="text-xs font-bold text-pink-300 mt-0.5 mono-telemetry">--</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Physical, Internal Structure & Atmospheric Composition -->
+                <div>
+                    <h4 class="text-[10px] font-bold text-amber-400 tracking-widest mb-2 uppercase">3. Internal Structure, Composition &amp; Telemetry</h4>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Equatorial Radius</div>
+                            <div id="cd-radius" class="text-xs font-bold text-white mt-0.5 mono-telemetry">--</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Gravity / Escape</div>
+                            <div id="cd-grav" class="text-xs font-bold text-emerald-300 mt-0.5 mono-telemetry">--</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Mean Temp / Day</div>
+                            <div id="cd-temp" class="text-xs font-bold text-amber-300 mt-0.5">--</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Bulk Density</div>
+                            <div id="cd-density" class="text-xs font-bold text-sky-300 mt-0.5 mono-telemetry">--</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Magnetosphere</div>
+                            <div id="cd-mag" class="text-xs font-bold text-purple-300 mt-0.5">--</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Surface Pressure</div>
+                            <div id="cd-press" class="text-xs font-bold text-pink-300 mt-0.5 mono-telemetry">--</div>
+                        </div>
+                    </div>
+                    <div id="cd-structure" class="mt-2 bg-slate-900/50 border border-slate-800 rounded p-2.5 text-[11px] text-slate-300 leading-relaxed">
+                        Internal Layers: --
+                    </div>
+                    <div id="cd-atmo" class="mt-2 bg-slate-900/50 border border-slate-800 rounded p-2.5 text-[11px] text-slate-300 leading-relaxed">
+                        Atmosphere: --
+                    </div>
+                </div>
+
+                <!-- 3B. Astrobiology & Habitability Assessment -->
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <h4 class="text-[10px] font-bold text-teal-400 tracking-widest uppercase">4. Habitability &amp; Astrobiology Index</h4>
+                        <span id="cd-esi-badge" class="text-[10px] font-bold px-2 py-0.5 rounded bg-teal-950/70 border border-teal-500/40 text-teal-300 mono-telemetry">ESI 1.00</span>
+                    </div>
+                    <div class="bg-slate-900/60 border border-teal-500/25 rounded p-3 space-y-2">
+                        <div class="flex justify-between text-[10px]">
+                            <span class="text-slate-400 uppercase">Status &amp; Water Phase</span>
+                            <span id="cd-hab-status" class="font-bold text-emerald-300">--</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                            <div id="cd-esi-bar" class="h-full bg-gradient-to-r from-sky-400 to-emerald-400 transition-all duration-300" style="width: 100%"></div>
+                        </div>
+                        <div id="cd-hab-notes" class="text-[11px] text-slate-300 leading-relaxed">
+                            --
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Natural Satellites (Moons) -->
+                <div>
+                    <h4 class="text-[10px] font-bold text-emerald-400 tracking-widest mb-2 uppercase">5. Natural Satellites (Moons) &bull; <span id="cd-moon-count" class="text-white">0</span></h4>
+                    <div id="cd-moons" class="space-y-1.5 text-[11px]">
+                        <div class="bg-slate-900/40 border border-slate-800 rounded p-2.5 text-slate-400">No natural satellites.</div>
+                    </div>
+                </div>
+
+                <!-- 6. Live Space Weather (NOAA SWPC Real-Time Telemetry) -->
+                <div>
+                    <h4 class="text-[10px] font-bold text-rose-400 tracking-widest mb-2 uppercase">6. Live Space Weather (NOAA SWPC)</h4>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="bg-slate-900/50 border border-rose-500/30 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Solar Wind Speed</div>
+                            <div id="sw-wind" class="text-sm font-bold text-amber-300 mt-0.5 mono-telemetry">Scanning...</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-rose-500/30 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Geomagnetic Kp-Index</div>
+                            <div id="sw-kp" class="text-sm font-bold text-emerald-300 mt-0.5 mono-telemetry">Scanning...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 7. Comparative Planetary Physics Lab -->
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <h4 class="text-[10px] font-bold text-sky-400 tracking-widest uppercase">7. Comparative World Physics (vs Earth)</h4>
+                        <select id="compare-body-select" onchange="updatePlanetComparison(this.value)" class="bg-slate-900 border border-slate-700 rounded px-2 py-0.5 text-[10px] text-sky-300 outline-none">
+                            <option value="Mars">Mars</option>
+                            <option value="Venus">Venus</option>
+                            <option value="Mercury">Mercury</option>
+                            <option value="Jupiter">Jupiter</option>
+                            <option value="Saturn">Saturn</option>
+                            <option value="Uranus">Uranus</option>
+                            <option value="Neptune">Neptune</option>
+                            <option value="Pluto">Pluto</option>
+                            <option value="Ceres">Ceres</option>
+                        </select>
+                    </div>
+                    <div id="planet-compare-card" class="bg-slate-900/60 border border-sky-500/25 rounded p-3 text-[11px] text-slate-200 space-y-1.5 mono-telemetry">
+                        Loading comparison...
+                    </div>
+                </div>
+            </div><!-- /#cosmos-dossier -->
+
+            <!-- MILKY WAY GALAXY DOSSIER -->
+            <div id="galaxy-dossier" class="hidden space-y-5">
+                <div class="flex justify-between items-center border-b border-indigo-500/30 pb-2">
+                    <div>
+                        <h3 id="gd-title" class="text-xs font-bold text-indigo-300 tracking-widest uppercase">MILKY WAY // SBbc BARRED SPIRAL</h3>
+                        <div id="gd-subtitle" class="text-[10px] text-sky-300 mono-telemetry">Local Group &bull; Laniakea Supercluster</div>
+                    </div>
+                    <button onclick="focusGalaxyRegion('Solar System')" class="text-[10px] bg-indigo-900/50 hover:bg-indigo-700/50 text-indigo-200 px-3 py-1 rounded font-bold border border-indigo-500/30">Find Sun</button>
+                </div>
+
+                <!-- 1. Live Astrophysical Overview -->
+                <div>
+                    <h4 class="text-[10px] font-bold text-slate-400 tracking-widest mb-2 uppercase">1. Galactic Region Overview</h4>
+                    <div id="gd-bio" class="text-[11px] text-slate-200 leading-relaxed bg-slate-900/60 p-3 border border-slate-800 rounded-lg">
+                        Loading galactic astrophysical dossier...
+                    </div>
+                </div>
+
+                <!-- 2. Real-Time Galactic Astrometry & Kinematics -->
+                <div>
+                    <h4 class="text-[10px] font-bold text-sky-400 tracking-widest mb-2 uppercase">2. Galactic Astrometry & Kinematics</h4>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Galactocentric Dist.</div>
+                            <div id="gd-dist" class="text-xs font-bold text-amber-300 mt-0.5 mono-telemetry">26,670 ly</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Orbital Velocity</div>
+                            <div id="gd-vel" class="text-xs font-bold text-sky-300 mt-0.5 mono-telemetry">230 km/s</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Galactic Year</div>
+                            <div id="gd-year" class="text-xs font-bold text-emerald-300 mt-0.5 mono-telemetry">230M yrs</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Disk Diameter</div>
+                            <div id="gd-diam" class="text-xs font-bold text-white mt-0.5 mono-telemetry">105,700 ly</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Total Mass</div>
+                            <div id="gd-mass" class="text-xs font-bold text-purple-300 mt-0.5 mono-telemetry">1.15 &times; 10&sup1;&sup2; M&#9737;</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Ecliptic Plane Tilt</div>
+                            <div id="gd-tilt" class="text-xs font-bold text-pink-300 mt-0.5 mono-telemetry">60.2&deg;</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Sagittarius A* Supermassive Black Hole -->
+                <div>
+                    <h4 class="text-[10px] font-bold text-amber-400 tracking-widest mb-2 uppercase">3. Galactic Core // Sagittarius A* (SMBH)</h4>
+                    <div class="bg-slate-900/50 border border-amber-500/25 rounded p-3 text-[11px] text-slate-300 space-y-1">
+                        <div><strong class="text-amber-300">Mass:</strong> 4.154 &times; 10&sup6; Solar Masses (Event Horizon Telescope)</div>
+                        <div><strong class="text-sky-300">Schwarzschild Radius:</strong> ~12.2 million km (0.082 AU)</div>
+                        <div><strong class="text-emerald-300">Distance from Earth:</strong> 8.178 kpc (~26,673 light-years)</div>
+                    </div>
+                </div>
+
+                <!-- 4. Galactic Structure & Stellar Composition -->
+                <div>
+                    <h4 class="text-[10px] font-bold text-purple-400 tracking-widest mb-2 uppercase">4. Structure, Dark Matter Halo &amp; Composition</h4>
+                    <div id="gd-structure" class="bg-slate-900/50 border border-slate-800 rounded p-3 text-[11px] text-slate-300 leading-relaxed">
+                        <strong>Architecture:</strong> Central triaxial bar (~27,000 ly), thin star-forming disk (~1,000 ly thick, Pop I metal-rich stars), thick disk, stellar halo with ~150 globular clusters, and an extended NFW dark matter halo (~85% of total mass).
+                    </div>
+                </div>
+
+                <!-- 5. Known Earth-Like Exoplanets & Interactive Star-System Mini-Orrery -->
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <h4 class="text-[10px] font-bold text-teal-400 tracking-widest uppercase">5. Known Earth-Like Exoplanets (Habitable Zone)</h4>
+                        <span class="text-[9px] text-slate-400">Tap to Launch 3D System</span>
+                    </div>
+                    <div id="exoplanet-mini-panel" class="hidden mb-2 bg-teal-950/35 border border-teal-400/40 rounded-lg p-3 space-y-1.5">
+                        <div class="flex justify-between items-center">
+                            <span id="exo-mini-title" class="text-xs font-bold text-teal-300 uppercase">TRAPPIST-1 SYSTEM</span>
+                            <button onclick="closeExoplanetSystem()" class="text-[9px] bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-0.5 rounded font-bold">Exit 3D System</button>
+                        </div>
+                        <div id="exo-mini-desc" class="text-[10px] text-slate-300 leading-relaxed"></div>
+                    </div>
+                    <div id="exoplanet-list" class="space-y-1.5 text-[11px]"></div>
+                </div>
+
+                <!-- 6. Known Local Group & Nearby Galaxies -->
+                <div>
+                    <h4 class="text-[10px] font-bold text-emerald-400 tracking-widest mb-2 uppercase">6. Known Local Group &amp; Nearby Galaxies</h4>
+                    <div class="space-y-1.5 text-[11px]">
+                        <div onclick="focusGalaxyRegion('Andromeda (M31)')" class="cursor-pointer bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 rounded p-2 flex justify-between items-center transition">
+                            <span class="font-semibold text-indigo-300">🌌 Andromeda (M31) &bull; SA(s)b</span>
+                            <span class="text-[10px] text-slate-400 mono-telemetry">2.537M ly &bull; ~1T Stars</span>
+                        </div>
+                        <div onclick="focusGalaxyRegion('Triangulum (M33)')" class="cursor-pointer bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 rounded p-2 flex justify-between items-center transition">
+                            <span class="font-semibold text-purple-300">🌌 Triangulum (M33) &bull; SA(s)cd</span>
+                            <span class="text-[10px] text-slate-400 mono-telemetry">2.73M ly &bull; ~40B Stars</span>
+                        </div>
+                        <div onclick="focusGalaxyRegion('LMC')" class="cursor-pointer bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 rounded p-2 flex justify-between items-center transition">
+                            <span class="font-semibold text-sky-300">🌌 Large Magellanic Cloud (LMC)</span>
+                            <span class="text-[10px] text-slate-400 mono-telemetry">163,000 ly &bull; ~30B Stars</span>
+                        </div>
+                        <div onclick="focusGalaxyRegion('SMC')" class="cursor-pointer bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 rounded p-2 flex justify-between items-center transition">
+                            <span class="font-semibold text-cyan-300">🌌 Small Magellanic Cloud (SMC)</span>
+                            <span class="text-[10px] text-slate-400 mono-telemetry">200,000 ly &bull; ~3B Stars</span>
+                        </div>
+                        <div onclick="focusGalaxyRegion('Centaurus A')" class="cursor-pointer bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 rounded p-2 flex justify-between items-center transition">
+                            <span class="font-semibold text-amber-300">🌌 Centaurus A (NGC 5128)</span>
+                            <span class="text-[10px] text-slate-400 mono-telemetry">13M ly &bull; Active Elliptical</span>
+                        </div>
+                        <div onclick="focusGalaxyRegion('Sombrero (M104)')" class="cursor-pointer bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 rounded p-2 flex justify-between items-center transition">
+                            <span class="font-semibold text-rose-300">🌌 Sombrero Galaxy (M104)</span>
+                            <span class="text-[10px] text-slate-400 mono-telemetry">29.3M ly &bull; Dust Ring</span>
+                        </div>
+                    </div>
+                </div>
+            </div><!-- /#galaxy-dossier -->
+
+            <!-- OBSERVABLE UNIVERSE DOSSIER -->
+            <div id="universe-dossier" class="hidden space-y-5">
+                <div class="flex justify-between items-center border-b border-amber-500/30 pb-2">
+                    <div>
+                        <h3 id="ud-title" class="text-xs font-bold text-amber-300 tracking-widest uppercase">OBSERVABLE UNIVERSE // 93B LY</h3>
+                        <div id="ud-subtitle" class="text-[10px] text-sky-300 mono-telemetry">Observed Cosmic Web &amp; CMB Last-Scattering Horizon</div>
+                    </div>
+                    <button onclick="focusUniverseRegion('Laniakea')" class="text-[10px] bg-amber-900/50 hover:bg-amber-700/50 text-amber-200 px-3 py-1 rounded font-bold border border-amber-500/30">Home Web</button>
+                </div>
+
+                <div>
+                    <h4 class="text-[10px] font-bold text-slate-400 tracking-widest mb-2 uppercase">1. Cosmological Overview</h4>
+                    <div id="ud-bio" class="text-[11px] text-slate-200 leading-relaxed bg-slate-900/60 p-3 border border-slate-800 rounded-lg">
+                        Loading cosmological dossier...
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="text-[10px] font-bold text-sky-400 tracking-widest mb-2 uppercase">2. Precision Cosmology (Planck / &Lambda;CDM)</h4>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Diameter</div>
+                            <div id="ud-diam" class="text-xs font-bold text-amber-300 mt-0.5 mono-telemetry">93.0B ly</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Age of Universe</div>
+                            <div id="ud-age" class="text-xs font-bold text-sky-300 mt-0.5 mono-telemetry">13.80B yrs</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Hubble Constant</div>
+                            <div id="ud-h0" class="text-xs font-bold text-emerald-300 mt-0.5 mono-telemetry">67.4 km/s/Mpc</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Dark Energy</div>
+                            <div class="text-xs font-bold text-purple-300 mt-0.5 mono-telemetry">68.5%</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Dark Matter</div>
+                            <div class="text-xs font-bold text-indigo-300 mt-0.5 mono-telemetry">26.5%</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Ordinary Matter</div>
+                            <div class="text-xs font-bold text-white mt-0.5 mono-telemetry">5.0% (~2T Galaxies)</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="text-[10px] font-bold text-amber-400 tracking-widest mb-2 uppercase">3. Cosmic Microwave Background (CMB)</h4>
+                    <div class="bg-slate-900/50 border border-amber-500/25 rounded p-3 text-[11px] text-slate-300 space-y-1">
+                        <div><strong class="text-amber-300">Temperature:</strong> 2.7255 K (-270.42 &deg;C)</div>
+                        <div><strong class="text-sky-300">Surface of Last Scattering:</strong> 380,000 years after Big Bang (z &approx; 1100)</div>
+                        <div><strong class="text-emerald-300">Observational Horizon:</strong> Represents the physical particle horizon (46.5 billion light-years radius) observed by ESA Planck and NASA WMAP.</div>
+                    </div>
+                </div>
+            </div><!-- /#universe-dossier -->
+        </div>
+
+        <!-- Tab: Settings -->
+        <div id="tab-mission" class="tab-content hide-scrollbar pb-12">
+            <!-- Unified City / Coordinate Search -->
+            <h3 class="text-[11px] font-bold text-slate-400 tracking-widest mb-2.5 pb-1 border-b border-slate-700 uppercase">Search Any City, Country, or Coordinates</h3>
+            <div class="mb-5">
+                <div class="flex gap-2">
+                    <input type="text" id="search-location" placeholder="e.g. Angul, Tokyo, New York, or 20.84, 85.10" class="bg-slate-900/80 border border-slate-700 rounded p-2.5 text-white text-[11px] w-full focus:border-sky-400 outline-none" onkeydown="if(event.key==='Enter') searchAndDeploy()">
+                    <button onclick="searchAndDeploy()" class="bg-sky-600 hover:bg-sky-500 text-white font-bold px-4 py-2 rounded text-[11px] transition shrink-0">DEPLOY</button>
+                </div>
+                <div class="text-[10px] text-slate-400 mt-1.5">
+                    Tip: <strong>Double-tap with one finger on the 3D Globe</strong> or tap anywhere on the <strong>2D Map</strong> to deploy instantly. Pinch freely with two fingers to zoom.
+                </div>
+            </div>
+
+            <!-- Spacecraft Size & Visual Fineness -->
+            <h3 class="text-[11px] font-bold text-sky-400 tracking-widest mb-2.5 pb-1 border-b border-slate-700 uppercase">Spacecraft Scale & Visuals</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <div class="flex justify-between text-[10px] text-slate-300 font-bold mb-1 uppercase">
+                        <span>VK-Tracker Satellite Size</span>
+                        <span id="vk-scale-val" class="text-sky-400">0.45x (Realistic)</span>
+                    </div>
+                    <input type="range" id="vk-scale-slider" min="0.15" max="2.0" step="0.05" value="0.45" oninput="updateVKScale(this.value)">
+                </div>
+                <div>
+                    <div class="flex justify-between text-[10px] text-slate-300 font-bold mb-1 uppercase">
+                        <span>ISS Station Size</span>
+                        <span id="iss-scale-val" class="text-amber-400">0.55x (Realistic)</span>
+                    </div>
+                    <input type="range" id="iss-scale-slider" min="0.15" max="2.2" step="0.05" value="0.55" oninput="updateISSScale(this.value)">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 mb-5">
+                <button id="btn-toggle-clouds" onclick="toggleClouds()" class="btn-active py-2 px-2 text-[10px] border border-slate-600 rounded font-bold">3D Clouds: ON</button>
+                <button id="btn-toggle-cone" onclick="toggleLaserCone()" class="btn-active py-2 px-2 text-[10px] border border-slate-600 rounded font-bold">Scan Beam: ON</button>
+                <button id="btn-toggle-meteors" onclick="toggleMeteors()" class="btn-active py-2 px-2 text-[10px] border border-slate-600 rounded font-bold">Space Meteors: ON</button>
+                <button id="btn-toggle-mw" onclick="toggleMilkyWaySky()" class="btn-active py-2 px-2 text-[10px] border border-slate-600 rounded font-bold">Milky Way Sky: ON</button>
+                <button id="btn-toggle-constellations" onclick="toggleConstellations()" class="btn-active py-2 px-2 text-[10px] border border-slate-600 rounded font-bold">Constellations: ON</button>
+                <button id="btn-toggle-labels" onclick="toggleLabels()" class="btn-active py-2 px-2 text-[10px] border border-slate-600 rounded font-bold">3D Labels: ON</button>
+                <button id="btn-toggle-retro" onclick="toggleOrbitDirection()" class="bg-slate-800/80 py-2 px-2 text-[10px] border border-slate-700 rounded font-bold text-slate-200">Orbit: Prograde</button>
+            </div>
+
+            <!-- Camera Vision Modes -->
+            <h3 class="text-[11px] font-bold text-slate-400 tracking-widest mb-2.5 pb-1 border-b border-slate-700 uppercase">Camera Vision Modes</h3>
+            <div class="grid grid-cols-2 gap-2 mb-5">
+                <button onclick="setOptics(0)" class="optics-btn btn-active py-2.5 text-[11px] border border-slate-600 rounded font-bold text-slate-200">True Color (Real-Time)</button>
+                <button onclick="setOptics(1)" class="optics-btn py-2.5 text-[11px] bg-slate-800/80 border border-slate-700 rounded font-bold text-amber-400">Thermal (Heat)</button>
+                <button onclick="setOptics(2)" class="optics-btn py-2.5 text-[11px] bg-slate-800/80 border border-slate-700 rounded font-bold text-emerald-400">Night Vision</button>
+                <button onclick="setOptics(3)" class="optics-btn py-2.5 text-[11px] bg-slate-800/80 border border-slate-700 rounded font-bold text-sky-400">Radar (Wireframe)</button>
+            </div>
+
+            <!-- Advanced Orbit & Path Settings -->
+            <h3 class="text-[11px] font-bold text-slate-400 tracking-widest mb-2.5 pb-1 border-b border-slate-700 uppercase">VK-Tracker Orbit & Mechanics</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <div class="flex justify-between text-[10px] text-slate-300 font-bold mb-1 uppercase">
+                        <span>Altitude (Height)</span>
+                        <span id="alt-val" class="text-sky-400">1200 km</span>
+                    </div>
+                    <input type="range" id="alt-slider" min="400" max="35000" step="100" value="1200" oninput="updateAltitude(this.value)">
+                </div>
+                <div>
+                    <div class="flex justify-between text-[10px] text-slate-300 font-bold mb-1 uppercase">
+                        <span>Orbit Tilt (Inclination)</span>
+                        <span id="inc-val" class="text-sky-400">45&deg;</span>
+                    </div>
+                    <input type="range" id="inc-slider" min="0" max="90" step="1" value="45" oninput="updateInclination(this.value)">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <div class="flex justify-between text-[10px] text-slate-300 font-bold mb-1 uppercase">
+                        <span>Orbit Eccentricity</span>
+                        <span id="ecc-val" class="text-sky-400">0.00 (Circular)</span>
+                    </div>
+                    <input type="range" id="ecc-slider" min="0" max="0.35" step="0.01" value="0" oninput="updateEccentricity(this.value)">
+                </div>
+                <div>
+                    <div class="flex justify-between text-[10px] text-slate-300 font-bold mb-1 uppercase">
+                        <span>Scanner Swath Size</span>
+                        <span id="swath-val" class="text-sky-400">1056 km</span>
+                    </div>
+                    <input type="range" id="swath-slider" min="0.06" max="0.45" step="0.01" value="0.22" oninput="updateSwath(this.value)">
+                </div>
+            </div>
+
+            <div class="mb-5">
+                <div class="flex justify-between text-[10px] text-slate-300 font-bold mb-1 uppercase">
+                    <span>Orbit Speed (Smooth Glide)</span>
+                    <span id="speed-val" class="text-sky-400">1.0x (Realistic)</span>
+                </div>
+                <input type="range" id="speed-slider" min="0.005" max="0.35" step="0.005" value="0.035" oninput="updateSpeed(this.value)">
+            </div>
+            
+            <button onclick="toggleGeoLock()" id="btn-geo-lock" class="w-full py-3.5 bg-sky-900/30 border border-sky-700/50 rounded-lg text-sm font-bold tracking-wide flex items-center justify-between px-4 mb-6">
+                <span class="text-white">Hover over Current Location</span>
+                <span id="lock-indicator" class="text-slate-400">OFF</span>
+            </button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
 </body>
 </html>

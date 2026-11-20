@@ -1,8 +1,8 @@
-# VYUHAK Solar Pop-Up Zoom & Interior Wiring
+# Non-Destructive Patch for VYUHAK
 
-This package provides a working reference implementation for hiding deep telemetry (`DIST`, `VEL`, `ESI/INFO`) and interior/geological descriptions at system zoom, revealing them inside the selected body's pop-up only when zoomed in close (`cameraDistance <= closeThreshold`) or when inside interior mode (`isInsideInterior === true`).
+My previous full-page replacement broke your existing styling and layout. This archive contains only `vyuhak-popup-patch.js`, a non-destructive patch designed to sit on top of your existing page without replacing your CSS or canvas.
 
-## Files Included
-- `index.html`: Mobile-first HUD, celestial target marker, and object pop-up markup.
-- `styles.css`: Dark-mode layout, viewport clamping, and `.mode-deep-inspect` / `.mode-interior` styling.
-- `app.js`: Camera zoom threshold calculation, interior toggle state, and bounds-clamped pop-up positioning.
+## How to Use
+1. Add `vyuhak-popup-patch.js` to your project folder.
+2. Include `<script src="vyuhak-popup-patch.js" defer></script>` at the end of `<body>` in your existing `index.html`.
+3. Optionally call `window.VYUHAK_POPUP.setState({ cameraDistance, isInsideInterior, bodyKey, anchor: { x, y } })` from your camera/zoom loop when zooming close or entering an object's interior.

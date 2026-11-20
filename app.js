@@ -1,5 +1,5 @@
 // ============================================================================
-// VYUHAK v39 CONTINUOUS // EARTH-ANCHORED MANUAL ZOOM-OUT INTO SOLAR SYSTEM (NO SUN JUMP!)
+// VYUHAK v40 TRUE-CONTINUOUS // CONTINUOUS OUTWARD & ANCHOR-INWARD ZOOM ACROSS ALL SCALES
 // ============================================================================
 
 // --- 1. AUDIO ENGINE WITH MUTE ---
@@ -4463,7 +4463,7 @@ function animate() {
             };
 
             if (!isSolarSystemView && !isGalaxyView && !isUniverseView && !isMultiverseView) {
-                // EARTH VIEW -> Zooming OUT into Solar System: continue naturally past Earth into the Solar System!
+                // EARTH VIEW -> Zooming OUT into Solar System: step out right behind Earth's orbital node
                 if (camDist > 15.6) {
                     const earthEntry = cosmosBodiesMap.get('Earth');
                     const earthWorld = new THREE.Vector3(11.5, 0, 0);
@@ -4471,57 +4471,72 @@ function animate() {
                     const outwardDir = camera.position.clone().sub(controls.target);
                     if (outwardDir.lengthSq() < 1e-6) outwardDir.set(0, 0.35, 0.9);
                     outwardDir.normalize();
-                    const helioCamPos = earthWorld.clone().addScaledVector(outwardDir, 4.2);
+                    const helioCamPos = earthWorld.clone().addScaledVector(outwardDir, 4.4);
                     const helioLookAt = earthWorld.clone().lerp(new THREE.Vector3(0, 0, 0), 0.25);
                     performSeamlessZoomHandoff('COSMOS', 'Solar System Scale', 13.8, helioCamPos, helioLookAt);
                 }
             } else if (isSolarSystemView) {
-                // SOLAR VIEW -> Zooming OUT into Milky Way Galaxy
+                // SOLAR VIEW -> Zooming OUT into Milky Way Galaxy: anchor right past the Solar System pin
                 if (camDist > 122) {
-                    performSeamlessZoomHandoff('GALAXY', 'Milky Way Galaxy Scale', 24.0);
+                    const solarWorld = new THREE.Vector3(13.335, 0, 0);
+                    if (solarSystemPinObj) solarSystemPinObj.getWorldPosition(solarWorld);
+                    const outDir = camera.position.clone().sub(controls.target);
+                    if (outDir.lengthSq() < 1e-6) outDir.set(0.4, 0.5, 0.7);
+                    outDir.normalize();
+                    const galCamPos = solarWorld.clone().addScaledVector(outDir, 7.5).add(new THREE.Vector3(0, 3.2, 0));
+                    performSeamlessZoomHandoff('GALAXY', 'Milky Way Galaxy Scale', 24.0, galCamPos, solarWorld.clone().multiplyScalar(0.5));
                 } else {
-                    // Zooming IN -> ONLY enter Earth View if camera is actually pinching into Earth's 3D position!
+                    // Zooming IN -> enter Earth View ONLY when pinching directly into Earth's 3D position
                     const earthEntry = cosmosBodiesMap.get('Earth');
                     if (earthEntry) {
                         const earthWorld = new THREE.Vector3();
                         earthEntry.obj.getWorldPosition(earthWorld);
-                        const distToEarth = camera.position.distanceTo(earthWorld);
-                        if (distToEarth < 1.85) {
+                        if (camera.position.distanceTo(earthWorld) < 1.85) {
                             performSeamlessZoomHandoff('EARTH', 'Earth Orbital Scale', 13.5, getEarthIndiaCameraPos(13.5), new THREE.Vector3(0, 0, 0));
                         }
                     }
                 }
             } else if (isGalaxyView) {
-                // GALAXY VIEW -> Zooming OUT into Observable Universe
+                // GALAXY VIEW -> Zooming OUT into Observable Universe: step out around Laniakea/home core
                 if (camDist > 122) {
-                    performSeamlessZoomHandoff('UNIVERSE', 'Observable Universe Scale', 18.0);
+                    const outDir = camera.position.clone().sub(controls.target);
+                    if (outDir.lengthSq() < 1e-6) outDir.set(0.2, 0.5, 0.8);
+                    outDir.normalize();
+                    performSeamlessZoomHandoff('UNIVERSE', 'Observable Universe Scale', 18.0, outDir.multiplyScalar(18.0), new THREE.Vector3(0, 0, 0));
                 } else if (solarSystemPinObj) {
-                    // Zooming IN -> ONLY enter Solar System if camera is pinching into our Solar System's 3D pin!
+                    // Zooming IN -> enter Solar System ONLY when pinching into our Solar System's 3D pin
                     const solarWorld = new THREE.Vector3();
                     solarSystemPinObj.getWorldPosition(solarWorld);
-                    const distToSolar = camera.position.distanceTo(solarWorld);
-                    if (distToSolar < 3.2) {
-                        performSeamlessZoomHandoff('COSMOS', 'Solar System Scale', 112.0);
+                    if (camera.position.distanceTo(solarWorld) < 3.2) {
+                        const inDir = camera.position.clone().sub(solarWorld).normalize();
+                        if (inDir.lengthSq() < 1e-6) inDir.set(0.4, 0.4, 0.8);
+                        performSeamlessZoomHandoff('COSMOS', 'Solar System Scale', 112.0, solarWorld.clone().addScaledVector(inDir, 12.0), solarWorld);
                     }
                 }
             } else if (isUniverseView) {
-                // UNIVERSE VIEW -> Zooming OUT into Multiverse
+                // UNIVERSE VIEW -> Zooming OUT into Multiverse: expand smoothly outside the CMB horizon
                 if (camDist > 92) {
-                    performSeamlessZoomHandoff('MULTIVERSE', 'Multiverse Scale', 94.0);
+                    const outDir = camera.position.clone().sub(controls.target);
+                    if (outDir.lengthSq() < 1e-6) outDir.set(0, 0.5, 0.85);
+                    outDir.normalize();
+                    performSeamlessZoomHandoff('MULTIVERSE', 'Multiverse Scale', 165.0, outDir.multiplyScalar(165.0), new THREE.Vector3(0, 0, 0));
                 } else if (universeHomePin) {
-                    // Zooming IN -> ONLY enter Milky Way Galaxy if camera is pinching into Laniakea / Home Galaxy core!
+                    // Zooming IN -> enter Milky Way Galaxy ONLY when pinching into home galaxy anchor
                     const homeWorld = new THREE.Vector3();
                     universeHomePin.getWorldPosition(homeWorld);
-                    const distToHome = camera.position.distanceTo(homeWorld);
-                    if (distToHome < 3.8) {
-                        performSeamlessZoomHandoff('GALAXY', 'Milky Way Galaxy Scale', 112.0);
+                    if (camera.position.distanceTo(homeWorld) < 3.8) {
+                        const inDir = camera.position.clone().sub(homeWorld).normalize();
+                        if (inDir.lengthSq() < 1e-6) inDir.set(0, 0.6, 0.8);
+                        performSeamlessZoomHandoff('GALAXY', 'Milky Way Galaxy Scale', 28.0, homeWorld.clone().addScaledVector(inDir, 22.0), homeWorld);
                     }
                 }
             } else if (isMultiverseView) {
-                // MULTIVERSE VIEW -> Zooming IN -> ONLY enter Observable Universe if pinching into Our Universe sphere!
+                // MULTIVERSE VIEW -> Zooming IN -> enter Observable Universe ONLY when pinching inside Our Universe sphere
                 const distToOurUniverse = camera.position.length();
                 if (distToOurUniverse < 66.0) {
-                    performSeamlessZoomHandoff('UNIVERSE', 'Observable Universe Scale', 64.0);
+                    const inDir = camera.position.clone().normalize();
+                    if (inDir.lengthSq() < 1e-6) inDir.set(0, 0.5, 0.85);
+                    performSeamlessZoomHandoff('UNIVERSE', 'Observable Universe Scale', 64.0, inDir.multiplyScalar(64.0), new THREE.Vector3(0, 0, 0));
                 }
             }
         }

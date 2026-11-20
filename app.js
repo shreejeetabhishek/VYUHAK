@@ -256,7 +256,6 @@ let isISSMode = false;
 let isSolarSystemView = false;
 let isGalaxyView = false;
 let isUniverseView = false;
-let isMultiverseView = false;
 let focusedUniverseRegion = 'Cosmic Web';
 let lastAutoScaleSwitch = 0;
 let showMilkyWaySky = true;
@@ -351,7 +350,6 @@ function smoothFlyTo(targetPos, lookAtPos, durationMs = 900) {
 }
 
 function getCurrentScale() {
-    if (isMultiverseView) return 'MULTIVERSE';
     if (isUniverseView) return 'UNIVERSE';
     if (isGalaxyView) return 'GALAXY';
     if (isSolarSystemView) return 'COSMOS';
@@ -388,15 +386,12 @@ function applyScaleDOMAndVisibility(targetScale) {
     const uniBtn = document.getElementById('btn-universe-view');
     const uniDot = document.getElementById('universe-dot');
     const uniBar = document.getElementById('universe-bar');
-    const multiBtn = document.getElementById('btn-multiverse-view');
-    const multiDot = document.getElementById('multiverse-dot');
-    const multiBar = document.getElementById('multiverse-bar');
+    const spaceHud = document.getElementById('space-object-hud');
 
     const isEarth = (targetScale === 'EARTH');
     isSolarSystemView = (targetScale === 'COSMOS');
     isGalaxyView = (targetScale === 'GALAXY');
     isUniverseView = (targetScale === 'UNIVERSE');
-    isMultiverseView = (targetScale === 'MULTIVERSE');
 
     earthBtn.classList.toggle('on', isEarth);
     earthDot.classList.toggle('bg-sky-400', isEarth);
@@ -417,22 +412,19 @@ function applyScaleDOMAndVisibility(targetScale) {
     uniDot.classList.toggle('bg-slate-500', !isUniverseView);
     uniBar.classList.toggle('hidden', !isUniverseView);
 
-    multiBtn.classList.toggle('on-rose', isMultiverseView);
-    multiDot.classList.toggle('bg-rose-400', isMultiverseView);
-    multiDot.classList.toggle('bg-slate-500', !isMultiverseView);
-    multiBar.classList.toggle('hidden', !isMultiverseView);
+    if (spaceHud) spaceHud.classList.toggle('hidden', isEarth || activeEngine !== '3D');
 
     earthSystemGroup.visible = isEarth;
     heliocentricGroup.visible = isSolarSystemView;
     galaxyGroup.visible = isGalaxyView;
-    universeGroup.visible = (isUniverseView || isMultiverseView);
+    universeGroup.visible = isUniverseView;
     if (milkyWaySkyMesh) milkyWaySkyMesh.visible = (isEarth || isSolarSystemView) && showMilkyWaySky;
     if (constellationLinesMesh) constellationLinesMesh.visible = (isEarth || isSolarSystemView) && showConstellations;
 
     document.getElementById('earth-dossier').classList.toggle('hidden', !isEarth);
     document.getElementById('cosmos-dossier').classList.toggle('hidden', !isSolarSystemView);
     document.getElementById('galaxy-dossier').classList.toggle('hidden', !isGalaxyView);
-    document.getElementById('universe-dossier').classList.toggle('hidden', !(isUniverseView || isMultiverseView));
+    document.getElementById('universe-dossier').classList.toggle('hidden', !isUniverseView);
 
     const dossierTab = document.getElementById('tab-btn-dossier');
     if (isEarth) {
@@ -456,20 +448,14 @@ function applyScaleDOMAndVisibility(targetScale) {
         dossierTab.textContent = 'Universe Data';
         activeCamera = 'FREE'; camModeIdx = 0;
         document.getElementById('cam-label').textContent = 'Free';
-        controls.minDistance = 2.2;
-        controls.maxDistance = 185;
-    } else if (isMultiverseView) {
-        dossierTab.textContent = 'Multiverse Data';
-        activeCamera = 'FREE'; camModeIdx = 0;
-        document.getElementById('cam-label').textContent = 'Free';
-        controls.minDistance = 54;
-        controls.maxDistance = 950;
+        controls.minDistance = 1.6;
+        controls.maxDistance = 165;
     }
 }
 
 // Continuous Sequential "Powers of Ten" Scale Journey (EARTH <-> COSMOS <-> GALAXY <-> UNIVERSE)
 // Visibly traverses EVERY intermediate scale in sequence (e.g., Earth -> Cosmos -> Galaxy -> Universe)
-const SCALE_ORDER = ['EARTH', 'COSMOS', 'GALAXY', 'UNIVERSE', 'MULTIVERSE'];
+const SCALE_ORDER = ['EARTH', 'COSMOS', 'GALAXY', 'UNIVERSE'];
 
 function selectScale(targetScale) {
     if (activeEngine !== '3D') switchEngine('3D');
@@ -478,7 +464,6 @@ function selectScale(targetScale) {
         COSMOS: 'Solar System (Live Keplerian UTC)',
         GALAXY: 'Milky Way Barred Spiral Galaxy (105,700 ly)',
         UNIVERSE: 'Observable Universe & Cosmic Web (93B ly)',
-        MULTIVERSE: 'Hypothetical Multiverse Bubbles (> 100B ly)'
     };
     transitionToScale(targetScale, { toastMsg: labels[targetScale] });
 }
@@ -510,6 +495,9 @@ function syncScaleHeaderUI(scaleName) {
         document.getElementById('gt-stats').innerHTML = mw.stats;
         document.getElementById('gd-title').textContent = mw.title;
         document.getElementById('gd-subtitle').innerHTML = mw.subtitle;
+        updateSpaceObjectHUD('GALAXY', 'Milky Way (SBbc Barred Spiral)', '26,670 ly (Sun)', '230 km/s', '1.15×10¹² M☉',
+            'Barred spiral galaxy with ~250B stars, Sagittarius A* SMBH, and confirmed habitable exoplanets.',
+            'Enter Solar System →', () => selectScale('COSMOS'));
     } else if (scaleName === 'UNIVERSE') {
         focusedUniverseRegion = 'Cosmic Web';
         const u = UNIVERSE_REGIONS['Cosmic Web'];
@@ -519,13 +507,10 @@ function syncScaleHeaderUI(scaleName) {
         document.getElementById('ut-stats').innerHTML = u.stats;
         document.getElementById('ud-title').textContent = u.title;
         document.getElementById('ud-subtitle').innerHTML = u.subtitle;
+        updateSpaceObjectHUD('UNIVERSE', 'Observable Universe (Cosmic Web)', '93.0B ly Diameter', 'H₀ 67.4 km/s/Mpc', 'T_cmb 2.725 K',
+            'Observed cosmic web of supercluster filaments, voids, and ~2 trillion galaxies within the CMB horizon.',
+            'Enter Milky Way →', () => selectScale('GALAXY'));
         updateUniverseBio('Cosmic Web');
-    } else if (scaleName === 'MULTIVERSE') {
-        focusedUniverseRegion = 'Multiverse';
-        const m = UNIVERSE_REGIONS['Multiverse'];
-        document.getElementById('ud-title').textContent = m.title;
-        document.getElementById('ud-subtitle').innerHTML = m.subtitle;
-        updateUniverseBio('Multiverse');
     }
 }
 
@@ -559,11 +544,7 @@ function computeStageTrajectory(stage, zoomingOut, options) {
             endPos = controls.target.clone().add(radial.multiplyScalar(pullDist));
             endTarget = new THREE.Vector3(0, 0, 0);
         } else {
-            if (scale === 'MULTIVERSE') {
-                const dir = camera.position.clone().normalize();
-                endTarget = new THREE.Vector3(0, 0, 0);
-                endPos = dir.multiplyScalar(92.0);
-            } else if (scale === 'UNIVERSE') {
+            if (scale === 'UNIVERSE') {
                 const dir = camera.position.clone().normalize();
                 endTarget = new THREE.Vector3(0, 0, 0);
                 endPos = dir.multiplyScalar(1.8);
@@ -632,15 +613,6 @@ function computeStageTrajectory(stage, zoomingOut, options) {
             startTarget: new THREE.Vector3(0, 0, 0),
             endPos: u.camPos.clone(),
             endTarget: u.lookAt.clone()
-        };
-    }
-    if (scale === 'MULTIVERSE') {
-        const m = UNIVERSE_REGIONS['Multiverse'];
-        return {
-            startPos: new THREE.Vector3(0, 62, 96),
-            startTarget: new THREE.Vector3(0, 0, 0),
-            endPos: m.camPos.clone(),
-            endTarget: m.lookAt.clone()
         };
     }
     // EARTH arrival (zooming in from Cosmos)
@@ -820,7 +792,7 @@ function updateLockUI(locked) {
 }
 
 function toggleGeoLock() {
-    if (isMultiverseView || isUniverseView || isGalaxyView || isSolarSystemView) {
+    if (isUniverseView || isGalaxyView || isSolarSystemView) {
         transitionToScale('EARTH', {
             toastMsg: 'Zooming In to Earth & Locking Hover',
             onArrived: () => { if (!isGeoLocked) toggleGeoLock(); }
@@ -875,7 +847,7 @@ async function pollLiveISS() {
 }
 
 function toggleISSMode() {
-    if (isMultiverseView || isUniverseView || isGalaxyView || isSolarSystemView) {
+    if (isUniverseView || isGalaxyView || isSolarSystemView) {
         transitionToScale('EARTH', {
             toastMsg: 'Zooming In to Live ISS Orbit',
             onArrived: () => { if (!isISSMode) toggleISSMode(); }
@@ -1043,59 +1015,8 @@ const UNIVERSE_REGIONS = {
         title: 'OBSERVABLE UNIVERSE // CMB HORIZON', subtitle: 'Cosmic Microwave Background (93 Billion ly)',
         type: '2.725 K Horizon Sphere', stats: '93B ly &bull; 13.8B yrs Old',
         wiki: 'Cosmic_microwave_background', camPos: new THREE.Vector3(0, 44, 72), lookAt: new THREE.Vector3(0, 0, 0)
-    },
-    'Multiverse': {
-        title: 'MULTIVERSE // HYPOTHETICAL BUBBLES', subtitle: 'Eternal Inflation — An idea, not a measurement',
-        type: 'Theoretical Cosmology', stats: '> 100B ly &bull; Unverified',
-        wiki: 'Multiverse', camPos: new THREE.Vector3(0, 210, 380), lookAt: new THREE.Vector3(0, 0, 0)
     }
 };
-
-const MULTIVERSE_BUBBLES = {
-    'Multiverse': {
-        title: 'MULTIVERSE // ETERNAL INFLATION', subtitle: 'Hypothetical Bubble Universes — An idea, not a measurement',
-        type: 'Theoretical Cosmology', stats: '> 100B ly &bull; Unverified',
-        bio: 'In eternal inflation models, quantum fluctuations keep space inflating outside our observable horizon, continuously spawning separate pocket universes with potentially different physical constants.',
-        camPos: new THREE.Vector3(0, 210, 380), lookAt: new THREE.Vector3(0, 0, 0)
-    },
-    'Pocket α': {
-        title: 'POCKET UNIVERSE α // ALTERNATE CONSTANTS', subtitle: 'Hypothetical Inflaton Bubble (Bubble #1)',
-        type: 'Eternal Inflation Pocket', stats: 'Hypothetical &bull; Different α',
-        bio: 'A theoretical neighboring pocket universe where the fine-structure constant or dark energy density settled into a different vacuum state during symmetry breaking.',
-        camPos: new THREE.Vector3(52, 34, -12), lookAt: new THREE.Vector3(78, 22, -45)
-    },
-    'Quantum Branch': {
-        title: 'QUANTUM BRANCH // MANY-WORLDS', subtitle: 'Everettian Decoherence Branch (Bubble #2)',
-        type: 'Quantum Cosmology', stats: 'Hypothetical &bull; Hilbert Space',
-        bio: 'Represents the Many-Worlds interpretation of quantum mechanics, where every quantum measurement branches the universal wavefunction into non-interacting histories.',
-        camPos: new THREE.Vector3(-42, -4, -22), lookAt: new THREE.Vector3(-74, -18, -55)
-    },
-    'Brane Bulk': {
-        title: 'BRANE BULK // STRING LANDSCAPE', subtitle: 'Higher-Dimensional M-Theory Brane (Bubble #3)',
-        type: 'String Theory Hypothesis', stats: '10⁵⁰⁰ Vacua &bull; Theoretical',
-        bio: 'In string theory and brane cosmology, our 3D universe could be a membrane floating in a higher-dimensional bulk alongside other parallel brane-worlds.',
-        camPos: new THREE.Vector3(24, -26, 98), lookAt: new THREE.Vector3(45, -42, 68)
-    },
-    'High-Entropy': {
-        title: 'HIGH-ENTROPY POCKET // THERMAL VOID', subtitle: 'Rapidly Decayed Vacuum Bubble (Bubble #4)',
-        type: 'Theoretical Vacuum State', stats: 'Short-Lived &bull; Unverified',
-        bio: 'A hypothetical pocket universe with a much larger cosmological constant, causing matter to disperse before stars or galaxies could ever form.',
-        camPos: new THREE.Vector3(-26, 62, 82), lookAt: new THREE.Vector3(-52, 48, 52)
-    }
-};
-
-function focusMultiverseBubble(name) {
-    const b = MULTIVERSE_BUBBLES[name];
-    if (!b) return;
-    document.querySelectorAll('#multiverse-chips .planet-chip').forEach(ch => ch.classList.toggle('active', ch.dataset.bubble === name));
-    document.getElementById('mt-name').textContent = name;
-    document.getElementById('mt-type').textContent = b.type;
-    document.getElementById('mt-stats').innerHTML = b.stats;
-    document.getElementById('ud-title').textContent = b.title;
-    document.getElementById('ud-subtitle').innerHTML = b.subtitle;
-    document.getElementById('ud-bio').textContent = b.bio;
-    smoothFlyTo(b.camPos, b.lookAt, 950);
-}
 
 async function updateUniverseBio(name) {
     const r = UNIVERSE_REGIONS[name];
@@ -1123,6 +1044,10 @@ function focusUniverseRegion(name) {
     document.getElementById('ud-title').textContent = r.title;
     document.getElementById('ud-subtitle').innerHTML = r.subtitle;
     smoothFlyTo(r.camPos, r.lookAt, 950);
+    const uniEnterLbl = (name === 'Laniakea' || name === 'Cosmic Web') ? 'Enter Milky Way →' : 'Zoom In →';
+    const uniEnterFn = (name === 'Laniakea' || name === 'Cosmic Web') ? () => selectScale('GALAXY') : () => focusUniverseRegion(name);
+    updateSpaceObjectHUD('UNIVERSE', `${name} (${r.type})`, r.stats.split('&bull;')[0].trim(), 'H₀ 67.4 km/s/Mpc', 'T_cmb 2.73 K',
+        r.subtitle.replace(/&bull;/g, '•'), uniEnterLbl, uniEnterFn);
     updateUniverseBio(name);
 }
 
@@ -1275,6 +1200,11 @@ async function focusGalaxyRegion(name) {
     }
     smoothFlyTo(targetCam, targetLook, 950);
 
+    const galEnterLbl = name === 'Solar System' ? 'Enter Solar System →' : (EXOPLANET_SYSTEMS[name] ? 'Enter Star System →' : 'Zoom In →');
+    const galEnterFn = name === 'Solar System' ? () => selectScale('COSMOS') : (EXOPLANET_SYSTEMS[name] ? () => openExoplanetSystem(name) : () => focusGalaxyRegion(name));
+    updateSpaceObjectHUD('GALAXY', `${name} (${r.type})`, r.dist, r.vel, r.mass,
+        r.structure || r.subtitle.replace(/&bull;/g, '•'), galEnterLbl, galEnterFn);
+
     const bioEl = document.getElementById('gd-bio');
     bioEl.textContent = 'Fetching live astrophysical dossier...';
     try {
@@ -1413,6 +1343,20 @@ async function updateCosmosDossier(name, simDays) {
         } else {
             document.getElementById('cd-moons').innerHTML = '<div class="bg-slate-900/40 border border-slate-800 rounded p-2.5 text-slate-400">No natural moons orbit this planet.</div>';
         }
+    }
+
+    // Update On-Screen Space Object Inspector HUD
+    if (name === 'Sun') {
+        updateSpaceObjectHUD('SOLAR', 'Sun (G2V Star)', '0.00 AU', '230 km/s', '5,505 °C',
+            'Main-sequence G2V star anchoring 8 planets, dwarf planets, and the Kuiper Belt.',
+            'Inspect Earth →', () => focusCosmosBody('Earth'));
+    } else if (p) {
+        const res = p.isComet ? computeHalleyState(simDays) : computePlanetHeliocentricAU(p, simDays);
+        const esiStr = typeof p.esi === 'number' && p.esi > 0 ? `ESI ${p.esi.toFixed(2)}` : p.temp;
+        const enterLbl = p.isEarth ? 'Enter Earth Orbit →' : 'Enter Interior →';
+        const enterFn = p.isEarth ? () => selectScale('EARTH') : () => { if (!isCoreCutawayOn) toggleCoreCutaway(); focusCosmosBody(name); };
+        updateSpaceObjectHUD('SOLAR', `${entry.name} (${entry.type})`, `${res.rAU.toFixed(2)} AU`, `${res.vKps.toFixed(1)} km/s`, esiStr,
+            p.structure || p.atmo, enterLbl, enterFn);
     }
 
     // Fetch live Wikipedia summary for the selected celestial body
@@ -1964,7 +1908,7 @@ async function searchAndDeploy() {
 }
 
 function parkSatelliteAt(lat, lon) {
-    if (isMultiverseView || isUniverseView || isGalaxyView || isSolarSystemView) {
+    if (isUniverseView || isGalaxyView || isSolarSystemView) {
         const targetPos = latLonToWorldPosition(lat, lon, orbitRadius, earthMesh.rotation.y);
         transitionToScale('EARTH', {
             earthTargetCamPos: targetPos.clone().multiplyScalar(1.75),
@@ -3556,10 +3500,6 @@ let universeHomePin = null;
         uChips.innerHTML += `<button class="planet-chip ${idx === 0 ? 'active' : ''}" data-region="${key}" onclick="focusUniverseRegion('${key}')">${key}</button>`;
     });
 
-    const mChips = document.getElementById('multiverse-chips');
-    Object.keys(MULTIVERSE_BUBBLES).forEach((key, idx) => {
-        mChips.innerHTML += `<button class="planet-chip ${idx === 0 ? 'active' : ''}" data-bubble="${key}" onclick="focusMultiverseBubble('${key}')">${key}</button>`;
-    });
 
     // 1. 3D Cosmic Web Nodes & Supercluster Filaments (Inside radius 34)
     const hubCount = 60;
@@ -3675,89 +3615,6 @@ let universeHomePin = null;
         vertexColors: true, transparent: true, opacity: 0.13, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false
     })));
 
-    // 3. Surrounding Multiverse Pocket Universes — Lightweight Soft Nebula Sprites + Internal Galaxy Clusters (60 FPS on Mobile!)
-    const bubbleCoords = [
-        [88, 26, -52, 24, 0x38bdf8], [-84, -22, -62, 27, 0xc084fc],
-        [52, -48, 76, 21, 0xf59e0b], [-60, 54, 58, 23, 0x34d399],
-        [18, 78, -70, 20, 0xf472b6], [-96, 12, 34, 22, 0x60a5fa],
-        [118, -28, -22, 28, 0xa78bfa], [-34, -88, -38, 24, 0xfb7185],
-        [76, 64, 54, 22, 0x2dd4bf], [-110, 48, -76, 26, 0xfbbf24],
-        [138, 54, -86, 30, 0x818cf8], [-142, -58, 50, 29, 0xf43f5e],
-        [22, -108, -94, 26, 0x38bdf8], [-50, 108, -42, 27, 0xc084fc]
-    ];
-    const pocketWebPositions = [];
-    const pocketWebColors = [];
-    const namedBubbles = {
-        '88,26,-52': 'Pocket α',
-        '-84,-22,-62': 'Quantum Branch',
-        '52,-48,76': 'Brane Bulk',
-        '-60,54,58': 'High-Entropy'
-    };
-
-    const sharedPocketShellGeo = new THREE.SphereGeometry(1, 24, 18);
-    const pocketFilamentPts = [];
-
-    bubbleCoords.forEach(([x, y, z, r, hex]) => {
-        // 1. Crisp, translucent horizon shell so every pocket universe is clearly readable as a distinct bubble,
-        //    yet noticeably softer/more translucent than Our Universe's rich golden-blue CMB sphere!
-        const pocketShell = new THREE.Mesh(sharedPocketShellGeo, new THREE.MeshBasicMaterial({
-            color: hex, transparent: true, opacity: 0.11, side: THREE.FrontSide, blending: THREE.AdditiveBlending, depthWrite: false
-        }));
-        pocketShell.position.set(x, y, z);
-        pocketShell.scale.setScalar(r);
-        universeGroup.add(pocketShell);
-
-        // 2. Soft outer cosmic glow halo
-        const bubbleAura = new THREE.Sprite(new THREE.SpriteMaterial({
-            map: createCircleSpriteTexture('rgba(255,255,255,0.34)', 'rgba(148,163,184,0.0)'),
-            color: hex, transparent: true, opacity: 0.62, blending: THREE.AdditiveBlending, depthWrite: false
-        }));
-        bubbleAura.position.set(x, y, z);
-        bubbleAura.scale.set(r * 2.25, r * 2.25, 1);
-        universeGroup.add(bubbleAura);
-
-        // 3. Internal cosmic web galaxy nodes & filament strands inside each pocket universe
-        const baseCol = new THREE.Color(hex);
-        const localNodes = [];
-        for (let k = 0; k < 44; k++) {
-            const rr = Math.pow(Math.random(), 0.72) * (r * 0.80);
-            const th = Math.random() * Math.PI * 2;
-            const ph = Math.acos(2 * Math.random() - 1);
-            const nx = x + rr * Math.sin(ph) * Math.cos(th);
-            const ny = y + rr * Math.sin(ph) * Math.sin(th);
-            const nz = z + rr * Math.cos(ph);
-            pocketWebPositions.push(nx, ny, nz);
-            if (k < 14) localNodes.push(new THREE.Vector3(nx, ny, nz));
-            const c = baseCol.clone().lerp(new THREE.Color(0xffffff), 0.58);
-            pocketWebColors.push(c.r, c.g, c.b);
-        }
-        for (let a = 0; a < localNodes.length; a++) {
-            for (let b = a + 1; b < localNodes.length; b++) {
-                if (localNodes[a].distanceTo(localNodes[b]) < r * 0.78) {
-                    pocketFilamentPts.push(localNodes[a], localNodes[b]);
-                }
-            }
-        }
-
-        const bKey = `${x},${y},${z}`;
-        if (namedBubbles[bKey]) {
-            uniLandmarkAnchors.push({ name: namedBubbles[bKey], region: namedBubbles[bKey], scale: 'MULTIVERSE', obj: pocketShell, prio: 90 });
-        }
-    });
-
-    if (pocketFilamentPts.length > 0) {
-        universeGroup.add(new THREE.LineSegments(
-            new THREE.BufferGeometry().setFromPoints(pocketFilamentPts),
-            new THREE.LineBasicMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.14, blending: THREE.AdditiveBlending, depthWrite: false })
-        ));
-    }
-
-    const pWebGeo = new THREE.BufferGeometry();
-    pWebGeo.setAttribute('position', new THREE.Float32BufferAttribute(pocketWebPositions, 3));
-    pWebGeo.setAttribute('color', new THREE.Float32BufferAttribute(pocketWebColors, 3));
-    universeGroup.add(new THREE.Points(pWebGeo, new THREE.PointsMaterial({
-        size: 1.15, map: webSprite, vertexColors: true, transparent: true, opacity: 0.88, blending: THREE.AdditiveBlending, depthWrite: false
-    })));
 })();
 
 // --- F. SPACE METEORS ---
@@ -3818,7 +3675,7 @@ function updateOrbitalMechanicsCard() {
 }
 
 function applyOrbitPreset(preset) {
-    if (isMultiverseView || isUniverseView || isGalaxyView || isSolarSystemView) {
+    if (isUniverseView || isGalaxyView || isSolarSystemView) {
         transitionToScale('EARTH', { onArrived: () => applyOrbitPreset(preset) });
         return;
     }
@@ -4226,7 +4083,7 @@ function switchEngine(mode) {
     document.getElementById('cosmos-bar').classList.toggle('hidden', mode !== '3D' || !isSolarSystemView);
     document.getElementById('galaxy-bar').classList.toggle('hidden', mode !== '3D' || !isGalaxyView);
     document.getElementById('universe-bar').classList.toggle('hidden', mode !== '3D' || !isUniverseView);
-    document.getElementById('multiverse-bar').classList.toggle('hidden', mode !== '3D' || !isMultiverseView);
+    const sHud = document.getElementById('space-object-hud'); if (sHud) sHud.classList.toggle('hidden', mode !== '3D' || getCurrentScale() === 'EARTH');
     document.getElementById('scale-bar-hud').classList.toggle('hidden', mode !== '3D');
     if (mode !== '3D') document.getElementById('you-are-here-pin').classList.add('hidden');
     document.getElementById('btn-radar').classList.toggle('hidden', mode !== '2D');
@@ -4237,7 +4094,7 @@ function switchEngine(mode) {
 }
 
 function cycleCamera() {
-    if (isMultiverseView || isUniverseView || isGalaxyView || isSolarSystemView) {
+    if (isUniverseView || isGalaxyView || isSolarSystemView) {
         transitionToScale('EARTH', { toastMsg: 'Zoomed In to Earth View' });
         return;
     }
@@ -4310,7 +4167,12 @@ function registerSmartLabel(cfg) {
     const layer = document.getElementById('labels-layer');
     const el = document.createElement('div');
     el.className = 'cosmic-label ' + (cfg.cssClass || '');
-    el.textContent = cfg.text;
+    // Show on-screen astronomical details for every object EXCEPT Earth level
+    if (cfg.scale !== 'EARTH' && cfg.scale !== 'SKY' && cfg.subText) {
+        el.innerHTML = `<span>${cfg.text}</span><span class="lbl-sub">${cfg.subText}</span>`;
+    } else {
+        el.textContent = cfg.text;
+    }
     if (cfg.onClick) {
         el.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -4319,11 +4181,13 @@ function registerSmartLabel(cfg) {
         });
     }
     layer.appendChild(el);
+    const hasSub = (cfg.scale !== 'EARTH' && cfg.scale !== 'SKY' && cfg.subText);
+    const maxLen = hasSub ? Math.max(cfg.text.length, cfg.subText.length * 0.85) : cfg.text.length;
     smartLabels.push({
         ...cfg,
         el,
-        approxW: Math.max(42, cfg.text.length * 6.2 + 16),
-        approxH: 18
+        approxW: Math.max(46, maxLen * 6.2 + 18),
+        approxH: hasSub ? 28 : 18
     });
 }
 
@@ -4386,11 +4250,16 @@ function registerSmartLabel(cfg) {
         });
     });
 
-    // 3. SOLAR SYSTEM VIEW: Sun, Planets, Dwarf Planets, Comet, Voyager 1 + Close-up Moons
+    // 3. SOLAR SYSTEM VIEW: Sun, Planets, Dwarf Planets, Comet, Probes + Close-up Moons (with live on-screen specs)
     cosmosBodiesMap.forEach((entry, name) => {
         const isMajor = ['Sun','Mercury','Venus','Earth','Mars','Jupiter','Saturn','Uranus','Neptune'].includes(name);
+        const m = entry.meta;
+        const subSpec = name === 'Sun'
+            ? 'G2V Star • 5,505 °C'
+            : (m ? `${m.a ? m.a.toFixed(2) + ' AU' : ''} • ${m.temp || ''}${typeof m.esi === 'number' && m.esi > 0 ? ' • ESI ' + m.esi.toFixed(2) : ''}` : entry.type);
         registerSmartLabel({
             text: name,
+            subText: subSpec,
             scale: 'COSMOS',
             cssClass: name === "Halley's Comet" ? 'lbl-comet' : 'lbl-planet',
             priority: name === 'Sun' ? 100 : (name === 'Earth' ? 98 : (isMajor ? 88 : 74)),
@@ -4428,9 +4297,22 @@ function registerSmartLabel(cfg) {
         }
     });
 
-    // 4. GALAXY VIEW: Core, Arms, Nebulae, Andromeda, LMC, Triangulum
+    // 4. GALAXY VIEW: Core, Arms, Nebulae, Confirmed Exoplanets, Local Group & Nearby Galaxies
+    const GAL_SUBS = {
+        'Perseus Arm': 'Outer Spiral Arm • ~33k ly',
+        'Scutum-Centaurus': 'Inner Spiral Arm • ~18k ly',
+        'Orion Nebula': 'M42 Nursery • 1,344 ly',
+        'Pillars of Creation': 'M16 Eagle • 5,700 ly',
+        'Alpha Centauri': 'Triple Star • 4.37 ly',
+        'LMC': 'Satellite Galaxy • 163k ly',
+        'SMC': 'Dwarf Irregular • 200k ly',
+        'Triangulum (M33)': 'SA(s)cd Spiral • 2.73M ly',
+        'Centaurus A': 'Active Elliptical • 13M ly',
+        'Sombrero (M104)': 'Dust Ring Spiral • 29.3M ly'
+    };
     registerSmartLabel({
         text: 'Sagittarius A*',
+        subText: '4.15M M☉ SMBH • Core',
         scale: 'GALAXY',
         cssClass: 'lbl-galaxy',
         priority: 98,
@@ -4439,6 +4321,7 @@ function registerSmartLabel(cfg) {
     });
     registerSmartLabel({
         text: 'Andromeda (M31)',
+        subText: '2.537M ly • ~1T Stars',
         scale: 'GALAXY',
         cssClass: 'lbl-galaxy',
         priority: 92,
@@ -4452,6 +4335,7 @@ function registerSmartLabel(cfg) {
     galLandmarkAnchors.forEach(lm => {
         registerSmartLabel({
             text: lm.name,
+            subText: GAL_SUBS[lm.name] || 'Galactic Structure',
             scale: 'GALAXY',
             cssClass: 'lbl-galaxy',
             priority: lm.prio,
@@ -4463,36 +4347,66 @@ function registerSmartLabel(cfg) {
             onClick: () => focusGalaxyRegion(lm.name)
         });
     });
+    EARTH_LIKE_EXOPLANETS.forEach(exo => {
+        if (!exo.obj) return;
+        registerSmartLabel({
+            text: exo.name,
+            subText: `ESI ${exo.esi} • ${exo.distLy} • ${exo.radius}`,
+            scale: 'GALAXY',
+            cssClass: 'lbl-city',
+            priority: 75,
+            isVisibleExtra: (camDist) => camDist < 42,
+            getWorldPos: () => {
+                exo.obj.getWorldPosition(_lblVec);
+                _lblVec.y += 0.35;
+                return _lblVec;
+            },
+            onClick: () => {
+                if (EXOPLANET_SYSTEMS[exo.name]) {
+                    openExoplanetSystem(exo.name);
+                } else {
+                    const wp = new THREE.Vector3();
+                    exo.obj.getWorldPosition(wp);
+                    smoothFlyTo(wp.clone().add(new THREE.Vector3(2.4, 1.8, 2.8)), wp, 850);
+                    updateSpaceObjectHUD('EXOPLANET', exo.name, exo.distLy, `Orbit ${exo.period}`, `ESI ${exo.esi} (${exo.radius})`, exo.notes, 'Inspect World');
+                }
+            }
+        });
+    });
 
-    // 5. UNIVERSE & MULTIVERSE VIEWS
+    // 5. UNIVERSE VIEW: Observed Superclusters, Filaments, Voids & High-z Galaxies
+    const UNI_SUBS = {
+        'Virgo': '110M ly • ~2,000 Galaxies',
+        'Great Attractor': '150–250M ly • ~10¹⁶ M☉',
+        'Shapley': '650M ly • 8,000+ Galaxies',
+        'Sloan Great Wall': '1.38B ly Filament',
+        'Coma Cluster': '321M ly • Abell 1656',
+        'Hercules-CrB Wall': '~10B ly GRB Wall',
+        'Boötes Void': '330M ly Supervoid',
+        'GN-z11': '32B ly • z=10.6 Galaxy'
+    };
     registerSmartLabel({
         text: 'Laniakea',
+        subText: '520M ly • Home Supercluster',
         scale: 'UNIVERSE',
         cssClass: 'lbl-universe',
         priority: 95,
         getWorldPos: () => _lblVec.set(0, 1.4, 0),
         onClick: () => focusUniverseRegion('Laniakea')
     });
-    registerSmartLabel({
-        text: 'Our Universe',
-        scale: 'MULTIVERSE',
-        cssClass: 'lbl-multiverse',
-        priority: 100,
-        getWorldPos: () => _lblVec.set(0, 38, 0),
-        onClick: () => selectScale('UNIVERSE')
-    });
     uniLandmarkAnchors.forEach(lm => {
         registerSmartLabel({
             text: lm.name,
-            scale: lm.scale,
-            cssClass: lm.scale === 'MULTIVERSE' ? 'lbl-multiverse' : 'lbl-universe',
+            subText: UNI_SUBS[lm.name] || 'Cosmic Web Structure',
+            scale: 'UNIVERSE',
+            cssClass: 'lbl-universe',
             priority: lm.prio,
             getWorldPos: () => {
                 lm.obj.getWorldPosition(_lblVec);
-                _lblVec.y += lm.scale === 'MULTIVERSE' ? 22 : 1.5;
+                _lblVec.y += 1.5;
                 return _lblVec;
             },
-            onClick: () => lm.scale === 'MULTIVERSE' ? focusMultiverseBubble(lm.region) : focusUniverseRegion(lm.region)
+            onClick: () => focusUniverseRegion(lm.region)
         });
     });
 
@@ -4591,7 +4505,7 @@ function animate() {
             camera.fov = 45 + 13 * ease;
             camera.updateProjectionMatrix();
             const nextSt = scaleAnim.stages[scaleAnim.stageIdx + 1];
-            const samePhysicalSpace = nextSt && ((st.scale === 'UNIVERSE' && nextSt.scale === 'MULTIVERSE') || (st.scale === 'MULTIVERSE' && nextSt.scale === 'UNIVERSE'));
+            const samePhysicalSpace = false;
             if (scaleAnim.zoomingOut && st.group && !samePhysicalSpace) {
                 st.group.scale.setScalar(1.0 - 0.35 * ease);
             }
@@ -4762,12 +4676,12 @@ function animate() {
     }
 
 
-    // --- NODE-ANCHORED SINGLE-SYSTEM LOGARITHMIC PINCH/SCROLL CONTINUITY ---
-    // Every outward and inward transition anchors its orbit target and camera trajectory directly to the active 3D node!
+    // --- UNIVERSAL OBJECT-PROXIMITY ZOOM-IN & SCALE HANDOFF ENGINE ---
+    // Zooming in towards ANY object enters into that object or its star/galaxy system!
     if (activeEngine === '3D' && !scaleAnim && !flyAnim && activeCamera === 'FREE') {
         const nowMs = performance.now();
-        if (nowMs - lastAutoScaleSwitch > 520) {
-            const performNodeZoomHandoff = (nextScale, toastText, startPos, startTarget, endPos, endTarget) => {
+        if (nowMs - lastAutoScaleSwitch > 560) {
+            const performNodeZoomHandoff = (nextScale, toastText, startPos, startTarget, endPos, endTarget, onDone) => {
                 lastAutoScaleSwitch = nowMs;
                 applyScaleDOMAndVisibility(nextScale);
                 syncScaleHeaderUI(nextScale);
@@ -4776,10 +4690,11 @@ function animate() {
                 controls.update();
                 smoothFlyTo(endPos, endTarget, 680);
                 if (toastText) showToast(toastText);
+                if (onDone) setTimeout(onDone, 700);
             };
 
-            if (!isSolarSystemView && !isGalaxyView && !isUniverseView && !isMultiverseView) {
-                // EARTH VIEW -> Zoom OUT past 60: anchor to Earth's 3D orbital node inside the Solar System
+            if (!isSolarSystemView && !isGalaxyView && !isUniverseView) {
+                // EARTH VIEW -> Zoom OUT past 21.5: enter Heliocentric Solar System anchored to Earth
                 if (camDist > 21.5) {
                     const earthEntry = cosmosBodiesMap.get('Earth');
                     const earthWorld = new THREE.Vector3(11.5, 0, 0);
@@ -4793,7 +4708,7 @@ function animate() {
                     performNodeZoomHandoff('COSMOS', 'Solar System Scale', sPos, earthWorld, ePos, eTgt);
                 }
             } else if (isSolarSystemView) {
-                // SOLAR VIEW -> Zoom OUT past 375: anchor to Solar System pin inside the Milky Way Galaxy
+                // SOLAR VIEW -> Zoom OUT past 385: enter Milky Way Galaxy anchored to our Solar System
                 if (camDist > 385) {
                     const solarWorld = new THREE.Vector3(13.335, 0, 0);
                     if (solarSystemPinObj) solarSystemPinObj.getWorldPosition(solarWorld);
@@ -4804,20 +4719,43 @@ function animate() {
                     const ePos = solarWorld.clone().addScaledVector(outDir, 12.0).add(new THREE.Vector3(0, 6.5, 0));
                     performNodeZoomHandoff('GALAXY', 'Milky Way Galaxy Scale', sPos, solarWorld, ePos, solarWorld.clone().multiplyScalar(0.35));
                 } else {
-                    // SOLAR VIEW -> Zoom IN onto Earth's 3D node (< 1.65): enter Earth View anchored to Earth
-                    const earthEntry = cosmosBodiesMap.get('Earth');
-                    if (earthEntry) {
-                        const earthWorld = new THREE.Vector3();
-                        earthEntry.obj.getWorldPosition(earthWorld);
-                        if (camera.position.distanceTo(earthWorld) < 1.65) {
+                    // SOLAR VIEW -> Zoom IN towards ANY Solar System body: enter Earth OR lock onto & slice open that planet/moon!
+                    let closestBody = null;
+                    let closestDist = Infinity;
+                    const tmpV = new THREE.Vector3();
+                    cosmosBodiesMap.forEach((entry, bName) => {
+                        entry.obj.getWorldPosition(tmpV);
+                        const d = camera.position.distanceTo(tmpV);
+                        if (d < closestDist) {
+                            closestDist = d;
+                            closestBody = { name: bName, entry, world: tmpV.clone() };
+                        }
+                    });
+
+                    if (closestBody) {
+                        if (closestBody.name === 'Earth' && closestDist < 1.65) {
                             const indiaFar = getEarthIndiaCameraPos(18.0);
                             const indiaNear = getEarthIndiaCameraPos(6.8);
-                            performNodeZoomHandoff('EARTH', 'Earth Orbital Scale', indiaFar, new THREE.Vector3(0, 0, 0), indiaNear, new THREE.Vector3(0, 0, 0));
+                            performNodeZoomHandoff('EARTH', 'Entered Earth Orbital System', indiaFar, new THREE.Vector3(0, 0, 0), indiaNear, new THREE.Vector3(0, 0, 0));
+                        } else if (closestBody.name !== 'Earth' && closestBody.name !== 'Sun') {
+                            const enterThreshold = Math.max(1.35, (closestBody.entry.radius || 0.4) * 2.4);
+                            if (closestDist < enterThreshold && focusedCosmosBody !== closestBody.name) {
+                                lastAutoScaleSwitch = nowMs;
+                                focusCosmosBody(closestBody.name);
+                                if (!isCoreCutawayOn && ['Mercury','Venus','Mars','Jupiter','Saturn','Uranus','Neptune','Pluto','Ceres'].includes(closestBody.name)) {
+                                    isCoreCutawayOn = true;
+                                    const btn = document.getElementById('btn-cutaway');
+                                    if (btn) btn.classList.add('bg-amber-600/70');
+                                    buildCoreCutawayForBody(closestBody.name);
+                                    coreCutawayGroup.visible = true;
+                                }
+                                showToast(`Entered ${closestBody.name} Interior & Moon System`);
+                            }
                         }
                     }
                 }
             } else if (isGalaxyView) {
-                // GALAXY VIEW -> Zoom OUT past 395: anchor around the Milky Way / home galaxy node inside the Universe
+                // GALAXY VIEW -> Zoom OUT past 405: enter Observable Universe anchored to Laniakea
                 if (camDist > 405) {
                     const homeWorld = new THREE.Vector3(0, 0, 0);
                     if (universeHomePin) universeHomePin.getWorldPosition(homeWorld);
@@ -4827,52 +4765,96 @@ function animate() {
                     const sPos = homeWorld.clone().addScaledVector(outDir, 6.5);
                     const ePos = homeWorld.clone().addScaledVector(outDir, 22.0);
                     performNodeZoomHandoff('UNIVERSE', 'Observable Universe Scale', sPos, homeWorld, ePos, homeWorld);
-                } else if (solarSystemPinObj) {
-                    // GALAXY VIEW -> Zoom IN onto Solar System pin (< 2.6): enter Solar System anchored to the Solar node
-                    const solarWorld = new THREE.Vector3();
-                    solarSystemPinObj.getWorldPosition(solarWorld);
-                    if (camera.position.distanceTo(solarWorld) < 2.6) {
-                        const inDir = camera.position.clone().sub(solarWorld).normalize();
-                        if (inDir.lengthSq() < 1e-6) inDir.set(0.4, 0.4, 0.8);
-                        const sPos = solarWorld.clone().addScaledVector(inDir, 18.0);
-                        const ePos = solarWorld.clone().addScaledVector(inDir, 9.5);
-                        performNodeZoomHandoff('COSMOS', 'Solar System Scale', sPos, solarWorld, ePos, solarWorld);
+                } else {
+                    // GALAXY VIEW -> Zoom IN towards Solar System OR any Exoplanet System OR any Galaxy!
+                    const tmpV = new THREE.Vector3();
+                    let entered = false;
+
+                    if (solarSystemPinObj) {
+                        solarSystemPinObj.getWorldPosition(tmpV);
+                        if (camera.position.distanceTo(tmpV) < 2.6) {
+                            entered = true;
+                            const inDir = camera.position.clone().sub(tmpV).normalize();
+                            if (inDir.lengthSq() < 1e-6) inDir.set(0.4, 0.4, 0.8);
+                            const sPos = tmpV.clone().addScaledVector(inDir, 18.0);
+                            const ePos = tmpV.clone().addScaledVector(inDir, 9.5);
+                            performNodeZoomHandoff('COSMOS', 'Entered Solar System', sPos, tmpV, ePos, tmpV);
+                        }
+                    }
+
+                    // Check if zooming towards any Earth-like exoplanet star system (TRAPPIST-1e, Proxima Centauri b, TOI-700 d, etc.)
+                    if (!entered && !exoMiniOrreryGroup.visible) {
+                        for (let i = 0; i < EARTH_LIKE_EXOPLANETS.length; i++) {
+                            const exo = EARTH_LIKE_EXOPLANETS[i];
+                            if (!exo.obj) continue;
+                            exo.obj.getWorldPosition(tmpV);
+                            if (camera.position.distanceTo(tmpV) < 1.55) {
+                                lastAutoScaleSwitch = nowMs;
+                                entered = true;
+                                if (EXOPLANET_SYSTEMS[exo.name]) {
+                                    openExoplanetSystem(exo.name);
+                                } else {
+                                    smoothFlyTo(tmpV.clone().add(new THREE.Vector3(2.2, 1.6, 2.6)), tmpV, 750);
+                                    updateSpaceObjectHUD('EXOPLANET', exo.name, exo.distLy, `Orbit ${exo.period}`, `ESI ${exo.esi} (${exo.radius})`, exo.notes, 'Inspect World');
+                                    showToast(`Entered ${exo.name} Sector`);
+                                }
+                                break;
+                            }
+                        }
+                    }
+
+                    // Check if zooming towards Andromeda (M31), LMC, SMC, Triangulum (M33), Centaurus A, or Sombrero (M104)
+                    if (!entered) {
+                        if (andromedaGroupObj) {
+                            andromedaGroupObj.getWorldPosition(tmpV);
+                            if (camera.position.distanceTo(tmpV) < 14.0 && focusedGalaxyRegion !== 'Andromeda (M31)') {
+                                lastAutoScaleSwitch = nowMs;
+                                focusGalaxyRegion('Andromeda (M31)');
+                                showToast('Entered Andromeda Galaxy (M31)');
+                                entered = true;
+                            }
+                        }
+                        if (!entered) {
+                            for (let i = 0; i < galLandmarkAnchors.length; i++) {
+                                const lm = galLandmarkAnchors[i];
+                                lm.obj.getWorldPosition(tmpV);
+                                const thresh = ['LMC', 'SMC', 'Triangulum (M33)', 'Centaurus A', 'Sombrero (M104)'].includes(lm.name) ? 9.5 : 2.8;
+                                if (camera.position.distanceTo(tmpV) < thresh && focusedGalaxyRegion !== lm.name) {
+                                    lastAutoScaleSwitch = nowMs;
+                                    focusGalaxyRegion(lm.name);
+                                    showToast(`Entered ${lm.name}`);
+                                    break;
+                                }
+                            }
+                        }
                     }
                 }
             } else if (isUniverseView) {
-                // UNIVERSE VIEW -> Zoom OUT past 168: anchor around Our Universe node inside the Multiverse
-                if (camDist > 162) {
-                    const ourUniWorld = new THREE.Vector3(0, 0, 0);
-                    if (universeHomePin) universeHomePin.getWorldPosition(ourUniWorld);
-                    const outDir = camera.position.clone().sub(controls.target);
-                    if (outDir.lengthSq() < 1e-6) outDir.set(0, 0.5, 0.85);
-                    outDir.normalize();
-                    const sPos = ourUniWorld.clone().addScaledVector(outDir, 170.0);
-                    const ePos = ourUniWorld.clone().addScaledVector(outDir, 320.0);
-                    performNodeZoomHandoff('MULTIVERSE', 'Multiverse Scale', sPos, ourUniWorld, ePos, ourUniWorld);
-                } else if (universeHomePin) {
-                    // UNIVERSE VIEW -> Zoom IN onto Home Galaxy / Laniakea node (< 3.0): enter Galaxy anchored to the home galaxy node
-                    const homeWorld = new THREE.Vector3();
-                    universeHomePin.getWorldPosition(homeWorld);
-                    if (camera.position.distanceTo(homeWorld) < 3.0) {
-                        const inDir = camera.position.clone().sub(homeWorld).normalize();
+                // UNIVERSE VIEW -> Zoom IN towards Laniakea (Home Supercluster) OR any Supercluster / Void / Galaxy!
+                const tmpV = new THREE.Vector3();
+                let enteredUni = false;
+                if (universeHomePin) {
+                    universeHomePin.getWorldPosition(tmpV);
+                    if (camera.position.distanceTo(tmpV) < 3.0) {
+                        enteredUni = true;
+                        const inDir = camera.position.clone().sub(tmpV).normalize();
                         if (inDir.lengthSq() < 1e-6) inDir.set(0, 0.6, 0.8);
-                        const sPos = homeWorld.clone().addScaledVector(inDir, 68.0);
-                        const ePos = homeWorld.clone().addScaledVector(inDir, 44.0);
-                        performNodeZoomHandoff('GALAXY', 'Milky Way Galaxy Scale', sPos, homeWorld, ePos, homeWorld);
+                        const sPos = tmpV.clone().addScaledVector(inDir, 68.0);
+                        const ePos = tmpV.clone().addScaledVector(inDir, 44.0);
+                        performNodeZoomHandoff('GALAXY', 'Entered Milky Way Galaxy (Laniakea Core)', sPos, tmpV, ePos, tmpV);
                     }
                 }
-            } else if (isMultiverseView) {
-                // MULTIVERSE VIEW -> Zoom IN onto Our Universe node (< 58.0): enter Universe anchored to Our Universe node
-                const ourUniWorld = new THREE.Vector3(0, 0, 0);
-                if (universeHomePin) universeHomePin.getWorldPosition(ourUniWorld);
-                const distToOurUniverse = camera.position.distanceTo(ourUniWorld);
-                if (distToOurUniverse < 58.0) {
-                    const inDir = camera.position.clone().sub(ourUniWorld).normalize();
-                    if (inDir.lengthSq() < 1e-6) inDir.set(0, 0.5, 0.85);
-                    const sPos = ourUniWorld.clone().addScaledVector(inDir, 68.0);
-                    const ePos = ourUniWorld.clone().addScaledVector(inDir, 42.0);
-                    performNodeZoomHandoff('UNIVERSE', 'Observable Universe Scale', sPos, ourUniWorld, ePos, ourUniWorld);
+                if (!enteredUni) {
+                    for (let i = 0; i < uniLandmarkAnchors.length; i++) {
+                        const lm = uniLandmarkAnchors[i];
+                        lm.obj.getWorldPosition(tmpV);
+                        if (camera.position.distanceTo(tmpV) < 4.2 && focusedUniverseRegion !== lm.region) {
+                            lastAutoScaleSwitch = nowMs;
+                            focusUniverseRegion(lm.region);
+                            showToast(`Entered ${lm.name}`);
+                            break;
+                        }
+                    }
                 }
             }
         }
@@ -4882,11 +4864,7 @@ function animate() {
     if (activeEngine === '3D') {
         const sLabel = document.getElementById('scale-bar-label');
         const sRealm = document.getElementById('scale-bar-realm');
-        if (isMultiverseView) {
-            const bLy = (camDist * 1.25).toFixed(0);
-            sLabel.textContent = `${bLy}B+ ly (Multiverse)`;
-            sRealm.textContent = 'Hypothetical Multiverse';
-        } else if (isUniverseView) {
+        if (isUniverseView) {
             const bLy = (camDist * 1.15).toFixed(1);
             sLabel.textContent = `${bLy} billion light-years`;
             sRealm.textContent = camDist > 50 ? 'Observable Universe (CMB)' : 'Cosmic Web Superclusters';
@@ -4910,7 +4888,7 @@ function animate() {
         let anchorObj = null;
         if (isSolarSystemView && cosmosBodiesMap.has('Earth') && !(focusedCosmosBody === 'Earth' && camDist < 6.0)) anchorObj = cosmosBodiesMap.get('Earth').obj;
         else if (isGalaxyView && solarSystemPinObj) anchorObj = solarSystemPinObj;
-        else if ((isUniverseView || isMultiverseView) && universeHomePin) anchorObj = universeHomePin;
+        else if ((isUniverseView) && universeHomePin) anchorObj = universeHomePin;
 
         if (anchorObj && !scaleAnim) {
             const proj = new THREE.Vector3();
@@ -4931,7 +4909,7 @@ function animate() {
     }
 
     // Gentle rotation of Cosmic Web in Universe view
-    if (isUniverseView || isMultiverseView) {
+    if (isUniverseView) {
         universeGroup.rotation.y += 0.006 * dt;
     }
 
@@ -5025,7 +5003,7 @@ function animate() {
 
     document.getElementById('hud-time').textContent = 'UTC ' + new Date().toISOString().substr(11,8);
 
-    if (isSolarSystemView || isGalaxyView || isUniverseView || isMultiverseView || activeCamera === 'FREE') {
+    if (isSolarSystemView || isGalaxyView || isUniverseView || activeCamera === 'FREE') {
         controls.update();
     } else if (activeCamera === 'CHASE') {
         const inclRad = orbitInclination * Math.PI / 180;
@@ -5385,5 +5363,68 @@ function updateCosmicRedshift(zRaw) {
         lblEl.textContent = z === 0
             ? `Today (13.8B yr) | T_cmb 2.73K`
             : `Age ${ageGyr}B yr | T_cmb ${tCmb}K`;
+    }
+}
+
+
+// --- LIVE ON-SCREEN SPACE OBJECT INSPECTOR HUD (ACTIVE ON ALL SCALES EXCEPT EARTH) ---
+let currentInspectAction = null;
+
+function updateSpaceObjectHUD(scaleBadge, title, m1, m2, m3, summary, btnLabel = null, onEnter = null) {
+    const hud = document.getElementById('space-object-hud');
+    if (!hud) return;
+    if (getCurrentScale() === 'EARTH' || activeEngine !== '3D') {
+        hud.classList.add('hidden');
+        return;
+    }
+    hud.classList.remove('hidden');
+    document.getElementById('soh-badge').textContent = scaleBadge;
+    document.getElementById('soh-title').textContent = title;
+    document.getElementById('soh-m1').textContent = m1;
+    document.getElementById('soh-m2').textContent = m2;
+    document.getElementById('soh-m3').textContent = m3;
+    document.getElementById('soh-summary').textContent = summary;
+
+    const btn = document.getElementById('soh-enter-btn');
+    if (btn) {
+        if (btnLabel && onEnter) {
+            btn.textContent = btnLabel;
+            btn.classList.remove('hidden');
+            currentInspectAction = onEnter;
+        } else {
+            btn.classList.add('hidden');
+            currentInspectAction = null;
+        }
+    }
+}
+
+function enterFocusedSpaceObject() {
+    playSound('lock');
+    if (currentInspectAction) {
+        currentInspectAction();
+        return;
+    }
+    const cur = getCurrentScale();
+    if (cur === 'COSMOS') {
+        if (focusedCosmosBody === 'Earth') {
+            selectScale('EARTH');
+        } else if (focusedCosmosBody !== 'Sun') {
+            if (!isCoreCutawayOn) toggleCoreCutaway();
+            focusCosmosBody(focusedCosmosBody);
+        }
+    } else if (cur === 'GALAXY') {
+        if (focusedGalaxyRegion === 'Solar System') {
+            selectScale('COSMOS');
+        } else if (EXOPLANET_SYSTEMS[focusedGalaxyRegion]) {
+            openExoplanetSystem(focusedGalaxyRegion);
+        } else {
+            focusGalaxyRegion(focusedGalaxyRegion);
+        }
+    } else if (cur === 'UNIVERSE') {
+        if (focusedUniverseRegion === 'Laniakea' || focusedUniverseRegion === 'Cosmic Web') {
+            selectScale('GALAXY');
+        } else {
+            focusUniverseRegion(focusedUniverseRegion);
+        }
     }
 }

@@ -354,3 +354,16 @@ input[type=range]::-webkit-slider-thumb { border: 2px solid #02040a; height: 20p
     color: rgba(255, 228, 230, 0.92);
     text-shadow: 0 0 8px rgba(251, 113, 133, 0.48), 0 1px 3px rgba(0, 0, 0, 0.95);
 }
+
+
+/* Enhanced Space Object On-Screen Detail Sub-Tag (Hidden on Earth Scale) */
+.cosmic-label .lbl-sub {
+    display: block;
+    font-family: 'Inter', sans-serif;
+    font-size: 7px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    color: rgba(186, 230, 253, 0.85);
+    margin-top: 1px;
+}

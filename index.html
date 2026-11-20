@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>VYUHAK // 3D Earth Observation, Solar System, Galaxy &amp; Multiverse Atlas</title>
+    <title>VYUHAK // 3D Earth Observation, Solar System, Galaxy &amp; Observable Universe Atlas</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -70,7 +70,7 @@
             </div>
         </div>
 
-        <!-- Row 1: Primary 5-Scale Cosmic Rail (Earth | Solar | Galaxy | Universe | Multiverse) -->
+        <!-- Row 1: Primary 4-Scale Real Cosmic Rail (Earth | Solar | Galaxy | Universe) -->
         <div class="pointer-events-auto flex items-center gap-1 overflow-x-auto hide-scrollbar w-full">
             <button id="btn-earth-view" onclick="selectScale('EARTH')" class="scale-pill on">
                 <span id="earth-dot" class="dot bg-sky-400"></span>Earth
@@ -83,9 +83,6 @@
             </button>
             <button id="btn-universe-view" onclick="selectScale('UNIVERSE')" class="scale-pill">
                 <span id="universe-dot" class="dot bg-slate-500"></span>Universe
-            </button>
-            <button id="btn-multiverse-view" onclick="selectScale('MULTIVERSE')" class="scale-pill">
-                <span id="multiverse-dot" class="dot bg-slate-500"></span>Multiverse
             </button>
         </div>
 
@@ -185,19 +182,22 @@
             </div>
         </div>
 
-        <!-- Multiverse Bar (Visible ONLY in Multiverse Mode) -->
-        <div id="multiverse-bar" class="pointer-events-auto hidden flex flex-col gap-1.5 w-full">
-            <div class="flex items-center gap-1 overflow-x-auto hide-scrollbar pb-0.5" id="multiverse-chips">
-                <!-- Populated dynamically by JS -->
+        <!-- On-Screen Real-Time Object Inspector Card (Shown on all Space Scales except Earth) -->
+        <div id="space-object-hud" class="pointer-events-auto hidden obsidian-glass rounded-xl px-3 py-2 w-full border border-sky-400/30 shadow-lg">
+            <div class="flex items-center justify-between gap-2">
+                <div class="min-w-0 flex items-center gap-1.5">
+                    <span id="soh-badge" class="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-sky-950/90 border border-sky-400/40 text-sky-300 shrink-0">SOLAR</span>
+                    <span id="soh-title" class="text-[11px] font-bold text-white truncate">Sun (G2V Star)</span>
+                </div>
+                <button id="soh-enter-btn" onclick="enterFocusedSpaceObject()" class="bg-sky-600/80 hover:bg-sky-500 text-white px-2.5 py-0.5 rounded-full text-[9px] font-bold tracking-wide shrink-0 transition">Enter System &rarr;</button>
             </div>
-            <div class="obsidian-glass rounded-lg px-3 py-2 text-[10px] text-slate-300 flex items-center justify-between gap-2 border border-rose-500/35">
-                <div class="min-w-0">
-                    <span id="mt-name" class="font-bold text-rose-300 uppercase tracking-wider">Multiverse</span>
-                    <span id="mt-type" class="text-slate-400 ml-1.5">Eternal Inflation Bubbles</span>
-                </div>
-                <div id="mt-stats" class="mono-telemetry text-right text-[9px] text-rose-200 shrink-0">
-                    &gt; 100B ly &bull; An idea, not a measurement
-                </div>
+            <div id="soh-metrics" class="grid grid-cols-3 gap-1.5 mt-1.5 pt-1.5 border-t border-white/10 text-[9px] mono-telemetry">
+                <div class="truncate"><span class="text-slate-400">DIST:</span> <strong id="soh-m1" class="text-amber-300">0.00 AU</strong></div>
+                <div class="truncate"><span class="text-slate-400">VEL:</span> <strong id="soh-m2" class="text-sky-300">230 km/s</strong></div>
+                <div class="truncate"><span class="text-slate-400">ESI/INFO:</span> <strong id="soh-m3" class="text-emerald-300">5,505 °C</strong></div>
+            </div>
+            <div id="soh-summary" class="text-[9.5px] text-slate-300 mt-1 leading-snug line-clamp-2">
+                Main-sequence G2V star anchoring 8 planets, dwarf planets, and the Kuiper Belt.
             </div>
         </div>
     </div>
@@ -610,12 +610,12 @@
                 </div>
             </div><!-- /#galaxy-dossier -->
 
-            <!-- OBSERVABLE UNIVERSE & MULTIVERSE DOSSIER -->
+            <!-- OBSERVABLE UNIVERSE DOSSIER -->
             <div id="universe-dossier" class="hidden space-y-5">
                 <div class="flex justify-between items-center border-b border-amber-500/30 pb-2">
                     <div>
                         <h3 id="ud-title" class="text-xs font-bold text-amber-300 tracking-widest uppercase">OBSERVABLE UNIVERSE // 93B LY</h3>
-                        <div id="ud-subtitle" class="text-[10px] text-sky-300 mono-telemetry">Cosmic Web, CMB Horizon &amp; Multiverse</div>
+                        <div id="ud-subtitle" class="text-[10px] text-sky-300 mono-telemetry">Observed Cosmic Web &amp; CMB Last-Scattering Horizon</div>
                     </div>
                     <button onclick="focusUniverseRegion('Laniakea')" class="text-[10px] bg-amber-900/50 hover:bg-amber-700/50 text-amber-200 px-3 py-1 rounded font-bold border border-amber-500/30">Home Web</button>
                 </div>
@@ -662,7 +662,7 @@
                     <div class="bg-slate-900/50 border border-amber-500/25 rounded p-3 text-[11px] text-slate-300 space-y-1">
                         <div><strong class="text-amber-300">Temperature:</strong> 2.7255 K (-270.42 &deg;C)</div>
                         <div><strong class="text-sky-300">Surface of Last Scattering:</strong> 380,000 years after Big Bang (z &approx; 1100)</div>
-                        <div><strong class="text-emerald-300">Multiverse Note:</strong> Outer bubble universes represent a theoretical cosmological hypothesis — <em>an idea, not a measurement</em>.</div>
+                        <div><strong class="text-emerald-300">Observational Horizon:</strong> Represents the physical particle horizon (46.5 billion light-years radius) observed by ESA Planck and NASA WMAP.</div>
                     </div>
                 </div>
             </div><!-- /#universe-dossier -->

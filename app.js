@@ -1,5 +1,5 @@
 // ============================================================================
-// VYUHAK v38 MULTIVERSE // WIDE-FIELD MULTIVERSE BUBBLE CLUSTER & SEAMLESS MULTI-SCALE ATLAS
+// VYUHAK v39 CONTINUOUS // EARTH-ANCHORED MANUAL ZOOM-OUT INTO SOLAR SYSTEM (NO SUN JUMP!)
 // ============================================================================
 
 // --- 1. AUDIO ENGINE WITH MUTE ---
@@ -4444,23 +4444,36 @@ function animate() {
     if (activeEngine === '3D' && !scaleAnim && !flyAnim && activeCamera === 'FREE') {
         const nowMs = performance.now();
         if (nowMs - lastAutoScaleSwitch > 450) {
-            const performSeamlessZoomHandoff = (nextScale, toastText, newCamDist) => {
+            const performSeamlessZoomHandoff = (nextScale, toastText, newCamDist, customPos = null, customTarget = null) => {
                 lastAutoScaleSwitch = nowMs;
                 const dir = camera.position.clone().sub(controls.target);
                 if (dir.lengthSq() < 1e-6) dir.set(0, 0.45, 0.9);
                 dir.normalize();
                 applyScaleDOMAndVisibility(nextScale);
                 syncScaleHeaderUI(nextScale);
-                controls.target.set(0, 0, 0);
-                camera.position.copy(dir.multiplyScalar(newCamDist));
+                if (customPos && customTarget) {
+                    controls.target.copy(customTarget);
+                    camera.position.copy(customPos);
+                } else {
+                    controls.target.set(0, 0, 0);
+                    camera.position.copy(dir.multiplyScalar(newCamDist));
+                }
                 controls.update();
                 if (toastText) showToast(toastText);
             };
 
             if (!isSolarSystemView && !isGalaxyView && !isUniverseView && !isMultiverseView) {
-                // EARTH VIEW -> Zooming OUT into Solar System
+                // EARTH VIEW -> Zooming OUT into Solar System: continue naturally past Earth into the Solar System!
                 if (camDist > 15.6) {
-                    performSeamlessZoomHandoff('COSMOS', 'Solar System Scale', 13.8);
+                    const earthEntry = cosmosBodiesMap.get('Earth');
+                    const earthWorld = new THREE.Vector3(11.5, 0, 0);
+                    if (earthEntry) earthEntry.obj.getWorldPosition(earthWorld);
+                    const outwardDir = camera.position.clone().sub(controls.target);
+                    if (outwardDir.lengthSq() < 1e-6) outwardDir.set(0, 0.35, 0.9);
+                    outwardDir.normalize();
+                    const helioCamPos = earthWorld.clone().addScaledVector(outwardDir, 4.2);
+                    const helioLookAt = earthWorld.clone().lerp(new THREE.Vector3(0, 0, 0), 0.25);
+                    performSeamlessZoomHandoff('COSMOS', 'Solar System Scale', 13.8, helioCamPos, helioLookAt);
                 }
             } else if (isSolarSystemView) {
                 // SOLAR VIEW -> Zooming OUT into Milky Way Galaxy
@@ -4474,9 +4487,7 @@ function animate() {
                         earthEntry.obj.getWorldPosition(earthWorld);
                         const distToEarth = camera.position.distanceTo(earthWorld);
                         if (distToEarth < 1.85) {
-                            performSeamlessZoomHandoff('EARTH', 'Earth Orbital Scale', 13.5);
-                            camera.position.copy(getEarthIndiaCameraPos(13.5));
-                            controls.update();
+                            performSeamlessZoomHandoff('EARTH', 'Earth Orbital Scale', 13.5, getEarthIndiaCameraPos(13.5), new THREE.Vector3(0, 0, 0));
                         }
                     }
                 }

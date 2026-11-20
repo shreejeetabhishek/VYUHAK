@@ -1,15 +1,14 @@
-# VYUHAK v40 TRUE-CONTINUOUS // Every Pinch/Scroll Handoff Across All Scales
+# VYUHAK v41 LOGARITHMIC // Photoreal Nested Multiverse & Single-System Zoom
 
 VYUHAK (*Virtual Yield Uplink & Heuristic Aerospace Kinematics*) is a serverless, mobile-first 3D/2D Earth Observation, Heliocentric Solar System, Volumetric Milky Way Galaxy, Observable Universe, and Multiverse platform.
 
-## What's Upgraded in v40 TRUE-CONTINUOUS
-- **Every Outward Pinch/Scroll Stage Anchored to Your Current View:**
-  - **Earth → Solar:** Steps out behind Earth's orbital node (`earthWorld + outwardDir * 4.4`) instead of snapping onto the Sun.
-  - **Solar → Galaxy:** Steps out around the Solar System pin (`solarWorld + outDir * 7.5`) so you see the Solar System within the Milky Way disk rather than jumping to an unrelated spot.
-  - **Galaxy → Universe:** Preserves your outward direction into the Cosmic Web (`outDir * 18.0`).
-  - **Universe → Multiverse:** Expands outward smoothly outside the CMB horizon (`outDir * 165.0`).
-- **Every Inward Pinch/Scroll Stage Anchored to the Target:**
-  - Pinching inward transitions only when diving directly into the home anchor (`Earth`, `Solar System pin`, `Laniakea / Home Galaxy`, or `Our Universe`), placing your camera at a natural entry distance (`getEarthIndiaCameraPos(13.5)`, `12.0` from Solar pin, `22.0` from home galaxy, or `64.0` from Universe center).
+## What's Upgraded in v41 LOGARITHMIC
+- **Photorealistic Nested Cosmic Anchors (No Flat Geometric Circles/Spheres):**
+  - **Solar System in Galaxy:** Replaced the flat blue circle & ring with a luminous G2V star sprite nestled inside a soft Local Bubble nebula glow along the Orion-Cygnus Spur.
+  - **Milky Way / Laniakea in Universe & Boötes Void:** Replaced the solid cyan sphere and wireframe ball with a radiant galactic core + supercluster halo and a smooth dark cosmic void cloud.
+  - **Pocket Universes in Multiverse:** Each pocket universe now contains its own 3D internal cosmic web of galaxy clusters wrapped in an organic, FBM-modulated energy membrane, with a wide-field default Multiverse camera (`(0, 165, 295)`).
+- **Wider Zoom-Out Ranges & Single-System Smooth Glide:**
+  - Expanded `controls.maxDistance` across every stage (`28` in Earth, `210` in Solar, `210` in Galaxy, `145` in Universe, `520` in Multiverse) and added cubic ease-out `smoothFlyTo` interpolation across every scale handoff so zooming feels like one continuous, unbroken cosmos.
 
 ## Deployment
 Upload `index.html`, `styles.css`, `app.js`, and `README.md` directly to your GitHub Pages repository.

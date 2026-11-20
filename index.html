@@ -365,9 +365,9 @@
                     </div>
                 </div>
 
-                <!-- 3. Physical & Atmospheric Telemetry -->
+                <!-- 3. Physical, Internal Structure & Atmospheric Composition -->
                 <div>
-                    <h4 class="text-[10px] font-bold text-amber-400 tracking-widest mb-2 uppercase">3. Physical & Atmospheric Telemetry</h4>
+                    <h4 class="text-[10px] font-bold text-amber-400 tracking-widest mb-2 uppercase">3. Internal Structure, Composition &amp; Telemetry</h4>
                     <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
                         <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
                             <div class="text-[9px] text-slate-400 uppercase">Equatorial Radius</div>
@@ -381,15 +381,50 @@
                             <div class="text-[9px] text-slate-400 uppercase">Mean Temp / Day</div>
                             <div id="cd-temp" class="text-xs font-bold text-amber-300 mt-0.5">--</div>
                         </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Bulk Density</div>
+                            <div id="cd-density" class="text-xs font-bold text-sky-300 mt-0.5 mono-telemetry">--</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Magnetosphere</div>
+                            <div id="cd-mag" class="text-xs font-bold text-purple-300 mt-0.5">--</div>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded p-2.5">
+                            <div class="text-[9px] text-slate-400 uppercase">Surface Pressure</div>
+                            <div id="cd-press" class="text-xs font-bold text-pink-300 mt-0.5 mono-telemetry">--</div>
+                        </div>
                     </div>
-                    <div id="cd-atmo" class="mt-2 bg-slate-900/50 border border-slate-800 rounded p-2.5 text-[11px] text-slate-300">
+                    <div id="cd-structure" class="mt-2 bg-slate-900/50 border border-slate-800 rounded p-2.5 text-[11px] text-slate-300 leading-relaxed">
+                        Internal Layers: --
+                    </div>
+                    <div id="cd-atmo" class="mt-2 bg-slate-900/50 border border-slate-800 rounded p-2.5 text-[11px] text-slate-300 leading-relaxed">
                         Atmosphere: --
+                    </div>
+                </div>
+
+                <!-- 3B. Astrobiology & Habitability Assessment -->
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <h4 class="text-[10px] font-bold text-teal-400 tracking-widest uppercase">4. Habitability &amp; Astrobiology Index</h4>
+                        <span id="cd-esi-badge" class="text-[10px] font-bold px-2 py-0.5 rounded bg-teal-950/70 border border-teal-500/40 text-teal-300 mono-telemetry">ESI 1.00</span>
+                    </div>
+                    <div class="bg-slate-900/60 border border-teal-500/25 rounded p-3 space-y-2">
+                        <div class="flex justify-between text-[10px]">
+                            <span class="text-slate-400 uppercase">Status &amp; Water Phase</span>
+                            <span id="cd-hab-status" class="font-bold text-emerald-300">--</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                            <div id="cd-esi-bar" class="h-full bg-gradient-to-r from-sky-400 to-emerald-400 transition-all duration-300" style="width: 100%"></div>
+                        </div>
+                        <div id="cd-hab-notes" class="text-[11px] text-slate-300 leading-relaxed">
+                            --
+                        </div>
                     </div>
                 </div>
 
                 <!-- 4. Natural Satellites (Moons) -->
                 <div>
-                    <h4 class="text-[10px] font-bold text-emerald-400 tracking-widest mb-2 uppercase">4. Natural Satellites (Moons) &bull; <span id="cd-moon-count" class="text-white">0</span></h4>
+                    <h4 class="text-[10px] font-bold text-emerald-400 tracking-widest mb-2 uppercase">5. Natural Satellites (Moons) &bull; <span id="cd-moon-count" class="text-white">0</span></h4>
                     <div id="cd-moons" class="space-y-1.5 text-[11px]">
                         <div class="bg-slate-900/40 border border-slate-800 rounded p-2.5 text-slate-400">No natural satellites.</div>
                     </div>
@@ -397,7 +432,7 @@
 
                 <!-- 5. Live Space Weather (NOAA SWPC Real-Time Telemetry) -->
                 <div>
-                    <h4 class="text-[10px] font-bold text-rose-400 tracking-widest mb-2 uppercase">5. Live Space Weather (NOAA SWPC)</h4>
+                    <h4 class="text-[10px] font-bold text-rose-400 tracking-widest mb-2 uppercase">6. Live Space Weather (NOAA SWPC)</h4>
                     <div class="grid grid-cols-2 gap-2">
                         <div class="bg-slate-900/50 border border-rose-500/30 rounded p-2.5">
                             <div class="text-[9px] text-slate-400 uppercase">Solar Wind Speed</div>
@@ -470,21 +505,50 @@
                     </div>
                 </div>
 
-                <!-- 4. Spiral Arm Architecture & Local Group Neighbors -->
+                <!-- 4. Galactic Structure & Stellar Composition -->
                 <div>
-                    <h4 class="text-[10px] font-bold text-emerald-400 tracking-widest mb-2 uppercase">4. Local Group Neighbors</h4>
+                    <h4 class="text-[10px] font-bold text-purple-400 tracking-widest mb-2 uppercase">4. Structure, Dark Matter Halo &amp; Composition</h4>
+                    <div id="gd-structure" class="bg-slate-900/50 border border-slate-800 rounded p-3 text-[11px] text-slate-300 leading-relaxed">
+                        <strong>Architecture:</strong> Central triaxial bar (~27,000 ly), thin star-forming disk (~1,000 ly thick, Pop I metal-rich stars), thick disk, stellar halo with ~150 globular clusters, and an extended NFW dark matter halo (~85% of total mass).
+                    </div>
+                </div>
+
+                <!-- 5. Known Earth-Like Exoplanets (Habitable Zone Worlds) -->
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <h4 class="text-[10px] font-bold text-teal-400 tracking-widest uppercase">5. Known Earth-Like Exoplanets (Habitable Zone)</h4>
+                        <span class="text-[9px] text-slate-400">Tap to Locate in 3D</span>
+                    </div>
+                    <div id="exoplanet-list" class="space-y-1.5 text-[11px]"></div>
+                </div>
+
+                <!-- 6. Known Local Group & Nearby Galaxies -->
+                <div>
+                    <h4 class="text-[10px] font-bold text-emerald-400 tracking-widest mb-2 uppercase">6. Known Local Group &amp; Nearby Galaxies</h4>
                     <div class="space-y-1.5 text-[11px]">
-                        <div class="bg-slate-900/60 border border-slate-800 rounded p-2 flex justify-between items-center">
-                            <span class="font-semibold text-indigo-300">🌌 Andromeda (M31)</span>
-                            <span class="text-[10px] text-slate-400 mono-telemetry">2.537M ly &bull; -110 km/s</span>
+                        <div onclick="focusGalaxyRegion('Andromeda (M31)')" class="cursor-pointer bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 rounded p-2 flex justify-between items-center transition">
+                            <span class="font-semibold text-indigo-300">🌌 Andromeda (M31) &bull; SA(s)b</span>
+                            <span class="text-[10px] text-slate-400 mono-telemetry">2.537M ly &bull; ~1T Stars</span>
                         </div>
-                        <div class="bg-slate-900/60 border border-slate-800 rounded p-2 flex justify-between items-center">
-                            <span class="font-semibold text-sky-300">🌌 Large Magellanic Cloud</span>
-                            <span class="text-[10px] text-slate-400 mono-telemetry">163,000 ly &bull; Satellite</span>
+                        <div onclick="focusGalaxyRegion('Triangulum (M33)')" class="cursor-pointer bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 rounded p-2 flex justify-between items-center transition">
+                            <span class="font-semibold text-purple-300">🌌 Triangulum (M33) &bull; SA(s)cd</span>
+                            <span class="text-[10px] text-slate-400 mono-telemetry">2.73M ly &bull; ~40B Stars</span>
                         </div>
-                        <div class="bg-slate-900/60 border border-slate-800 rounded p-2 flex justify-between items-center">
-                            <span class="font-semibold text-purple-300">🌌 Triangulum (M33)</span>
-                            <span class="text-[10px] text-slate-400 mono-telemetry">2.73M ly &bull; Spiral</span>
+                        <div onclick="focusGalaxyRegion('LMC')" class="cursor-pointer bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 rounded p-2 flex justify-between items-center transition">
+                            <span class="font-semibold text-sky-300">🌌 Large Magellanic Cloud (LMC)</span>
+                            <span class="text-[10px] text-slate-400 mono-telemetry">163,000 ly &bull; ~30B Stars</span>
+                        </div>
+                        <div onclick="focusGalaxyRegion('SMC')" class="cursor-pointer bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 rounded p-2 flex justify-between items-center transition">
+                            <span class="font-semibold text-cyan-300">🌌 Small Magellanic Cloud (SMC)</span>
+                            <span class="text-[10px] text-slate-400 mono-telemetry">200,000 ly &bull; ~3B Stars</span>
+                        </div>
+                        <div onclick="focusGalaxyRegion('Centaurus A')" class="cursor-pointer bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 rounded p-2 flex justify-between items-center transition">
+                            <span class="font-semibold text-amber-300">🌌 Centaurus A (NGC 5128)</span>
+                            <span class="text-[10px] text-slate-400 mono-telemetry">13M ly &bull; Active Elliptical</span>
+                        </div>
+                        <div onclick="focusGalaxyRegion('Sombrero (M104)')" class="cursor-pointer bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 rounded p-2 flex justify-between items-center transition">
+                            <span class="font-semibold text-rose-300">🌌 Sombrero Galaxy (M104)</span>
+                            <span class="text-[10px] text-slate-400 mono-telemetry">29.3M ly &bull; Dust Ring</span>
                         </div>
                     </div>
                 </div>

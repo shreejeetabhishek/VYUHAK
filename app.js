@@ -1004,6 +1004,16 @@ const UNIVERSE_REGIONS = {
         type: 'Supercluster Filament', stats: '1.38B ly Long &bull; 1B ly Away',
         wiki: 'Sloan_Great_Wall', camPos: new THREE.Vector3(22, 16, -20), lookAt: new THREE.Vector3(16.0, 5.5, -14.0)
     },
+    'Coma Cluster': {
+        title: 'COMA SUPERCLUSTER // ABELL 1656', subtitle: 'Dense Core of > 1,000 Elliptical Galaxies (321M ly)',
+        type: 'Rich Galaxy Cluster', stats: '321M ly &bull; Dark Matter Discovery',
+        wiki: 'Coma_Cluster', camPos: new THREE.Vector3(9, 13, -11), lookAt: new THREE.Vector3(6.8, 9.2, -7.5)
+    },
+    'Hercules-CrB Wall': {
+        title: 'HERCULES–CORONA BOREALIS GREAT WALL', subtitle: 'Largest Known Structure in Observable Universe (~10B ly)',
+        type: 'Gamma-Ray Burst Superstructure', stats: '~10B ly Span &bull; z ≈ 1.6–2.1',
+        wiki: 'Hercules–Corona_Borealis_Great_Wall', camPos: new THREE.Vector3(-28, -18, -26), lookAt: new THREE.Vector3(-22.0, -14.0, -20.0)
+    },
     'Boötes Void': {
         title: 'BOÖTES VOID // THE GREAT NOTHING', subtitle: '330 Million Light-Year Spherical Supervoid',
         type: 'Cosmic Supervoid', stats: '330M ly Wide &bull; ~60 Galaxies',
@@ -1174,9 +1184,47 @@ const GALAXY_REGIONS = {
         title: 'TRIANGULUM (M33) // LOCAL GROUP', subtitle: 'Third-Largest Galaxy in the Local Group',
         type: 'SA(s)cd Spiral Galaxy', stats: '2.73M ly &bull; ~40B Stars',
         dist: '2,730,000 ly', vel: '-179 km/s', year: 'Local Group', diam: '61,100 ly', mass: '5 × 10¹⁰ M☉', tilt: '54°',
+        structure: 'Unbarred flocculent spiral galaxy rich in H-II star-forming nurseries (NGC 604) with no supermassive central bulge.',
         wiki: 'Triangulum_Galaxy', camPos: new THREE.Vector3(56, 26, -34), lookAt: new THREE.Vector3(72, 24, -48)
+    },
+    'SMC': {
+        title: 'SMALL MAGELLANIC CLOUD // DWARF GALAXY', subtitle: 'Irregular Dwarf Companion of Milky Way (200,000 ly)',
+        type: 'SB(s)m Irregular Dwarf', stats: '200,000 ly &bull; ~3B Stars',
+        dist: '200,000 ly', vel: '146 km/s', year: 'Local Group', diam: '18,900 ly', mass: '6.5 × 10⁹ M☉', tilt: '68°',
+        structure: 'Tidally disrupted barred dwarf irregular linked to the LMC by the Magellanic Stream of neutral hydrogen gas.',
+        wiki: 'Small_Magellanic_Cloud', camPos: new THREE.Vector3(-34, -22, -16), lookAt: new THREE.Vector3(-44, -26, -24)
+    },
+    'Centaurus A': {
+        title: 'CENTAURUS A (NGC 5128) // ACTIVE GALAXY', subtitle: 'Nearest Giant Elliptical & Radio Galaxy (13M ly)',
+        type: 'S0p / Elliptical AGN', stats: '13.0M ly &bull; 55M M☉ SMBH',
+        dist: '13,000,000 ly', vel: '547 km/s', year: 'Centaurus Group', diam: '97,000 ly', mass: '1.0 × 10¹² M☉', tilt: '45°',
+        structure: 'Giant elliptical galaxy warped by a past spiral merger, featuring a dark equatorial dust lane and relativistic X-ray/radio jets.',
+        wiki: 'Centaurus_A', camPos: new THREE.Vector3(-68, 32, 54), lookAt: new THREE.Vector3(-82, 26, 68)
+    },
+    'Sombrero (M104)': {
+        title: 'SOMBRERO GALAXY (M104) // VIRGO CLUSTER EDGE', subtitle: 'Unbarred Spiral with Prominent Dust Ring (29.3M ly)',
+        type: 'SA(s)a Lenticular/Spiral', stats: '29.3M ly &bull; 1B M☉ Core SMBH',
+        dist: '29,300,000 ly', vel: '1,024 km/s', year: 'Virgo II Cloud', diam: '49,000 ly', mass: '8.0 × 10¹¹ M☉', tilt: '84°',
+        structure: 'Brilliant white spheroidal bulge encircled by a symmetric, dust-rich ring hosting ~2,000 globular clusters.',
+        wiki: 'Sombrero_Galaxy', camPos: new THREE.Vector3(76, -24, 62), lookAt: new THREE.Vector3(92, -30, 76)
     }
 };
+
+// Confirmed Earth-Like Exoplanets (NASA Exoplanet Archive / PHL Habitable Exoplanets Catalog)
+const EARTH_LIKE_EXOPLANETS = [
+    { name: 'Proxima Centauri b', host: 'Proxima Centauri (M5.5V)', distLy: '4.24 ly', esi: '0.87', radius: '1.03 R⊕', temp: '-39 °C (Eq)', period: '11.2d',
+      pos: [13.45, 0.08, 0.35], notes: 'Closest known exoplanet to Earth; orbits inside the conservative habitable zone of Proxima Centauri.' },
+    { name: 'TRAPPIST-1e', host: 'TRAPPIST-1 (M8V Ultra-Cool)', distLy: '40.7 ly', esi: '0.85', radius: '0.92 R⊕', temp: '-22 °C (Eq)', period: '6.10d',
+      pos: [13.9, 0.25, -0.8], notes: 'Iron-rich rocky world in the 7-planet TRAPPIST-1 resonant chain; prime JWST atmospheric target.' },
+    { name: 'TOI-700 d', host: 'TOI-700 (M2V Red Dwarf)', distLy: '101.4 ly', esi: '0.93', radius: '1.07 R⊕', temp: '-4 °C (Eq)', period: '37.4d',
+      pos: [12.7, -0.3, 1.1], notes: 'First Earth-sized habitable-zone planet discovered by NASA TESS; receives 86% of Earth’s solar flux.' },
+    { name: 'LHS 1140 b', host: 'LHS 1140 (M4.5V)', distLy: '48.8 ly', esi: '0.78', radius: '1.73 R⊕', temp: '-47 °C (Eq)', period: '24.7d',
+      pos: [14.1, -0.18, 0.9], notes: 'JWST transmission spectra indicate a nitrogen-rich atmosphere and potential global liquid ocean ("eyeball world").' },
+    { name: 'Kepler-442b', host: 'Kepler-442 (K-Type Orange)', distLy: '1,206 ly', esi: '0.84', radius: '1.34 R⊕', temp: '-40 °C (Eq)', period: '112.3d',
+      pos: [15.4, 0.45, -2.1], notes: 'Orbits a quiet, long-lived K-dwarf star with minimal stellar flares, making it a "superhabitable" candidate.' },
+    { name: 'Kepler-186f', host: 'Kepler-186 (M1V Red Dwarf)', distLy: '582 ly', esi: '0.61', radius: '1.17 R⊕', temp: '-85 °C (Eq)', period: '129.9d',
+      pos: [12.1, 0.35, -1.6], notes: 'First validated Earth-radius planet orbiting within the habitable zone of another star.' }
+];
 
 async function focusGalaxyRegion(name) {
     focusedGalaxyRegion = name;
@@ -1195,6 +1243,9 @@ async function focusGalaxyRegion(name) {
     document.getElementById('gd-diam').textContent = r.diam;
     document.getElementById('gd-mass').textContent = r.mass;
     document.getElementById('gd-tilt').textContent = r.tilt;
+    if (r.structure && document.getElementById('gd-structure')) {
+        document.getElementById('gd-structure').innerHTML = `<strong>Structure &amp; Composition:</strong> ${r.structure}`;
+    }
 
     // Dynamically track rotating Solar System pin or static Andromeda world position
     let targetLook = r.lookAt.clone();
@@ -1294,7 +1345,15 @@ async function updateCosmosDossier(name, simDays) {
         document.getElementById('cd-radius').textContent = '696,340 km';
         document.getElementById('cd-grav').textContent = '274 m/s² | 617.7 km/s';
         document.getElementById('cd-temp').textContent = '5,505 °C | 25.4d';
-        document.getElementById('cd-atmo').innerHTML = '<strong>Composition:</strong> 73.46% Hydrogen, 24.85% Helium, 0.77% Oxygen, 0.29% Carbon.';
+        document.getElementById('cd-density').textContent = '1.408 g/cm³';
+        document.getElementById('cd-mag').textContent = 'Heliospheric Dynamo';
+        document.getElementById('cd-press').textContent = '2.65×10¹¹ bar (Core)';
+        document.getElementById('cd-structure').innerHTML = '<strong>Internal Layers:</strong> Thermonuclear Fusion Core (15.7M K, 0–0.25 R☉), Radiative Zone (0.25–0.70 R☉), Convective Zone (0.70–1.0 R☉), Photosphere, Chromosphere &amp; Million-Kelvin Corona.';
+        document.getElementById('cd-atmo').innerHTML = '<strong>Composition:</strong> 73.46% Hydrogen, 24.85% Helium, 0.77% Oxygen, 0.29% Carbon, 0.16% Iron.';
+        document.getElementById('cd-esi-badge').textContent = 'G2V Host Star';
+        document.getElementById('cd-hab-status').textContent = 'Sustains Habitable Zone (0.95–1.67 AU)';
+        document.getElementById('cd-esi-bar').style.width = '100%';
+        document.getElementById('cd-hab-notes').textContent = 'Main-sequence luminosity (3.828 × 10²⁶ W) powers photosynthesis and liquid water stability on Earth.';
         document.getElementById('cd-moon-count').textContent = '8 Planets';
         document.getElementById('cd-moons').innerHTML = '<div class="bg-slate-900/50 border border-slate-800 rounded p-2.5 text-slate-300">Gravitational anchor for 8 major planets, 5+ dwarf planets, the Main Asteroid Belt, and the outer Kuiper Belt.</div>';
     } else if (p) {
@@ -1313,7 +1372,16 @@ async function updateCosmosDossier(name, simDays) {
         document.getElementById('cd-radius').textContent = `${p.radiusKm.toLocaleString()} km`;
         document.getElementById('cd-grav').textContent = `${p.gravity} m/s² | ${p.escapeKps} km/s`;
         document.getElementById('cd-temp').textContent = `${p.temp} | ${p.dayLen}`;
+        document.getElementById('cd-density').textContent = p.density || '--';
+        document.getElementById('cd-mag').textContent = p.mag || 'Unknown';
+        document.getElementById('cd-press').textContent = p.press || '--';
+        document.getElementById('cd-structure').innerHTML = `<strong>Internal Structure:</strong> ${p.structure || 'Differentiated planetary interior.'}`;
         document.getElementById('cd-atmo').innerHTML = `<strong>Atmosphere:</strong> ${p.atmo}`;
+        const esiVal = typeof p.esi === 'number' ? p.esi : (p.isComet ? 0.15 : 0.25);
+        document.getElementById('cd-esi-badge').textContent = `ESI ${esiVal.toFixed(2)}`;
+        document.getElementById('cd-hab-status').textContent = p.habStatus || (p.isComet ? 'Volatile-Rich Primordial Relic' : 'Non-Habitable');
+        document.getElementById('cd-esi-bar').style.width = `${Math.round(esiVal * 100)}%`;
+        document.getElementById('cd-hab-notes').textContent = p.habNotes || 'Extreme temperature and pressure conditions outside liquid-water bounds.';
         document.getElementById('cd-moon-count').textContent = `${p.moonCount} Known`;
 
         if (p.moons && p.moons.length > 0) {
@@ -2453,20 +2521,35 @@ heliocentricGroup.add(helioPointLight);
 // a (AU), e (eccentricity), I (deg), L0 (deg at J2000), LRate (deg/century), wBar (deg), Omega (deg)
 const JPL_PLANETS = [
     { name: 'Mercury', wikiTitle: 'Mercury_(planet)', type: 'Terrestrial Planet', a: 0.38710, e: 0.20563, I: 7.005, L0: 252.25, LRate: 149472.67, wBar: 77.46, Omega: 48.33, visR: 0.32, visDist: 5.5, c1: 0x6b7280, c2: 0x9ca3af, band: false,
-      tilt: 0.03, radiusKm: 2440, gravity: 3.7, escapeKps: 4.25, temp: '167 °C', dayLen: '58.6d', atmo: 'Trace Exosphere (O₂, Na, H₂, He)', moonCount: 0, moons: [] },
+      tilt: 0.03, radiusKm: 2440, gravity: 3.7, escapeKps: 4.25, temp: '167 °C', dayLen: '58.6d', density: '5.43 g/cm³', mag: 'Weak Dipole (~1.1% Earth)', press: '10⁻¹⁴ bar (Exosphere)',
+      structure: 'Oversized metallic iron-nickel core (~85% of planetary radius) surrounded by a thin 400 km silicate mantle and cratered crust.',
+      esi: 0.60, habStatus: 'Hostile (Airless Extreme Thermal Swings)', habNotes: 'Surface swings from -180 °C at night to 430 °C by day; permanent water ice survives only inside shadowed polar craters.',
+      atmo: 'Trace Exosphere (42% O₂, 29% Na, 22% H₂, 6% He)', moonCount: 0, moons: [] },
     { name: 'Venus', wikiTitle: 'Venus', type: 'Terrestrial Planet', a: 0.72333, e: 0.00677, I: 3.395, L0: 181.98, LRate: 58517.82, wBar: 131.56, Omega: 76.68, visR: 0.48, visDist: 8.2, c1: 0xd97706, c2: 0xfef08a, band: true,
-      tilt: 177.36, radiusKm: 6052, gravity: 8.87, escapeKps: 10.36, temp: '464 °C', dayLen: '243d (Retro)', atmo: '96.5% CO₂, 3.5% N₂ (Dense Sulfuric Clouds)', moonCount: 0, moons: [] },
+      tilt: 177.36, radiusKm: 6052, gravity: 8.87, escapeKps: 10.36, temp: '464 °C', dayLen: '243d (Retro)', density: '5.24 g/cm³', mag: 'Induced Ionospheric Field', press: '92.0 bar (Crushing)',
+      structure: 'Iron-nickel core (~3,000 km radius), rocky silicate mantle, and a single-plate basaltic crust shaped by global volcanism.',
+      esi: 0.44, habStatus: 'Hostile Surface (Runaway Greenhouse)', habNotes: 'Supercritical CO₂ surface melts lead; upper cloud decks at 50–60 km altitude maintain Earth-like 1 bar pressure and 30–70 °C temperatures.',
+      atmo: '96.5% CO₂, 3.5% N₂, 150 ppm SO₂ (Sulfuric Acid Clouds)', moonCount: 0, moons: [] },
     { name: 'Earth', wikiTitle: 'Earth', type: 'Home World (3rd)', a: 1.00000, e: 0.01671, I: 0.000, L0: 100.46, LRate: 35999.37, wBar: 102.94, Omega: 0.00, visR: 0.54, visDist: 11.5, isEarth: true,
-      tilt: 23.44, radiusKm: 6371, gravity: 9.81, escapeKps: 11.19, temp: '15 °C', dayLen: '23h 56m', atmo: '78% N₂, 21% O₂, 0.93% Ar, 0.04% CO₂', moonCount: 1,
+      tilt: 23.44, radiusKm: 6371, gravity: 9.81, escapeKps: 11.19, temp: '15 °C', dayLen: '23h 56m', density: '5.51 g/cm³', mag: 'Strong Geodynamo (25–65 µT)', press: '1.013 bar (1 atm)',
+      structure: 'Solid Fe-Ni inner core (1,221 km), liquid outer core (2,259 km), viscous silicate mantle (2,890 km), and active tectonic crust (71% liquid ocean).',
+      esi: 1.00, habStatus: 'Optimal Biosphere (Liquid Surface Oceans)', habNotes: 'Reference standard for planetary habitability: active plate tectonics, carbon-silicate thermostat, ozone UV shield, and protective magnetosphere.',
+      atmo: '78.08% N₂, 20.95% O₂, 0.93% Ar, 0.042% CO₂, H₂O vapor', moonCount: 1,
       moons: [{ name: 'Moon (Luna)', r: 0.14, dist: 1.18, period: 27.32, color: 0xcbd5e1 }] },
     { name: 'Mars', wikiTitle: 'Mars', type: 'Terrestrial Planet', a: 1.52368, e: 0.09340, I: 1.850, L0: 355.45, LRate: 19140.30, wBar: 336.06, Omega: 49.56, visR: 0.40, visDist: 15.2, c1: 0x9a3412, c2: 0xea580c, band: false,
-      tilt: 25.19, radiusKm: 3390, gravity: 3.72, escapeKps: 5.03, temp: '-65 °C', dayLen: '24h 37m', atmo: '95.3% CO₂, 2.6% N₂, 1.9% Ar', moonCount: 2,
+      tilt: 25.19, radiusKm: 3390, gravity: 3.72, escapeKps: 5.03, temp: '-65 °C', dayLen: '24h 37m', density: '3.93 g/cm³', mag: 'Crustal Remnant Fields Only', press: '0.006 bar (610 Pa)',
+      structure: 'Liquid iron-sulfur-oxygen core (~1,830 km radius), silicate mantle, and iron-oxide-rich basaltic crust hosting Olympus Mons & Valles Marineris.',
+      esi: 0.73, habStatus: 'Subsurface & Ancient Habitability Candidate', habNotes: 'Supported liquid rivers and lakes ~3.7B years ago; today holds vast polar/subsurface water ice and seasonal methane plumes.',
+      atmo: '95.32% CO₂, 2.7% N₂, 1.6% Ar, 0.13% O₂', moonCount: 2,
       moons: [
           { name: 'Phobos', r: 0.055, dist: 0.72, period: 0.32, color: 0xa8a29e },
           { name: 'Deimos', r: 0.045, dist: 1.02, period: 1.26, color: 0xd6d3d1 }
       ] },
     { name: 'Jupiter', wikiTitle: 'Jupiter', type: 'Gas Giant', a: 5.20260, e: 0.04849, I: 1.303, L0: 34.40, LRate: 3034.91, wBar: 14.33, Omega: 100.46, visR: 1.35, visDist: 23.0, c1: 0x92400e, c2: 0xfde68a, band: true,
-      tilt: 3.13, radiusKm: 69911, gravity: 24.79, escapeKps: 59.5, temp: '-110 °C', dayLen: '9h 56m', atmo: '89.8% H₂, 10.2% He, Trace CH₄ & NH₃', moonCount: 95,
+      tilt: 3.13, radiusKm: 69911, gravity: 24.79, escapeKps: 59.5, temp: '-110 °C', dayLen: '9h 56m', density: '1.33 g/cm³', mag: 'Immense (14× Earth Surface)', press: '> 1,000 bar (No Solid Surface)',
+      structure: 'Dilute fuzzy heavy-element core, deep liquid metallic hydrogen dynamo layer (generating intense radiation belts), and molecular H₂-He envelope.',
+      esi: 0.12, habStatus: 'Planet Hostile / Moons Europa & Ganymede Prime', habNotes: 'No solid surface, but tidal heating sustains a global salty subsurface ocean beneath Europa’s ice shell with >2× Earth’s water volume.',
+      atmo: '89.8% H₂, 10.2% He, 0.3% CH₄, 0.026% NH₃', moonCount: 95,
       moons: [
           { name: 'Io', r: 0.11, dist: 1.85, period: 1.77, color: 0xfacc15 },
           { name: 'Europa', r: 0.10, dist: 2.25, period: 3.55, color: 0xe2e8f0 },
@@ -2474,20 +2557,29 @@ const JPL_PLANETS = [
           { name: 'Callisto', r: 0.13, dist: 3.25, period: 16.69, color: 0x64748b }
       ] },
     { name: 'Saturn', wikiTitle: 'Saturn', type: 'Ringed Gas Giant', a: 9.55491, e: 0.05551, I: 2.489, L0: 49.94, LRate: 1222.11, wBar: 93.06, Omega: 113.67, visR: 1.12, visDist: 31.5, c1: 0xb45309, c2: 0xfef3c7, band: true, rings: true,
-      tilt: 26.73, radiusKm: 58232, gravity: 10.44, escapeKps: 35.5, temp: '-140 °C', dayLen: '10h 42m', atmo: '96.3% H₂, 3.25% He, Trace CH₄', moonCount: 146,
+      tilt: 26.73, radiusKm: 58232, gravity: 10.44, escapeKps: 35.5, temp: '-140 °C', dayLen: '10h 42m', density: '0.687 g/cm³', mag: 'Axisymmetric Dipole (0.21 G)', press: '> 1,000 bar (Gas Envelope)',
+      structure: 'Rock-ice core (~10–20 Earth masses), liquid metallic hydrogen mantle, molecular H₂-He outer envelope, and 99.9% pure water-ice ring system.',
+      esi: 0.10, habStatus: 'Planet Hostile / Enceladus & Titan Prime', habNotes: 'Enceladus vents hydrothermal H₂, CH₄, and organics from a global ocean; Titan has a dense 1.45 bar N₂ atmosphere and liquid methane seas.',
+      atmo: '96.3% H₂, 3.25% He, 0.45% CH₄, 0.01% NH₃', moonCount: 146,
       moons: [
           { name: 'Enceladus', r: 0.07, dist: 2.75, period: 1.37, color: 0xf8fafc },
           { name: 'Rhea', r: 0.09, dist: 3.18, period: 4.52, color: 0xcbd5e1 },
           { name: 'Titan', r: 0.16, dist: 3.78, period: 15.95, color: 0xf59e0b }
       ] },
     { name: 'Uranus', wikiTitle: 'Uranus', type: 'Ice Giant', a: 19.2184, e: 0.04630, I: 0.773, L0: 313.23, LRate: 428.47, wBar: 173.01, Omega: 74.01, visR: 0.78, visDist: 39.5, c1: 0x0891b2, c2: 0xa5f3fc, band: true,
-      tilt: 97.77, radiusKm: 25362, gravity: 8.69, escapeKps: 21.3, temp: '-195 °C', dayLen: '17h 14m (Retro)', atmo: '82.5% H₂, 15.2% He, 2.3% CH₄', moonCount: 28,
+      tilt: 97.77, radiusKm: 25362, gravity: 8.69, escapeKps: 21.3, temp: '-195 °C', dayLen: '17h 14m (Retro)', density: '1.27 g/cm³', mag: 'Tilted 59° Off-Center Dipole', press: '> 1,000 bar (Superionic Mantle)',
+      structure: 'Small rocky core, massive hot dense mantle of water, ammonia, and methane ices (superionic fluid), and a H₂-He-CH₄ atmosphere.',
+      esi: 0.11, habStatus: 'Extreme Cryogenic Ice Giant', habNotes: 'Extreme 97.77° axial tilt causes 42-year continuous polar sunlight/darkness; large moons Ariel & Miranda may harbor remnant subsurface oceans.',
+      atmo: '82.5% H₂, 15.2% He, 2.3% CH₄ (Methane Cyan Tint)', moonCount: 28,
       moons: [
           { name: 'Titania', r: 0.085, dist: 1.45, period: 8.71, color: 0xcbd5e1 },
           { name: 'Oberon', r: 0.08, dist: 1.85, period: 13.46, color: 0x94a3b8 }
       ] },
     { name: 'Neptune', wikiTitle: 'Neptune', type: 'Ice Giant', a: 30.1104, e: 0.00899, I: 1.770, L0: 304.88, LRate: 218.46, wBar: 48.12, Omega: 131.78, visR: 0.75, visDist: 47.0, c1: 0x1d4ed8, c2: 0x60a5fa, band: true,
-      tilt: 28.32, radiusKm: 24622, gravity: 11.15, escapeKps: 23.5, temp: '-200 °C', dayLen: '16h 06m', atmo: '80% H₂, 19% He, 1.5% CH₄', moonCount: 16,
+      tilt: 28.32, radiusKm: 24622, gravity: 11.15, escapeKps: 23.5, temp: '-200 °C', dayLen: '16h 06m', density: '1.64 g/cm³', mag: 'Tilted 47° Multipole Field', press: '> 1,000 bar (Supersonic Winds)',
+      structure: 'Iron-silicate core (~1.2 Earth masses), hot pressurized H₂O-NH₃-CH₄ ionic ocean mantle, and supersonic 2,100 km/h atmospheric jet streams.',
+      esi: 0.11, habStatus: 'Cryogenic / Triton Cryovolcanic Moon', habNotes: 'Internal heat radiates 2.6× more energy than received from the Sun; captured Kuiper moon Triton has active nitrogen geysers and a subsurface ocean.',
+      atmo: '80.0% H₂, 19.0% He, 1.5% CH₄, H₂S Clouds', moonCount: 16,
       moons: [
           { name: 'Triton', r: 0.11, dist: 1.55, period: -5.88, color: 0xe2e8f0 }
       ] }
@@ -2710,28 +2802,76 @@ function createHelioPlanetMat(colA, colB, banded, hasPolarCaps = false, rimHex =
         color: 0x93c5fd, size: 0.42, map: asteroidSpriteTex, transparent: true, opacity: 0.28, depthWrite: false
     })));
 
-    // Major Dwarf Planets & Deep-Space Probe
+    // Major Dwarf Planets, Large Asteroids & Interstellar Space Probes (Live J2000 Keplerian Propagation!)
     const EXTRA_SOLAR = [
-        { name: 'Ceres', wikiTitle: 'Ceres_(dwarf_planet)', type: 'Main Belt Dwarf Planet', visR: 0.22, pos: new THREE.Vector3(-14.5, 0.9, 12.2), color: 0x94a3b8,
-          statsHTML: 'Sun: 2.77 AU &bull; Main Asteroid Belt', a: 2.77, e: 0.076, I: 10.6, L0: 95, LRate: 7800, wBar: 73, Omega: 80, tilt: 4, radiusKm: 473, gravity: 0.28, escapeKps: 0.51, temp: '-105 °C', dayLen: '9h 04m', atmo: 'Transient Water Vapor Exosphere', moonCount: 0, moons: [] },
-        { name: 'Pluto', wikiTitle: 'Pluto', type: 'Kuiper Belt Dwarf Planet', visR: 0.28, pos: new THREE.Vector3(36.0, 6.2, 41.5), color: 0xd6b59c,
-          statsHTML: 'Sun: 39.48 AU &bull; Kuiper Belt', a: 39.48, e: 0.249, I: 17.16, L0: 238, LRate: 145, wBar: 224, Omega: 110, tilt: 122.5, radiusKm: 1188, gravity: 0.62, escapeKps: 1.21, temp: '-229 °C', dayLen: '6.39d (Retro)', atmo: 'Thin N₂, CH₄, CO Atmosphere', moonCount: 5, moons: [{ name: 'Charon', r: 0.08, dist: 0.55, period: 6.39, color: 0x94a3b8 }] },
-        { name: 'Eris', wikiTitle: 'Eris_(dwarf_planet)', type: 'Scattered Disc Dwarf Planet', visR: 0.27, pos: new THREE.Vector3(-46.0, -14.0, -38.0), color: 0xe2e8f0,
-          statsHTML: 'Sun: 67.86 AU &bull; Scattered Disc', a: 67.86, e: 0.436, I: 44.04, L0: 205, LRate: 64, wBar: 151, Omega: 36, tilt: 78, radiusKm: 1163, gravity: 0.82, escapeKps: 1.38, temp: '-243 °C', dayLen: '25.9h', atmo: 'Frozen Methane Surface', moonCount: 1, moons: [{ name: 'Dysnomia', r: 0.06, dist: 0.52, period: 15.79, color: 0xcbd5e1 }] },
-        { name: 'Voyager 1', wikiTitle: 'Voyager_1', type: 'Interstellar Space Probe', visR: 0.22, pos: new THREE.Vector3(58.0, 26.0, -28.0), color: 0xfbbf24,
-          statsHTML: 'Sun: ~165 AU &bull; Interstellar Space', a: 165.0, e: 0.0, I: 35.0, L0: 255, LRate: 0, wBar: 0, Omega: 0, tilt: 0, radiusKm: 0.003, gravity: 0, escapeKps: 0, temp: '-270 °C', dayLen: 'Launched 1977', atmo: 'Interstellar Medium (Beyond Heliopause)', moonCount: 0, moons: [] }
+        { name: 'Ceres', wikiTitle: 'Ceres_(dwarf_planet)', type: 'Main Belt Dwarf Planet', visR: 0.22, color: 0x94a3b8,
+          a: 2.7675, e: 0.0758, I: 10.59, L0: 291.4, LRate: 7820.0, wBar: 153.9, Omega: 80.3, tilt: 4.0, radiusKm: 473, gravity: 0.28, escapeKps: 0.51, temp: '-105 °C', dayLen: '9h 04m',
+          density: '2.16 g/cm³', mag: 'None Detected', press: '10⁻¹² bar', structure: 'Differentiated rocky silicate core, muddy brine-ice mantle (~25% water by mass), and carbonate-rich crust (Occator bright salts).',
+          esi: 0.34, habStatus: 'Subsurface Brine Reservoir Candidate', habNotes: 'Dawn spacecraft detected sodium carbonate deposits and aliphatic organics, indicating geologically recent subsurface brine activity.',
+          atmo: 'Transient Sublimated Water Vapor Exosphere', moonCount: 0, moons: [] },
+        { name: 'Vesta', wikiTitle: '4_Vesta', type: 'Main Belt Protoplanet', visR: 0.18, color: 0xcbd5e1,
+          a: 2.3615, e: 0.0887, I: 7.14, L0: 256.0, LRate: 9920.0, wBar: 254.0, Omega: 103.8, tilt: 29.0, radiusKm: 263, gravity: 0.25, escapeKps: 0.36, temp: '-188 to -20 °C', dayLen: '5h 20m',
+          density: '3.46 g/cm³', mag: 'Remnant Crustal Magnetism', press: '0 bar (Vacuum)', structure: 'Differentiated terrestrial-style protoplanet with an iron-nickel core (110 km radius), olivine mantle, and basaltic HED meteorite crust.',
+          esi: 0.24, habStatus: 'Airless Differentiated Protoplanet', habNotes: 'Second-most massive body in the Asteroid Belt; source of ~6% of all meteorites falling on Earth.',
+          atmo: 'None (Airless Basaltic Surface)', moonCount: 0, moons: [] },
+        { name: 'Pallas', wikiTitle: '2_Pallas', type: 'High-Inclination Asteroid', visR: 0.18, color: 0x9ca3af,
+          a: 2.7730, e: 0.2310, I: 34.84, L0: 252.0, LRate: 7800.0, wBar: 123.0, Omega: 173.1, tilt: 84.0, radiusKm: 256, gravity: 0.21, escapeKps: 0.32, temp: '-109 °C', dayLen: '7h 49m',
+          density: '2.89 g/cm³', mag: 'None', press: '0 bar (Vacuum)', structure: 'Carbonaceous silicate-ice interior with a heavily cratered B-type carbon-rich surface tilted at an extreme 34.8° orbital inclination.',
+          esi: 0.22, habStatus: 'Airless Carbonaceous Body', habNotes: 'Third-largest asteroid in the Solar System; extreme orbital inclination makes spacecraft rendezvous energetically demanding.',
+          atmo: 'None (Airless)', moonCount: 0, moons: [] },
+        { name: 'Pluto', wikiTitle: 'Pluto', type: 'Kuiper Belt Dwarf Planet', visR: 0.28, color: 0xd6b59c,
+          a: 39.482, e: 0.2488, I: 17.16, L0: 238.9, LRate: 145.2, wBar: 224.1, Omega: 110.3, tilt: 122.5, radiusKm: 1188, gravity: 0.62, escapeKps: 1.21, temp: '-229 °C', dayLen: '6.39d (Retro)',
+          density: '1.85 g/cm³', mag: 'None Detected', press: '10 µbar (1 Pa)', structure: 'Large hydrated silicate core (~1,700 km diameter), possible liquid water-ammonia subsurface ocean, and convecting nitrogen-ice glaciers (Sputnik Planitia).',
+          esi: 0.21, habStatus: 'Cryogenic / Possible Subsurface Ocean', habNotes: 'New Horizons revealed active nitrogen glaciers, water-ice mountains, and tholin organic haze layers.',
+          atmo: 'Thin 99% N₂, 0.5% CH₄, 0.05% CO Haze', moonCount: 5, moons: [{ name: 'Charon', r: 0.08, dist: 0.55, period: 6.39, color: 0x94a3b8 }] },
+        { name: 'Haumea', wikiTitle: 'Haumea', type: 'Ellipsoidal Kuiper Dwarf', visR: 0.23, color: 0xe2e8f0,
+          a: 43.132, e: 0.1950, I: 28.21, L0: 215.0, LRate: 127.0, wBar: 359.0, Omega: 122.1, tilt: 126.0, radiusKm: 816, gravity: 0.40, escapeKps: 0.84, temp: '-241 °C', dayLen: '3h 55m (Fastest)',
+          density: '2.02 g/cm³', mag: 'None', press: '0 bar', structure: 'Rapid 3.9-hour spin stretches Haumea into a triaxial Jacobi ellipsoid (2,100 × 1,680 × 1,074 km) coated in crystalline water ice and encircled by a 70 km ring.',
+          esi: 0.18, habStatus: 'Extreme Cryogenic Rotator', habNotes: 'Fastest-rotating large body in the Solar System, complete with its own ring system and two moons (Hiʻiaka & Namaka).',
+          atmo: 'None (Crystalline Water-Ice Crust)', moonCount: 2, moons: [] },
+        { name: 'Makemake', wikiTitle: 'Makemake', type: 'Kuiper Belt Dwarf Planet', visR: 0.24, color: 0xfed7aa,
+          a: 45.430, e: 0.1610, I: 28.98, L0: 165.0, LRate: 117.0, wBar: 177.0, Omega: 79.6, tilt: 29.0, radiusKm: 715, gravity: 0.50, escapeKps: 0.80, temp: '-239 °C', dayLen: '22h 50m',
+          density: '1.70 g/cm³', mag: 'None', press: '< 10 nbar', structure: 'Rock-ice interior covered by frozen methane, ethane, and reddish tholin pellets.',
+          esi: 0.19, habStatus: 'Cryogenic Kuiper World', habNotes: 'Second-brightest Kuiper Belt object after Pluto; orbited by dark moon MK 2.',
+          atmo: 'Localized Methane/Nitrogen Outgassing', moonCount: 1, moons: [] },
+        { name: 'Eris', wikiTitle: 'Eris_(dwarf_planet)', type: 'Scattered Disc Dwarf Planet', visR: 0.27, color: 0xf8fafc,
+          a: 67.864, e: 0.4361, I: 44.04, L0: 205.9, LRate: 64.4, wBar: 151.6, Omega: 35.9, tilt: 78.0, radiusKm: 1163, gravity: 0.82, escapeKps: 1.38, temp: '-243 °C', dayLen: '25.9h',
+          density: '2.43 g/cm³', mag: 'None', press: '0 bar (Frozen)', structure: 'Rocky silicate core (~85% by mass) wrapped in a high-albedo (0.96) nitrogen-methane ice mantle.',
+          esi: 0.20, habStatus: 'Cryogenic Scattered-Disc World', habNotes: 'Most massive known dwarf planet in the Solar System (27% more massive than Pluto).',
+          atmo: 'Freezes onto Surface at Aphelion', moonCount: 1, moons: [{ name: 'Dysnomia', r: 0.06, dist: 0.52, period: 15.79, color: 0xcbd5e1 }] },
+        { name: 'Sedna', wikiTitle: '90377_Sedna', type: 'Inner Oort Cloud Planetoid', visR: 0.21, color: 0xf87171,
+          a: 506.0, e: 0.8496, I: 11.93, L0: 358.1, LRate: 3.16, wBar: 95.6, Omega: 144.4, tilt: 0.0, radiusKm: 498, gravity: 0.27, escapeKps: 0.52, temp: '-261 °C', dayLen: '10h 16m',
+          density: '2.00 g/cm³', mag: 'None', press: '0 bar', structure: 'Ultra-red tholin-rich icy interior traversing an 11,400-year eccentric orbit from 76 AU perihelion out to 937 AU aphelion.',
+          esi: 0.14, habStatus: 'Deep Interstellar Boundary World', habNotes: 'One of the reddest objects in the Solar System; bridges the Kuiper Belt and the inner Oort Cloud.',
+          atmo: 'None (Deep Cryogenic)', moonCount: 0, moons: [] },
+        { name: 'Voyager 1', wikiTitle: 'Voyager_1', type: 'Interstellar Space Probe', visR: 0.22, pos: new THREE.Vector3(58.0, 26.0, -28.0), color: 0xfbbf24, isStaticProbe: true,
+          statsHTML: 'Sun: ~165 AU &bull; Interstellar Space', a: 165.0, e: 0.0, I: 35.0, L0: 255, LRate: 0, wBar: 0, Omega: 0, tilt: 0, radiusKm: 0.003, gravity: 0, escapeKps: 0, temp: '-270 °C', dayLen: 'Launched 1977',
+          density: '722 kg Spacecraft', mag: 'Magnetometer Active', press: 'Interstellar Plasma', structure: '3.7m High-Gain Parabolic Dish, 3 RTG Plutonium-238 nuclear power sources, Cosmic Ray Subsystem, and the Golden Record.',
+          esi: 0.00, habStatus: 'Humanity’s Farthest Spacecraft', habNotes: 'Crossed the heliopause on August 25, 2012; traveling at 17.0 km/s (~3.6 AU/yr) through interstellar space.',
+          atmo: 'Local Interstellar Medium (Beyond Heliopause)', moonCount: 0, moons: [] }
     ];
 
     EXTRA_SOLAR.forEach(item => {
         const g = new THREE.Group();
-        g.position.copy(item.pos);
+        let statsHTML = item.statsHTML || '';
+        if (!item.isStaticProbe) {
+            const res = computePlanetHeliocentricAU(item, days);
+            const visD = auToVisualDist(res.rAU);
+            g.position.copy(res.vec.clone().normalize().multiplyScalar(visD));
+            const distFromEarthAU = res.vec.distanceTo(earthHelio.vec);
+            const distFromEarthMkm = (distFromEarthAU * AU_KM / 1e6).toFixed(1);
+            statsHTML = `Sun: ${res.rAU.toFixed(2)} AU &bull; ${distFromEarthMkm}M km`;
+        } else {
+            g.position.copy(item.pos);
+        }
         const m = new THREE.Mesh(
             new THREE.SphereGeometry(item.visR, 20, 20),
             new THREE.MeshStandardMaterial({ color: item.color, roughness: 0.7, metalness: 0.15 })
         );
+        if (item.name === 'Haumea') m.scale.set(1.45, 0.75, 1.05);
         g.add(m);
         heliocentricGroup.add(g);
-        cosmosBodiesMap.set(item.name, { name: item.name, type: item.type, obj: g, spinMesh: m, moons: [], meta: item, radius: item.visR, statsHTML: item.statsHTML });
+        cosmosBodiesMap.set(item.name, { name: item.name, type: item.type, obj: g, spinMesh: m, moons: [], meta: item, radius: item.visR, statsHTML });
         chipsContainer.innerHTML += `<button class="planet-chip" data-body="${item.name}" onclick="focusCosmosBody(this.dataset.body)">${item.name}</button>`;
     });
 
@@ -3309,14 +3449,53 @@ function gaussianRandom() {
     andromedaGroupObj.add(m31Core);
     galaxyGroup.add(andromedaGroupObj);
 
-    // Extra Galactic Landmarks: Orion Nebula (M42), Pillars of Creation (M16), Alpha Centauri, LMC & Triangulum (M33)
+    // Extra Galactic Landmarks: Nebulae, Star Systems, Local Group & Nearby Known Galaxies
     const galLandmarks = [
         { name: 'Orion Nebula',        pos: [14.6, -0.2, 2.2], color: 0xf472b6, size: 1.8, parent: milkyWayDiskGroup, prio: 70 },
         { name: 'Pillars of Creation', pos: [10.2, 0.2, -3.2], color: 0xfb7185, size: 1.6, parent: milkyWayDiskGroup, prio: 68 },
         { name: 'Alpha Centauri',      pos: [13.6, 0.1, 0.5],  color: 0xfef08a, size: 0.9, parent: milkyWayDiskGroup, prio: 65 },
         { name: 'LMC',                 pos: [-32, -18, -36],   color: 0x7dd3fc, size: 5.5, parent: galaxyGroup,       prio: 82 },
-        { name: 'Triangulum (M33)',    pos: [72, 24, -48],     color: 0xc084fc, size: 6.2, parent: galaxyGroup,       prio: 80 }
+        { name: 'SMC',                 pos: [-44, -26, -24],   color: 0x38bdf8, size: 4.0, parent: galaxyGroup,       prio: 78 },
+        { name: 'Triangulum (M33)',    pos: [72, 24, -48],     color: 0xc084fc, size: 6.2, parent: galaxyGroup,       prio: 80 },
+        { name: 'Centaurus A',         pos: [-82, 26, 68],     color: 0xfbbf24, size: 7.5, parent: galaxyGroup,       prio: 77 },
+        { name: 'Sombrero (M104)',     pos: [92, -30, 76],     color: 0xfb7185, size: 7.0, parent: galaxyGroup,       prio: 76 }
     ];
+
+    // Populate Earth-Like Exoplanets in 3D Milky Way + Interactive Dossier List
+    const exoListEl = document.getElementById('exoplanet-list');
+    EARTH_LIKE_EXOPLANETS.forEach(exo => {
+        const esp = new THREE.Sprite(new THREE.SpriteMaterial({
+            map: sunGlowTex, color: 0x34d399, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false
+        }));
+        esp.position.set(exo.pos[0], exo.pos[1], exo.pos[2]);
+        esp.scale.set(0.65, 0.65, 1);
+        milkyWayDiskGroup.add(esp);
+        exo.obj = esp;
+
+        if (exoListEl) {
+            const card = document.createElement('div');
+            card.className = 'cursor-pointer bg-slate-900/60 hover:bg-slate-800/85 border border-teal-500/25 rounded p-2.5 transition';
+            card.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <span class="font-bold text-emerald-300">🌍 ${exo.name}</span>
+                    <span class="text-[10px] font-bold text-teal-300 mono-telemetry">ESI ${exo.esi} &bull; ${exo.distLy}</span>
+                </div>
+                <div class="text-[10px] text-slate-400 mt-0.5">${exo.host} &bull; ${exo.radius} &bull; ${exo.temp} &bull; Orbit ${exo.period}</div>
+                <div class="text-[10px] text-slate-300 mt-1 leading-snug">${exo.notes}</div>
+            `;
+            card.onclick = () => {
+                playSound('click');
+                const wp = new THREE.Vector3();
+                exo.obj.getWorldPosition(wp);
+                smoothFlyTo(wp.clone().add(new THREE.Vector3(2.8, 2.2, 3.4)), wp, 850);
+                document.getElementById('gt-name').textContent = exo.name;
+                document.getElementById('gt-type').textContent = `Habitable Exoplanet (ESI ${exo.esi})`;
+                document.getElementById('gt-stats').innerHTML = `${exo.distLy} &bull; ${exo.radius} &bull; ${exo.temp}`;
+                showToast(`Located ${exo.name} (${exo.distLy})`);
+            };
+            exoListEl.appendChild(card);
+        }
+    });
     galLandmarks.forEach(lm => {
         const sp = new THREE.Sprite(new THREE.SpriteMaterial({
             map: sunGlowTex, color: lm.color, transparent: true, opacity: 0.72, blending: THREE.AdditiveBlending, depthWrite: false
@@ -3343,7 +3522,7 @@ function gaussianRandom() {
 let universeHomePin = null;
 (function buildUniverse3D() {
     const uChips = document.getElementById('universe-chips');
-    ['Cosmic Web', 'Laniakea', 'Virgo', 'Great Attractor', 'Shapley', 'Sloan Great Wall', 'Boötes Void', 'GN-z11', 'CMB Horizon'].forEach((key, idx) => {
+    ['Cosmic Web', 'Laniakea', 'Virgo', 'Great Attractor', 'Coma Cluster', 'Shapley', 'Sloan Great Wall', 'Hercules-CrB Wall', 'Boötes Void', 'GN-z11', 'CMB Horizon'].forEach((key, idx) => {
         uChips.innerHTML += `<button class="planet-chip ${idx === 0 ? 'active' : ''}" data-region="${key}" onclick="focusUniverseRegion('${key}')">${key}</button>`;
     });
 
@@ -3435,6 +3614,8 @@ let universeHomePin = null;
         ['Great Attractor', -6.2, -1.8, 4.5,  0xf59e0b, 2.2, 85],
         ['Shapley',         -12.5, 4.2, -9.5, 0xc084fc, 2.4, 82],
         ['Sloan Great Wall',16.0, 5.5, -14.0, 0xfdba74, 2.6, 80],
+        ['Coma Cluster',    6.8, 9.2, -7.5,   0x38bdf8, 1.9, 81],
+        ['Hercules-CrB Wall',-22.0, -14.0, -20.0, 0xf472b6, 2.8, 79],
         ['GN-z11',          -21.0, 12.0, 20.0,0xf43f5e, 2.0, 78]
     ].forEach(([uName, x, y, z, col, sz, prio]) => {
         const sp = new THREE.Sprite(new THREE.SpriteMaterial({
@@ -4368,6 +4549,15 @@ function animate() {
                 });
             }
         });
+        if (cosmosWarpIdx > 0) {
+            ['Ceres', 'Vesta', 'Pallas', 'Pluto', 'Haumea', 'Makemake', 'Eris', 'Sedna'].forEach(dName => {
+                const dEntry = cosmosBodiesMap.get(dName);
+                if (dEntry && dEntry.meta && !dEntry.meta.isStaticProbe) {
+                    const res = computePlanetHeliocentricAU(dEntry.meta, simDays);
+                    dEntry.obj.position.copy(res.vec.normalize().multiplyScalar(auToVisualDist(res.rAU)));
+                }
+            });
+        }
 
         // Live 1P/Halley Keplerian Propagation & Photorealistic Solar-Wind Dual Tail Physics
         const hEntry = cosmosBodiesMap.get("Halley's Comet");

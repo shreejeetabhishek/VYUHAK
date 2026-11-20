@@ -2,111 +2,143 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VYUHAK — Solar Close-Zoom & Interior Pop-Up</title>
-  <link rel="stylesheet" href="styles.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>VYUHAK | VK-Tracker-01 — Solar & Interior View</title>
+  <link rel="stylesheet" href="src/css/main.css" />
 </head>
-<body class="mode-solar">
-  <header class="top-hud">
-    <div class="hud-row">
-      <span class="brand-badge"><span class="dot"></span> VYUHAK | VK-Tracker-01</span>
-      <span class="coords">41.15°, -91.38°</span>
+<body class="vhk-app mode-solar">
+  <!-- Top Telemetry & Mode HUD -->
+  <header class="vhk-top-hud" id="vhk-top-hud">
+    <div class="vhk-hud-bar">
+      <div class="vhk-tracker-id">
+        <span class="vhk-status-dot" aria-hidden="true"></span>
+        <span>VYUHAK</span>
+        <span class="vhk-divider">|</span>
+        <span class="vhk-unit">VK-Tracker-01</span>
+      </div>
+      <div class="vhk-coord-readout" id="vhk-coords">41.15&deg;, -91.38&deg;</div>
     </div>
-    <div class="hud-subrow">
-      <span>ALT 1200 km • VEL 7.26 km/s</span>
-      <span class="accent">True Color</span>
+
+    <div class="vhk-telemetry-meta">
+      <span id="vhk-alt-vel">ALT 1200 km &bull; VEL 7.26 km/s</span>
+      <span class="vhk-color-mode" id="vhk-color-mode">True Color</span>
     </div>
-    <nav class="mode-pills" aria-label="View Modes">
-      <button type="button" class="pill">Earth</button>
-      <button type="button" class="pill is-active">Solar</button>
-      <button type="button" class="pill">Galaxy</button>
-      <button type="button" class="pill">Universe</button>
+
+    <nav class="vhk-domain-tabs" aria-label="Primary Space Domains">
+      <button type="button" class="vhk-tab" data-domain="earth">Earth</button>
+      <button type="button" class="vhk-tab is-active" data-domain="solar">Solar</button>
+      <button type="button" class="vhk-tab" data-domain="galaxy">Galaxy</button>
+      <button type="button" class="vhk-tab" data-domain="universe">Universe</button>
     </nav>
-    <div class="orbit-quick-pills" aria-label="Bodies">
-      <button type="button" class="chip" data-select-body="sun">Sun</button>
-      <button type="button" class="chip" data-select-body="mercury">Mercury</button>
-      <button type="button" class="chip is-active" data-select-body="venus">Venus</button>
-      <button type="button" class="chip" data-select-body="earth">Earth</button>
-      <button type="button" class="chip" data-select-body="mars">Mars</button>
+
+    <div class="vhk-camera-bar" aria-label="Camera Mode & Quick Zoom">
+      <div class="vhk-seg">
+        <button type="button" class="vhk-seg-btn is-active" data-dim="3d">3D</button>
+        <button type="button" class="vhk-seg-btn" data-dim="2d">2D</button>
+      </div>
+      <button type="button" class="vhk-mini-btn" data-cam="free">Free</button>
+      <button type="button" class="vhk-mini-btn" data-cam="hover">Hover</button>
+      <button type="button" class="vhk-mini-btn" data-cam="iss">ISS</button>
+      <button type="button" class="vhk-mini-btn is-active" data-cam="track">Track</button>
+      <button type="button" class="vhk-mini-btn" data-zoom-preset="far">System</button>
+      <button type="button" class="vhk-mini-btn" data-zoom-preset="close">Close Zoom</button>
+    </div>
+
+    <div class="vhk-body-pills" id="vhk-body-pills" role="tablist" aria-label="Solar System Bodies">
+      <button type="button" class="vhk-body-pill" data-body="sun">Sun</button>
+      <button type="button" class="vhk-body-pill" data-body="mercury">Mercury</button>
+      <button type="button" class="vhk-body-pill is-active" data-body="venus">Venus</button>
+      <button type="button" class="vhk-body-pill" data-body="earth">Earth</button>
+      <button type="button" class="vhk-body-pill" data-body="mars">Mars</button>
+      <button type="button" class="vhk-body-pill" data-body="jupiter">Jupiter</button>
+      <button type="button" class="vhk-body-pill" data-body="saturn">Saturn</button>
     </div>
   </header>
 
-  <main class="viewport-stage" id="stage">
-    <!-- Lightweight system markers -->
-    <div class="marker marker-sun" style="left: 22%; top: 58%;">
-      <div class="marker-title">SUN</div>
-      <div class="marker-sub">G2V Star • 5,505 °C</div>
+  <!-- Full-Viewport Interactive Solar Canvas -->
+  <main class="vhk-stage" id="vhk-stage">
+    <canvas id="vhk-solar-canvas" aria-label="Heliocentric Solar System Canvas"></canvas>
+
+    <!-- Non-blocking scale readout -->
+    <div class="vhk-scale-badge" aria-hidden="true">
+      <div class="vhk-scale-value" id="vhk-scale-value">1.12 billion km</div>
+      <div class="vhk-scale-line"></div>
+      <div class="vhk-scale-caption">HELIOCENTRIC SOLAR SYSTEM</div>
     </div>
 
-    <div class="marker marker-probe" style="left: 34%; top: 64%;">
-      <div class="marker-title">PARKER PROBE</div>
-      <div class="marker-sub">0.38 AU • 1,377 °C Shield</div>
+    <!-- Lightweight camera distance scrubber (no layout thrashing) -->
+    <div class="vhk-zoom-dock">
+      <div class="vhk-zoom-row">
+        <span id="vhk-zoom-status">System View (Zoomed Out)</span>
+        <span id="vhk-dist-readout">DIST 120.0</span>
+      </div>
+      <input
+        type="range"
+        id="vhk-zoom-slider"
+        min="3"
+        max="160"
+        step="0.5"
+        value="120"
+        aria-label="Camera Distance"
+      />
     </div>
 
-    <div class="marker marker-here" style="left: 78%; top: 58%;">
-      <div class="marker-title">YOU ARE HERE</div>
-    </div>
-
-    <!-- Selected Body Marker / Target -->
-    <button type="button" id="body-target" class="body-target" aria-label="Selected celestial body">
-      <span class="body-ring"></span>
-      <span class="body-label" id="body-target-label">VENUS</span>
-    </button>
-
-    <!-- Object Pop-Up (Telemetry & Interior Description Shown Only When Zoomed Close or Inside Interior) -->
-    <aside id="object-popup" class="object-popup" aria-live="polite" hidden>
-      <div class="popup-header">
-        <div>
-          <div class="popup-kicker">
-            <span id="popup-domain">SOLAR</span>
-            <span id="popup-type">Terrestrial Planet</span>
+    <!-- Object Pop-Up: DIST / VEL / ESI/INFO & Interior/Core Details Shown ONLY When Zoomed Close or Inside Interior -->
+    <aside id="vhk-object-popup" class="vhk-popup" aria-live="polite" hidden>
+      <div class="vhk-popup-top">
+        <div class="vhk-popup-heading">
+          <div class="vhk-popup-badges">
+            <span class="vhk-badge-domain" id="vhk-popup-domain">SOLAR</span>
+            <span class="vhk-badge-type" id="vhk-popup-type">Terrestrial Planet</span>
           </div>
-          <h2 id="popup-name" class="popup-title">Venus</h2>
+          <h2 class="vhk-popup-name" id="vhk-popup-name">Venus</h2>
         </div>
-        <button type="button" class="interior-btn" data-interior-toggle>Enter Interior &rarr;</button>
+        <button type="button" class="vhk-interior-toggle" id="vhk-interior-toggle">
+          Enter Interior &rarr;
+        </button>
       </div>
 
-      <div class="popup-compact-line" id="popup-compact-line">
-        Sun: 0.72 AU &bull; 53.9M km
+      <div class="vhk-popup-summary" id="vhk-popup-summary">
+        Sun: 0.72 AU &bull; 53.9M km &bull; Pinch/zoom close or tap Enter Interior
       </div>
 
-      <!-- Hidden at system zoom; revealed when zoomed in close or inside interior -->
-      <div class="popup-deep" data-deep-details hidden>
-        <div class="telemetry-grid">
-          <div class="telemetry-cell">
-            <span class="t-label">DIST</span>
-            <span class="t-value" id="t-dist">0.72 AU</span>
+      <div class="vhk-popup-deep" id="vhk-popup-deep" hidden>
+        <div class="vhk-metrics">
+          <div class="vhk-metric">
+            <span class="vhk-metric-label">DIST</span>
+            <strong class="vhk-metric-val" id="vhk-m-dist">0.72 AU</strong>
           </div>
-          <div class="telemetry-cell">
-            <span class="t-label">VEL</span>
-            <span class="t-value" id="t-vel">35.2 km/s</span>
+          <div class="vhk-metric">
+            <span class="vhk-metric-label">VEL</span>
+            <strong class="vhk-metric-val" id="vhk-m-vel">35.2 km/s</strong>
           </div>
-          <div class="telemetry-cell">
-            <span class="t-label">ESI/INFO</span>
-            <span class="t-value" id="t-esi">ESI 0.44</span>
+          <div class="vhk-metric">
+            <span class="vhk-metric-label">ESI/INFO</span>
+            <strong class="vhk-metric-val" id="vhk-m-esi">ESI 0.44</strong>
           </div>
         </div>
-        <p id="popup-description" class="popup-description">
-          Iron-nickel core (~3,000 km radius), rocky silicate mantle, and a single-plate basaltic crust shaped by global volcanism.
-        </p>
+        <p class="vhk-popup-desc" id="vhk-popup-desc"></p>
       </div>
     </aside>
-
-    <!-- Demo Zoom & Interior Controls (Replace with real 3D/2D camera & interior hooks) -->
-    <section class="demo-controls" aria-label="Zoom and Interior Simulation Controls">
-      <label for="zoom-slider" class="zoom-label">
-        Camera Distance: <strong id="zoom-readout">120</strong> (Close &le; <span id="threshold-readout">18</span>)
-      </label>
-      <input id="zoom-slider" type="range" min="4" max="160" step="1" value="120" />
-    </section>
   </main>
 
-  <footer class="bottom-nav">
-    <button type="button" class="nav-item">Live Events <span class="badge">11</span></button>
-    <button type="button" class="nav-item is-active">Solar Data</button>
-    <button type="button" class="nav-item">Settings</button>
+  <!-- Bottom Navigation Bar -->
+  <footer class="vhk-bottom-nav">
+    <button type="button" class="vhk-nav-btn" data-nav="events">
+      <span>Live Events</span>
+      <span class="vhk-alert-pill">11</span>
+    </button>
+    <button type="button" class="vhk-nav-btn is-active" data-nav="solar">
+      <span>Solar Data</span>
+    </button>
+    <button type="button" class="vhk-nav-btn" data-nav="settings">
+      <span>Settings</span>
+    </button>
   </footer>
 
-  <script src="app.js"></script>
+  <script src="src/js/bodies-data.js"></script>
+  <script src="src/js/popup-controller.js"></script>
+  <script src="src/js/solar-renderer.js"></script>
+  <script src="src/js/app.js"></script>
 </body>
 </html>

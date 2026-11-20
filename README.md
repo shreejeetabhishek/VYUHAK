@@ -1,8 +1,9 @@
-# Non-Destructive Patch for VYUHAK
+# VYUHAK Full Application Package (Solar View + Zoom/Interior Pop-Up)
 
-My previous full-page replacement broke your existing styling and layout. This archive contains only `vyuhak-popup-patch.js`, a non-destructive patch designed to sit on top of your existing page without replacing your CSS or canvas.
-
-## How to Use
-1. Add `vyuhak-popup-patch.js` to your project folder.
-2. Include `<script src="vyuhak-popup-patch.js" defer></script>` at the end of `<body>` in your existing `index.html`.
-3. Optionally call `window.VYUHAK_POPUP.setState({ cameraDistance, isInsideInterior, bodyKey, anchor: { x, y } })` from your camera/zoom loop when zooming close or entering an object's interior.
+Complete standalone web bundle with:
+- `index.html`: Top HUD, body selector chips, heliocentric canvas stage, camera zoom scrubber, and object pop-up.
+- `src/css/main.css`: Responsive dark-mode HUD and viewport-clamped pop-up styles without GPU-heavy blur.
+- `src/js/bodies-data.js`: Solar system body telemetry, geological/interior descriptions, and close-zoom thresholds.
+- `src/js/popup-controller.js`: Shows `DIST`, `VEL`, `ESI/INFO`, and interior/geological text inside the pop-up only when zoomed close (`cameraDistance <= closeThreshold`) or inside interior mode (`isInsideInterior === true`).
+- `src/js/solar-renderer.js`: Lightweight 2D canvas renderer with interior cross-section view.
+- `src/js/app.js`: State wiring for body selection, zoom presets/slider, and `Enter Interior ->` / `<- Exit Interior`.

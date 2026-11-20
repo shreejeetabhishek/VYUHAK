@@ -1,5 +1,5 @@
 // ============================================================================
-// VYUHAK v42 ULTRA-SMOOTH // ZERO-LAG UNIVERSE & MULTIVERSE SHADERS + REALISTIC NESTED SCALES
+// VYUHAK v43 DEEP-ZOOM // ULTRA-DEEP ZOOM-OUT ACROSS ALL STAGES & CLEARER POCKET UNIVERSES
 // ============================================================================
 
 // --- 1. AUDIO ENGINE WITH MUTE ---
@@ -438,32 +438,32 @@ function applyScaleDOMAndVisibility(targetScale) {
     if (isEarth) {
         dossierTab.textContent = 'Ground Data';
         controls.minDistance = 1.15;
-        controls.maxDistance = 28;
+        controls.maxDistance = 48;
     } else if (isSolarSystemView) {
         dossierTab.textContent = 'Solar Data';
         activeCamera = 'FREE'; camModeIdx = 0;
         document.getElementById('cam-label').textContent = 'Free';
         controls.minDistance = 1.1;
-        controls.maxDistance = 210;
+        controls.maxDistance = 320;
         fetchLiveSpaceWeather();
     } else if (isGalaxyView) {
         dossierTab.textContent = 'Galaxy Data';
         activeCamera = 'FREE'; camModeIdx = 0;
         document.getElementById('cam-label').textContent = 'Free';
         controls.minDistance = 1.8;
-        controls.maxDistance = 210;
+        controls.maxDistance = 320;
     } else if (isUniverseView) {
         dossierTab.textContent = 'Universe Data';
         activeCamera = 'FREE'; camModeIdx = 0;
         document.getElementById('cam-label').textContent = 'Free';
         controls.minDistance = 2.2;
-        controls.maxDistance = 145;
+        controls.maxDistance = 185;
     } else if (isMultiverseView) {
         dossierTab.textContent = 'Multiverse Data';
         activeCamera = 'FREE'; camModeIdx = 0;
         document.getElementById('cam-label').textContent = 'Free';
         controls.minDistance = 54;
-        controls.maxDistance = 520;
+        controls.maxDistance = 950;
     }
 }
 
@@ -1050,7 +1050,7 @@ const UNIVERSE_REGIONS = {
     'Multiverse': {
         title: 'MULTIVERSE // HYPOTHETICAL BUBBLES', subtitle: 'Eternal Inflation — An idea, not a measurement',
         type: 'Theoretical Cosmology', stats: '> 100B ly &bull; Unverified',
-        wiki: 'Multiverse', camPos: new THREE.Vector3(0, 165, 295), lookAt: new THREE.Vector3(0, 0, 0)
+        wiki: 'Multiverse', camPos: new THREE.Vector3(0, 210, 380), lookAt: new THREE.Vector3(0, 0, 0)
     }
 };
 
@@ -1059,7 +1059,7 @@ const MULTIVERSE_BUBBLES = {
         title: 'MULTIVERSE // ETERNAL INFLATION', subtitle: 'Hypothetical Bubble Universes — An idea, not a measurement',
         type: 'Theoretical Cosmology', stats: '> 100B ly &bull; Unverified',
         bio: 'In eternal inflation models, quantum fluctuations keep space inflating outside our observable horizon, continuously spawning separate pocket universes with potentially different physical constants.',
-        camPos: new THREE.Vector3(0, 165, 295), lookAt: new THREE.Vector3(0, 0, 0)
+        camPos: new THREE.Vector3(0, 210, 380), lookAt: new THREE.Vector3(0, 0, 0)
     },
     'Pocket α': {
         title: 'POCKET UNIVERSE α // ALTERNATE CONSTANTS', subtitle: 'Hypothetical Inflaton Bubble (Bubble #1)',
@@ -1948,7 +1948,7 @@ function parkSatelliteAt(lat, lon) {
 // 9. 3D ENGINE: EARTH ORBITAL FRAME + TRUE HELIOCENTRIC SOLAR SYSTEM
 // ============================================================================
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.05, 1600);
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.05, 3600);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -3511,40 +3511,69 @@ let universeHomePin = null;
         '-60,54,58': 'High-Entropy'
     };
 
+    const sharedPocketShellGeo = new THREE.SphereGeometry(1, 24, 18);
+    const pocketFilamentPts = [];
+
     bubbleCoords.forEach(([x, y, z, r, hex]) => {
+        // 1. Crisp, translucent horizon shell so every pocket universe is clearly readable as a distinct bubble,
+        //    yet noticeably softer/more translucent than Our Universe's rich golden-blue CMB sphere!
+        const pocketShell = new THREE.Mesh(sharedPocketShellGeo, new THREE.MeshBasicMaterial({
+            color: hex, transparent: true, opacity: 0.11, side: THREE.FrontSide, blending: THREE.AdditiveBlending, depthWrite: false
+        }));
+        pocketShell.position.set(x, y, z);
+        pocketShell.scale.setScalar(r);
+        universeGroup.add(pocketShell);
+
+        // 2. Soft outer cosmic glow halo
         const bubbleAura = new THREE.Sprite(new THREE.SpriteMaterial({
-            map: createCircleSpriteTexture('rgba(255,255,255,0.22)', 'rgba(148,163,184,0.0)'),
-            color: hex, transparent: true, opacity: 0.42, blending: THREE.AdditiveBlending, depthWrite: false
+            map: createCircleSpriteTexture('rgba(255,255,255,0.34)', 'rgba(148,163,184,0.0)'),
+            color: hex, transparent: true, opacity: 0.62, blending: THREE.AdditiveBlending, depthWrite: false
         }));
         bubbleAura.position.set(x, y, z);
-        bubbleAura.scale.set(r * 2.15, r * 2.15, 1);
+        bubbleAura.scale.set(r * 2.25, r * 2.25, 1);
         universeGroup.add(bubbleAura);
 
+        // 3. Internal cosmic web galaxy nodes & filament strands inside each pocket universe
         const baseCol = new THREE.Color(hex);
-        for (let k = 0; k < 36; k++) {
-            const rr = Math.pow(Math.random(), 0.7) * (r * 0.75);
+        const localNodes = [];
+        for (let k = 0; k < 44; k++) {
+            const rr = Math.pow(Math.random(), 0.72) * (r * 0.80);
             const th = Math.random() * Math.PI * 2;
             const ph = Math.acos(2 * Math.random() - 1);
-            pocketWebPositions.push(
-                x + rr * Math.sin(ph) * Math.cos(th),
-                y + rr * Math.sin(ph) * Math.sin(th),
-                z + rr * Math.cos(ph)
-            );
-            const c = baseCol.clone().lerp(new THREE.Color(0xffffff), 0.45);
+            const nx = x + rr * Math.sin(ph) * Math.cos(th);
+            const ny = y + rr * Math.sin(ph) * Math.sin(th);
+            const nz = z + rr * Math.cos(ph);
+            pocketWebPositions.push(nx, ny, nz);
+            if (k < 14) localNodes.push(new THREE.Vector3(nx, ny, nz));
+            const c = baseCol.clone().lerp(new THREE.Color(0xffffff), 0.58);
             pocketWebColors.push(c.r, c.g, c.b);
+        }
+        for (let a = 0; a < localNodes.length; a++) {
+            for (let b = a + 1; b < localNodes.length; b++) {
+                if (localNodes[a].distanceTo(localNodes[b]) < r * 0.78) {
+                    pocketFilamentPts.push(localNodes[a], localNodes[b]);
+                }
+            }
         }
 
         const bKey = `${x},${y},${z}`;
         if (namedBubbles[bKey]) {
-            uniLandmarkAnchors.push({ name: namedBubbles[bKey], region: namedBubbles[bKey], scale: 'MULTIVERSE', obj: bubbleAura, prio: 90 });
+            uniLandmarkAnchors.push({ name: namedBubbles[bKey], region: namedBubbles[bKey], scale: 'MULTIVERSE', obj: pocketShell, prio: 90 });
         }
     });
+
+    if (pocketFilamentPts.length > 0) {
+        universeGroup.add(new THREE.LineSegments(
+            new THREE.BufferGeometry().setFromPoints(pocketFilamentPts),
+            new THREE.LineBasicMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.14, blending: THREE.AdditiveBlending, depthWrite: false })
+        ));
+    }
 
     const pWebGeo = new THREE.BufferGeometry();
     pWebGeo.setAttribute('position', new THREE.Float32BufferAttribute(pocketWebPositions, 3));
     pWebGeo.setAttribute('color', new THREE.Float32BufferAttribute(pocketWebColors, 3));
     universeGroup.add(new THREE.Points(pWebGeo, new THREE.PointsMaterial({
-        size: 0.95, map: webSprite, vertexColors: true, transparent: true, opacity: 0.78, blending: THREE.AdditiveBlending, depthWrite: false
+        size: 1.15, map: webSprite, vertexColors: true, transparent: true, opacity: 0.88, blending: THREE.AdditiveBlending, depthWrite: false
     })));
 })();
 
@@ -4458,7 +4487,7 @@ function animate() {
 
             if (!isSolarSystemView && !isGalaxyView && !isUniverseView && !isMultiverseView) {
                 // EARTH VIEW -> Zooming OUT past 24.5 units glides smoothly behind Earth into the Solar System
-                if (camDist > 24.5) {
+                if (camDist > 42.0) {
                     const earthEntry = cosmosBodiesMap.get('Earth');
                     const earthWorld = new THREE.Vector3(11.5, 0, 0);
                     if (earthEntry) earthEntry.obj.getWorldPosition(earthWorld);
@@ -4472,7 +4501,7 @@ function animate() {
                 }
             } else if (isSolarSystemView) {
                 // SOLAR VIEW -> Zooming OUT past 188 units glides smoothly out of our Solar System in the Milky Way
-                if (camDist > 188) {
+                if (camDist > 285) {
                     const solarWorld = new THREE.Vector3(13.335, 0, 0);
                     if (solarSystemPinObj) solarSystemPinObj.getWorldPosition(solarWorld);
                     const outDir = camera.position.clone().sub(controls.target);
@@ -4496,7 +4525,7 @@ function animate() {
                 }
             } else if (isGalaxyView) {
                 // GALAXY VIEW -> Zooming OUT past 188 units glides smoothly out of Laniakea into the Cosmic Web
-                if (camDist > 188) {
+                if (camDist > 285) {
                     const outDir = camera.position.clone().sub(controls.target);
                     if (outDir.lengthSq() < 1e-6) outDir.set(0.2, 0.5, 0.8);
                     outDir.normalize();
@@ -4513,11 +4542,11 @@ function animate() {
                 }
             } else if (isUniverseView) {
                 // UNIVERSE VIEW -> Zooming OUT past 132 units glides smoothly outside the CMB horizon into the Multiverse
-                if (camDist > 132) {
+                if (camDist > 168) {
                     const outDir = camera.position.clone().sub(controls.target);
                     if (outDir.lengthSq() < 1e-6) outDir.set(0, 0.5, 0.85);
                     outDir.normalize();
-                    performSeamlessZoomHandoff('MULTIVERSE', 'Multiverse Scale', outDir.clone().multiplyScalar(134.0), new THREE.Vector3(0, 0, 0), outDir.clone().multiplyScalar(235.0), new THREE.Vector3(0, 0, 0));
+                    performSeamlessZoomHandoff('MULTIVERSE', 'Multiverse Scale', outDir.clone().multiplyScalar(170.0), new THREE.Vector3(0, 0, 0), outDir.clone().multiplyScalar(320.0), new THREE.Vector3(0, 0, 0));
                 } else if (universeHomePin) {
                     // Zooming IN -> enter Milky Way Galaxy ONLY when pinching into Laniakea / Home Galaxy spiral node
                     const homeWorld = new THREE.Vector3();

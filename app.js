@@ -1,5 +1,5 @@
 // ============================================================================
-// VYUHAK v41 LOGARITHMIC // UNIFIED SINGLE-SYSTEM HIERARCHICAL NESTING & PHOTOREAL COSMIC ANCHORS
+// VYUHAK v42 ULTRA-SMOOTH // ZERO-LAG UNIVERSE & MULTIVERSE SHADERS + REALISTIC NESTED SCALES
 // ============================================================================
 
 // --- 1. AUDIO ENGINE WITH MUTE ---
@@ -2169,7 +2169,7 @@ const milkyWaySkyMat = new THREE.ShaderMaterial({
         }
         float fbm(vec3 p) {
             float v = 0.0, a = 0.5;
-            for (int i = 0; i < 5; i++) { v += a * noise(p); p *= 2.08; a *= 0.5; }
+            for (int i = 0; i < 3; i++) { v += a * noise(p); p *= 2.08; a *= 0.5; }
             return v;
         }
         void main() {
@@ -3082,7 +3082,7 @@ function gaussianRandom() {
             float fbm(vec2 p) {
                 float v = 0.0, a = 0.5;
                 mat2 rot = mat2(0.8, 0.6, -0.6, 0.8);
-                for (int i = 0; i < 5; i++) {
+                for (int i = 0; i < 3; i++) {
                     v += a * noise(p);
                     p = rot * p * 2.05;
                     a *= 0.5;
@@ -3156,7 +3156,7 @@ function gaussianRandom() {
     milkyWayDiskGroup.add(mainDisk);
 
     // LAYER 2: 55,000 CRISP MULTI-SCALE STELLAR POPULATION STARS
-    const starCount = 55000;
+    const starCount = 35000;
     const positions = new Float32Array(starCount * 3);
     const colors = new Float32Array(starCount * 3);
     const sizes = new Float32Array(starCount);
@@ -3381,8 +3381,8 @@ let universeHomePin = null;
     });
 
     // 1. 3D Cosmic Web Nodes & Supercluster Filaments (Inside radius 34)
-    const hubCount = 68;
-    const hubs = [new THREE.Vector3(0, 0, 0)]; // Laniakea / Milky Way at center
+    const hubCount = 60;
+    const hubs = [new THREE.Vector3(0, 0, 0)];
     for (let i = 1; i < hubCount; i++) {
         const r = 4.5 + Math.pow(Math.random(), 0.75) * 28.0;
         const th = Math.random() * Math.PI * 2;
@@ -3390,7 +3390,6 @@ let universeHomePin = null;
         hubs.push(new THREE.Vector3(r * Math.sin(ph) * Math.cos(th), r * Math.sin(ph) * Math.sin(th), r * Math.cos(ph)));
     }
 
-    // Connect nearby hubs with glowing filament threads + galaxy clusters along filaments
     const linePts = [];
     const webStarPositions = [];
     const webStarColors = [];
@@ -3403,8 +3402,7 @@ let universeHomePin = null;
             const d = hubs[i].distanceTo(hubs[j]);
             if (d < 11.2) {
                 linePts.push(hubs[i], hubs[j]);
-                // Scatter galaxy clusters along each filament
-                const steps = 18;
+                const steps = 15;
                 for (let k = 0; k < steps; k++) {
                     const t = Math.random();
                     const px = hubs[i].x + (hubs[j].x - hubs[i].x) * t + gaussianRandom() * 0.65;
@@ -3433,7 +3431,7 @@ let universeHomePin = null;
         size: 0.72, map: webSprite, vertexColors: true, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false
     })));
 
-    // Home Supercluster Anchor (Laniakea / Milky Way Spiral Node — photorealistic galactic cluster glow, no cartoon ball!)
+    // Home Supercluster Anchor (Laniakea / Milky Way)
     universeHomePin = new THREE.Group();
     const uniMilkySprite = new THREE.Sprite(new THREE.SpriteMaterial({
         map: createCircleSpriteTexture('rgba(255,250,235,1.0)', 'rgba(147,197,253,0.45)'),
@@ -3449,7 +3447,7 @@ let universeHomePin = null;
     universeHomePin.add(laniakeaHalo);
     universeGroup.add(universeHomePin);
 
-    // Boötes Void — smooth dark cosmic void cloud (zero wireframe mesh!)
+    // Boötes Void — smooth dark cosmic void cloud
     const bootesVoid = new THREE.Sprite(new THREE.SpriteMaterial({
         map: createCircleSpriteTexture('rgba(1,2,6,0.92)', 'rgba(15,23,42,0.0)'),
         transparent: true, opacity: 0.85, depthWrite: false
@@ -3457,7 +3455,6 @@ let universeHomePin = null;
     bootesVoid.scale.set(7.5, 7.5, 1);
     bootesVoid.position.set(11.0, -6.5, 13.5);
     universeGroup.add(bootesVoid);
-
     uniLandmarkAnchors.push({ name: 'Boötes Void', region: 'Boötes Void', scale: 'UNIVERSE', obj: bootesVoid, prio: 86 });
 
     // Glowing markers for Virgo, Great Attractor, Shapley, Sloan Great Wall & GN-z11
@@ -3477,51 +3474,25 @@ let universeHomePin = null;
         uniLandmarkAnchors.push({ name: uName, region: uName, scale: 'UNIVERSE', obj: sp, prio });
     });
 
-    // 2. Observable Universe CMB Horizon — Organic Planck Dipole & Fluctuation Membrane (FBM-warped silhouette, never a hard geometric ball!)
-    const cmbMat = new THREE.ShaderMaterial({
-        vertexShader: `
-            varying vec3 vDir; varying vec3 vNormal; varying vec3 vView;
-            void main() {
-                vDir = normalize(position);
-                vec4 wp = modelMatrix * vec4(position, 1.0);
-                vNormal = normalize(mat3(modelMatrix) * normal);
-                vView = normalize(cameraPosition - wp.xyz);
-                gl_Position = projectionMatrix * viewMatrix * wp;
-            }
-        `,
-        fragmentShader: `
-            varying vec3 vDir; varying vec3 vNormal; varying vec3 vView;
-            float hash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
-            float noise(vec3 x) {
-                vec3 i = floor(x); vec3 f = fract(x); f = f * f * (3.0 - 2.0 * f);
-                return mix(
-                    mix(mix(hash(i+vec3(0,0,0)), hash(i+vec3(1,0,0)), f.x), mix(hash(i+vec3(0,1,0)), hash(i+vec3(1,1,0)), f.x), f.y),
-                    mix(mix(hash(i+vec3(0,0,1)), hash(i+vec3(1,0,1)), f.x), mix(hash(i+vec3(0,1,1)), hash(i+vec3(1,1,1)), f.x), f.y), f.z
-                );
-            }
-            float fbm(vec3 p) {
-                float v = 0.0, a = 0.5;
-                for (int i = 0; i < 4; i++) { v += a * noise(p); p *= 2.1; a *= 0.5; }
-                return v;
-            }
-            void main() {
-                float n = fbm(vDir * 6.5);
-                float wisps = fbm(vDir * 12.0 + n * 1.6);
-                vec3 coldBlue = vec3(0.14, 0.42, 0.88);
-                vec3 warmAmber = vec3(0.96, 0.60, 0.22);
-                vec3 hotGold = vec3(1.0, 0.90, 0.62);
-                vec3 col = mix(coldBlue, warmAmber, smoothstep(0.28, 0.72, n));
-                col = mix(col, hotGold, smoothstep(0.68, 0.92, n));
-                float ndv = abs(dot(normalize(vNormal), normalize(vView)));
-                float rim = pow(1.0 - ndv, 2.2) * smoothstep(0.02, 0.22, ndv);
-                gl_FragColor = vec4(col, (0.04 + 0.34 * rim) * (0.55 + 0.75 * wisps));
-            }
-        `,
-        transparent: true, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false
-    });
-    universeGroup.add(new THREE.Mesh(new THREE.SphereGeometry(36, 48, 36), cmbMat));
+    // 2. Fast, Lag-Free CMB Horizon Shell with Baked Vertex Anisotropy
+    const cmbGeo = new THREE.SphereGeometry(36, 32, 24);
+    const cmbPos = cmbGeo.attributes.position;
+    const cmbCols = new Float32Array(cmbPos.count * 3);
+    const cCold = new THREE.Color(0x1e40af);
+    const cWarm = new THREE.Color(0xf59e0b);
+    const cHot = new THREE.Color(0xfde68a);
+    for (let i = 0; i < cmbPos.count; i++) {
+        const vx = cmbPos.getX(i), vy = cmbPos.getY(i), vz = cmbPos.getZ(i);
+        const w = 0.5 + 0.5 * Math.sin(vx * 0.16 + vy * 0.11) * Math.cos(vz * 0.14 - vy * 0.09);
+        const col = w < 0.55 ? cCold.clone().lerp(cWarm, w / 0.55) : cWarm.clone().lerp(cHot, (w - 0.55) / 0.45);
+        cmbCols[i*3] = col.r; cmbCols[i*3+1] = col.g; cmbCols[i*3+2] = col.b;
+    }
+    cmbGeo.setAttribute('color', new THREE.BufferAttribute(cmbCols, 3));
+    universeGroup.add(new THREE.Mesh(cmbGeo, new THREE.MeshBasicMaterial({
+        vertexColors: true, transparent: true, opacity: 0.13, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false
+    })));
 
-    // 3. Surrounding Hypothetical Multiverse Pocket Universes — Each contains internal galaxy filaments + organic FBM energy membrane!
+    // 3. Surrounding Multiverse Pocket Universes — Lightweight Soft Nebula Sprites + Internal Galaxy Clusters (60 FPS on Mobile!)
     const bubbleCoords = [
         [88, 26, -52, 24, 0x38bdf8], [-84, -22, -62, 27, 0xc084fc],
         [52, -48, 76, 21, 0xf59e0b], [-60, 54, 58, 23, 0x34d399],
@@ -3533,47 +3504,25 @@ let universeHomePin = null;
     ];
     const pocketWebPositions = [];
     const pocketWebColors = [];
-    bubbleCoords.forEach(([x, y, z, r, hex]) => {
-        const bMat = new THREE.ShaderMaterial({
-            uniforms: { uCol: { value: new THREE.Color(hex) }, uTime: solarTimeUniform },
-            vertexShader: `
-                varying vec3 vN; varying vec3 vV; varying vec3 vDir;
-                void main() {
-                    vDir = normalize(position);
-                    vec4 wp = modelMatrix * vec4(position, 1.0);
-                    vN = normalize(mat3(modelMatrix) * normal);
-                    vV = normalize(cameraPosition - wp.xyz);
-                    gl_Position = projectionMatrix * viewMatrix * wp;
-                }
-            `,
-            fragmentShader: `
-                uniform vec3 uCol; uniform float uTime;
-                varying vec3 vN; varying vec3 vV; varying vec3 vDir;
-                float hash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
-                float noise(vec3 x) {
-                    vec3 i = floor(x); vec3 f = fract(x); f = f * f * (3.0 - 2.0 * f);
-                    return mix(
-                        mix(mix(hash(i+vec3(0,0,0)), hash(i+vec3(1,0,0)), f.x), mix(hash(i+vec3(0,1,0)), hash(i+vec3(1,1,0)), f.x), f.y),
-                        mix(mix(hash(i+vec3(0,0,1)), hash(i+vec3(1,0,1)), f.x), mix(hash(i+vec3(0,1,1)), hash(i+vec3(1,1,1)), f.x), f.y), f.z
-                    );
-                }
-                void main() {
-                    float ndv = max(dot(normalize(vN), normalize(vV)), 0.0);
-                    float wisp = noise(vDir * 5.0 + vec3(uTime * 0.03));
-                    float rim = pow(1.0 - ndv, 2.8) * smoothstep(0.03, 0.25, ndv);
-                    gl_FragColor = vec4(uCol, (0.015 + 0.28 * rim) * (0.5 + 0.8 * wisp));
-                }
-            `,
-            transparent: true, blending: THREE.AdditiveBlending, depthWrite: false
-        });
-        const bubble = new THREE.Mesh(new THREE.SphereGeometry(r, 32, 24), bMat);
-        bubble.position.set(x, y, z);
-        universeGroup.add(bubble);
+    const namedBubbles = {
+        '88,26,-52': 'Pocket α',
+        '-84,-22,-62': 'Quantum Branch',
+        '52,-48,76': 'Brane Bulk',
+        '-60,54,58': 'High-Entropy'
+    };
 
-        // Populate each pocket universe with its own internal cosmic web of galaxy clusters!
+    bubbleCoords.forEach(([x, y, z, r, hex]) => {
+        const bubbleAura = new THREE.Sprite(new THREE.SpriteMaterial({
+            map: createCircleSpriteTexture('rgba(255,255,255,0.22)', 'rgba(148,163,184,0.0)'),
+            color: hex, transparent: true, opacity: 0.42, blending: THREE.AdditiveBlending, depthWrite: false
+        }));
+        bubbleAura.position.set(x, y, z);
+        bubbleAura.scale.set(r * 2.15, r * 2.15, 1);
+        universeGroup.add(bubbleAura);
+
         const baseCol = new THREE.Color(hex);
-        for (let k = 0; k < 55; k++) {
-            const rr = Math.pow(Math.random(), 0.7) * (r * 0.78);
+        for (let k = 0; k < 36; k++) {
+            const rr = Math.pow(Math.random(), 0.7) * (r * 0.75);
             const th = Math.random() * Math.PI * 2;
             const ph = Math.acos(2 * Math.random() - 1);
             pocketWebPositions.push(
@@ -3585,22 +3534,17 @@ let universeHomePin = null;
             pocketWebColors.push(c.r, c.g, c.b);
         }
 
-        const namedBubbles = {
-            '88,26,-52': 'Pocket α',
-            '-84,-22,-62': 'Quantum Branch',
-            '52,-48,76': 'Brane Bulk',
-            '-60,54,58': 'High-Entropy'
-        };
         const bKey = `${x},${y},${z}`;
         if (namedBubbles[bKey]) {
-            uniLandmarkAnchors.push({ name: namedBubbles[bKey], region: namedBubbles[bKey], scale: 'MULTIVERSE', obj: bubble, prio: 90 });
+            uniLandmarkAnchors.push({ name: namedBubbles[bKey], region: namedBubbles[bKey], scale: 'MULTIVERSE', obj: bubbleAura, prio: 90 });
         }
     });
+
     const pWebGeo = new THREE.BufferGeometry();
     pWebGeo.setAttribute('position', new THREE.Float32BufferAttribute(pocketWebPositions, 3));
     pWebGeo.setAttribute('color', new THREE.Float32BufferAttribute(pocketWebColors, 3));
     universeGroup.add(new THREE.Points(pWebGeo, new THREE.PointsMaterial({
-        size: 0.9, map: webSprite, vertexColors: true, transparent: true, opacity: 0.78, blending: THREE.AdditiveBlending, depthWrite: false
+        size: 0.95, map: webSprite, vertexColors: true, transparent: true, opacity: 0.78, blending: THREE.AdditiveBlending, depthWrite: false
     })));
 })();
 

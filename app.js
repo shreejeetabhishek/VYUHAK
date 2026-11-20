@@ -438,7 +438,7 @@ function applyScaleDOMAndVisibility(targetScale) {
     if (isEarth) {
         dossierTab.textContent = 'Ground Data';
         controls.minDistance = 1.15;
-        controls.maxDistance = 68;
+        controls.maxDistance = 24;
     } else if (isSolarSystemView) {
         dossierTab.textContent = 'Solar Data';
         activeCamera = 'FREE'; camModeIdx = 0;
@@ -4441,12 +4441,12 @@ function animate() {
     }
 
 
-    // --- UNIFIED SINGLE-SYSTEM LOGARITHMIC PINCH/SCROLL CONTINUITY ---
-    // Every transition glides smoothly with cubic ease-out (zero hard camera cuts) and lets you zoom far out in every stage!
+    // --- NODE-ANCHORED SINGLE-SYSTEM LOGARITHMIC PINCH/SCROLL CONTINUITY ---
+    // Every outward and inward transition anchors its orbit target and camera trajectory directly to the active 3D node!
     if (activeEngine === '3D' && !scaleAnim && !flyAnim && activeCamera === 'FREE') {
         const nowMs = performance.now();
         if (nowMs - lastAutoScaleSwitch > 520) {
-            const performSeamlessZoomHandoff = (nextScale, toastText, startPos, startTarget, endPos, endTarget) => {
+            const performNodeZoomHandoff = (nextScale, toastText, startPos, startTarget, endPos, endTarget) => {
                 lastAutoScaleSwitch = nowMs;
                 applyScaleDOMAndVisibility(nextScale);
                 syncScaleHeaderUI(nextScale);
@@ -4458,8 +4458,8 @@ function animate() {
             };
 
             if (!isSolarSystemView && !isGalaxyView && !isUniverseView && !isMultiverseView) {
-                // EARTH VIEW -> Zooming OUT past 24.5 units glides smoothly behind Earth into the Solar System
-                if (camDist > 60.0) {
+                // EARTH VIEW -> Zoom OUT past 60: anchor to Earth's 3D orbital node inside the Solar System
+                if (camDist > 21.5) {
                     const earthEntry = cosmosBodiesMap.get('Earth');
                     const earthWorld = new THREE.Vector3(11.5, 0, 0);
                     if (earthEntry) earthEntry.obj.getWorldPosition(earthWorld);
@@ -4469,11 +4469,11 @@ function animate() {
                     const sPos = earthWorld.clone().addScaledVector(outwardDir, 2.2);
                     const ePos = earthWorld.clone().addScaledVector(outwardDir, 6.8).add(new THREE.Vector3(0, 2.2, 0));
                     const eTgt = earthWorld.clone().lerp(new THREE.Vector3(0, 0, 0), 0.35);
-                    performSeamlessZoomHandoff('COSMOS', 'Solar System Scale', sPos, earthWorld, ePos, eTgt);
+                    performNodeZoomHandoff('COSMOS', 'Solar System Scale', sPos, earthWorld, ePos, eTgt);
                 }
             } else if (isSolarSystemView) {
-                // SOLAR VIEW -> Zooming OUT past 188 units glides smoothly out of our Solar System in the Milky Way
-                if (camDist > 375) {
+                // SOLAR VIEW -> Zoom OUT past 375: anchor to Solar System pin inside the Milky Way Galaxy
+                if (camDist > 385) {
                     const solarWorld = new THREE.Vector3(13.335, 0, 0);
                     if (solarSystemPinObj) solarSystemPinObj.getWorldPosition(solarWorld);
                     const outDir = camera.position.clone().sub(controls.target);
@@ -4481,9 +4481,9 @@ function animate() {
                     outDir.normalize();
                     const sPos = solarWorld.clone().addScaledVector(outDir, 3.2);
                     const ePos = solarWorld.clone().addScaledVector(outDir, 12.0).add(new THREE.Vector3(0, 6.5, 0));
-                    performSeamlessZoomHandoff('GALAXY', 'Milky Way Galaxy Scale', sPos, solarWorld, ePos, solarWorld.clone().multiplyScalar(0.35));
+                    performNodeZoomHandoff('GALAXY', 'Milky Way Galaxy Scale', sPos, solarWorld, ePos, solarWorld.clone().multiplyScalar(0.35));
                 } else {
-                    // Zooming IN -> enter Earth View ONLY when pinching directly into Earth's 3D globe
+                    // SOLAR VIEW -> Zoom IN onto Earth's 3D node (< 1.65): enter Earth View anchored to Earth
                     const earthEntry = cosmosBodiesMap.get('Earth');
                     if (earthEntry) {
                         const earthWorld = new THREE.Vector3();
@@ -4491,51 +4491,67 @@ function animate() {
                         if (camera.position.distanceTo(earthWorld) < 1.65) {
                             const indiaFar = getEarthIndiaCameraPos(18.0);
                             const indiaNear = getEarthIndiaCameraPos(6.8);
-                            performSeamlessZoomHandoff('EARTH', 'Earth Orbital Scale', indiaFar, new THREE.Vector3(0, 0, 0), indiaNear, new THREE.Vector3(0, 0, 0));
+                            performNodeZoomHandoff('EARTH', 'Earth Orbital Scale', indiaFar, new THREE.Vector3(0, 0, 0), indiaNear, new THREE.Vector3(0, 0, 0));
                         }
                     }
                 }
             } else if (isGalaxyView) {
-                // GALAXY VIEW -> Zooming OUT past 188 units glides smoothly out of Laniakea into the Cosmic Web
-                if (camDist > 395) {
+                // GALAXY VIEW -> Zoom OUT past 395: anchor around the Milky Way / home galaxy node inside the Universe
+                if (camDist > 405) {
+                    const homeWorld = new THREE.Vector3(0, 0, 0);
+                    if (universeHomePin) universeHomePin.getWorldPosition(homeWorld);
                     const outDir = camera.position.clone().sub(controls.target);
                     if (outDir.lengthSq() < 1e-6) outDir.set(0.2, 0.5, 0.8);
                     outDir.normalize();
-                    performSeamlessZoomHandoff('UNIVERSE', 'Observable Universe Scale', outDir.clone().multiplyScalar(6.5), new THREE.Vector3(0, 0, 0), outDir.clone().multiplyScalar(22.0), new THREE.Vector3(0, 0, 0));
+                    const sPos = homeWorld.clone().addScaledVector(outDir, 6.5);
+                    const ePos = homeWorld.clone().addScaledVector(outDir, 22.0);
+                    performNodeZoomHandoff('UNIVERSE', 'Observable Universe Scale', sPos, homeWorld, ePos, homeWorld);
                 } else if (solarSystemPinObj) {
-                    // Zooming IN -> enter Solar System ONLY when pinching into our Solar System's G2V star node
+                    // GALAXY VIEW -> Zoom IN onto Solar System pin (< 2.6): enter Solar System anchored to the Solar node
                     const solarWorld = new THREE.Vector3();
                     solarSystemPinObj.getWorldPosition(solarWorld);
                     if (camera.position.distanceTo(solarWorld) < 2.6) {
                         const inDir = camera.position.clone().sub(solarWorld).normalize();
                         if (inDir.lengthSq() < 1e-6) inDir.set(0.4, 0.4, 0.8);
-                        performSeamlessZoomHandoff('COSMOS', 'Solar System Scale', inDir.clone().multiplyScalar(145.0), new THREE.Vector3(0, 0, 0), inDir.clone().multiplyScalar(68.0), new THREE.Vector3(0, 0, 0));
+                        const sPos = solarWorld.clone().addScaledVector(inDir, 18.0);
+                        const ePos = solarWorld.clone().addScaledVector(inDir, 9.5);
+                        performNodeZoomHandoff('COSMOS', 'Solar System Scale', sPos, solarWorld, ePos, solarWorld);
                     }
                 }
             } else if (isUniverseView) {
-                // UNIVERSE VIEW -> Zooming OUT past 132 units glides smoothly outside the CMB horizon into the Multiverse
-                if (camDist > 168) {
+                // UNIVERSE VIEW -> Zoom OUT past 168: anchor around Our Universe node inside the Multiverse
+                if (camDist > 162) {
+                    const ourUniWorld = new THREE.Vector3(0, 0, 0);
+                    if (universeHomePin) universeHomePin.getWorldPosition(ourUniWorld);
                     const outDir = camera.position.clone().sub(controls.target);
                     if (outDir.lengthSq() < 1e-6) outDir.set(0, 0.5, 0.85);
                     outDir.normalize();
-                    performSeamlessZoomHandoff('MULTIVERSE', 'Multiverse Scale', outDir.clone().multiplyScalar(170.0), new THREE.Vector3(0, 0, 0), outDir.clone().multiplyScalar(320.0), new THREE.Vector3(0, 0, 0));
+                    const sPos = ourUniWorld.clone().addScaledVector(outDir, 170.0);
+                    const ePos = ourUniWorld.clone().addScaledVector(outDir, 320.0);
+                    performNodeZoomHandoff('MULTIVERSE', 'Multiverse Scale', sPos, ourUniWorld, ePos, ourUniWorld);
                 } else if (universeHomePin) {
-                    // Zooming IN -> enter Milky Way Galaxy ONLY when pinching into Laniakea / Home Galaxy spiral node
+                    // UNIVERSE VIEW -> Zoom IN onto Home Galaxy / Laniakea node (< 3.0): enter Galaxy anchored to the home galaxy node
                     const homeWorld = new THREE.Vector3();
                     universeHomePin.getWorldPosition(homeWorld);
                     if (camera.position.distanceTo(homeWorld) < 3.0) {
                         const inDir = camera.position.clone().sub(homeWorld).normalize();
                         if (inDir.lengthSq() < 1e-6) inDir.set(0, 0.6, 0.8);
-                        performSeamlessZoomHandoff('GALAXY', 'Milky Way Galaxy Scale', inDir.clone().multiplyScalar(145.0), new THREE.Vector3(0, 0, 0), inDir.clone().multiplyScalar(54.0), new THREE.Vector3(0, 0, 0));
+                        const sPos = homeWorld.clone().addScaledVector(inDir, 68.0);
+                        const ePos = homeWorld.clone().addScaledVector(inDir, 44.0);
+                        performNodeZoomHandoff('GALAXY', 'Milky Way Galaxy Scale', sPos, homeWorld, ePos, homeWorld);
                     }
                 }
             } else if (isMultiverseView) {
-                // MULTIVERSE VIEW -> Zooming IN -> enter Observable Universe ONLY when pinching inside Our Universe's CMB horizon
-                const distToOurUniverse = camera.position.length();
+                // MULTIVERSE VIEW -> Zoom IN onto Our Universe node (< 58.0): enter Universe anchored to Our Universe node
+                const ourUniWorld = new THREE.Vector3(0, 0, 0);
+                if (universeHomePin) universeHomePin.getWorldPosition(ourUniWorld);
+                const distToOurUniverse = camera.position.distanceTo(ourUniWorld);
                 if (distToOurUniverse < 58.0) {
-                    const inDir = camera.position.clone().normalize();
+                    const inDir = camera.position.clone().sub(ourUniWorld).normalize();
                     if (inDir.lengthSq() < 1e-6) inDir.set(0, 0.5, 0.85);
-                    performSeamlessZoomHandoff('UNIVERSE', 'Observable Universe Scale', inDir.clone().multiplyScalar(68.0), new THREE.Vector3(0, 0, 0), inDir.clone().multiplyScalar(42.0), new THREE.Vector3(0, 0, 0));
+                    const sPos = ourUniWorld.clone().addScaledVector(inDir, 68.0);
+                    const ePos = ourUniWorld.clone().addScaledVector(inDir, 42.0);
+                    performNodeZoomHandoff('UNIVERSE', 'Observable Universe Scale', sPos, ourUniWorld, ePos, ourUniWorld);
                 }
             }
         }

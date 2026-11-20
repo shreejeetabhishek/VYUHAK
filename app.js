@@ -1,5 +1,5 @@
 // ============================================================================
-// VYUHAK v43 DEEP-ZOOM // ULTRA-DEEP ZOOM-OUT ACROSS ALL STAGES & CLEARER POCKET UNIVERSES
+// VYUHAK // 3D EARTH OBSERVATION, HELIOCENTRIC SOLAR SYSTEM, GALAXY & MULTIVERSE ATLAS
 // ============================================================================
 
 // --- 1. AUDIO ENGINE WITH MUTE ---
@@ -438,20 +438,20 @@ function applyScaleDOMAndVisibility(targetScale) {
     if (isEarth) {
         dossierTab.textContent = 'Ground Data';
         controls.minDistance = 1.15;
-        controls.maxDistance = 48;
+        controls.maxDistance = 68;
     } else if (isSolarSystemView) {
         dossierTab.textContent = 'Solar Data';
         activeCamera = 'FREE'; camModeIdx = 0;
         document.getElementById('cam-label').textContent = 'Free';
         controls.minDistance = 1.1;
-        controls.maxDistance = 320;
+        controls.maxDistance = 420;
         fetchLiveSpaceWeather();
     } else if (isGalaxyView) {
         dossierTab.textContent = 'Galaxy Data';
         activeCamera = 'FREE'; camModeIdx = 0;
         document.getElementById('cam-label').textContent = 'Free';
         controls.minDistance = 1.8;
-        controls.maxDistance = 320;
+        controls.maxDistance = 440;
     } else if (isUniverseView) {
         dossierTab.textContent = 'Universe Data';
         activeCamera = 'FREE'; camModeIdx = 0;
@@ -965,34 +965,6 @@ function focusCosmosBody(name) {
 }
 
 
-function exitCosmosModeSilent() {
-    isSolarSystemView = false;
-    document.getElementById('btn-solar-view').classList.remove('on-purple');
-    document.getElementById('solar-dot').classList.replace('bg-purple-400', 'bg-slate-500');
-    document.getElementById('cosmos-bar').classList.add('hidden');
-    heliocentricGroup.visible = false;
-    document.getElementById('cosmos-dossier').classList.add('hidden');
-}
-
-function exitGalaxyModeSilent(restoreEarth = false) {
-    isGalaxyView = false;
-    document.getElementById('btn-galaxy-view').classList.remove('on-indigo');
-    document.getElementById('galaxy-dot').classList.replace('bg-indigo-400', 'bg-slate-500');
-    document.getElementById('galaxy-bar').classList.add('hidden');
-    galaxyGroup.visible = false;
-    if (milkyWaySkyMesh) milkyWaySkyMesh.visible = showMilkyWaySky;
-    document.getElementById('galaxy-dossier').classList.add('hidden');
-    if (restoreEarth) {
-        earthSystemGroup.visible = true;
-        document.getElementById('earth-dossier').classList.remove('hidden');
-        document.getElementById('tab-btn-dossier').textContent = 'Ground Data';
-        controls.minDistance = 1.15;
-        controls.maxDistance = 16;
-        positionCameraOnDaySide(false);
-    }
-}
-
-
 function toggleUniverseView() {
     if (isUniverseView) {
         transitionToScale('EARTH', { toastMsg: 'Zoomed In to Earth Orbital View' });
@@ -1142,7 +1114,7 @@ const GALAXY_REGIONS = {
         title: 'MILKY WAY // SBbc BARRED SPIRAL', subtitle: 'Local Group &bull; 105,700 ly Diameter',
         type: 'SBbc Barred Spiral', stats: '105,700 ly &bull; ~250B Stars',
         dist: '0 – 52,850 ly', vel: '230 km/s (Sun)', year: '230M yrs', diam: '105,700 ly', mass: '1.15 × 10¹² M☉', tilt: '60.2°',
-        wiki: 'Milky_Way', camPos: new THREE.Vector3(0, 34, 42), lookAt: new THREE.Vector3(0, 0, 0)
+        wiki: 'Milky_Way', camPos: new THREE.Vector3(0, 44, 56), lookAt: new THREE.Vector3(0, 0, 0)
     },
     'Sagittarius A*': {
         title: 'SAGITTARIUS A* // GALACTIC CORE', subtitle: 'Supermassive Black Hole & Central Bar',
@@ -3033,7 +3005,7 @@ function createHelioPlanetMat(colA, colB, banded, hasPolarCaps = false, rimHex =
 })();
 
 
-// --- E2. VOLUMETRIC FBM MILKY WAY GALAXY (CONTINUOUS SPIRAL GAS + DARK DUST LANES + 55K STARS) ---
+// --- E2. VOLUMETRIC FBM MILKY WAY GALAXY (CONTINUOUS SPIRAL GAS + DARK DUST LANES + 35K STARS) ---
 let milkyWayDiskGroup = new THREE.Group();
 let solarSystemMarkerRing = null;
 let solarSystemPinObj = null;
@@ -3155,7 +3127,7 @@ function gaussianRandom() {
     mainDisk.rotation.x = -Math.PI / 2;
     milkyWayDiskGroup.add(mainDisk);
 
-    // LAYER 2: 55,000 CRISP MULTI-SCALE STELLAR POPULATION STARS
+    // LAYER 2: 35,000 CRISP MULTI-SCALE STELLAR POPULATION STARS
     const starCount = 35000;
     const positions = new Float32Array(starCount * 3);
     const colors = new Float32Array(starCount * 3);
@@ -4487,7 +4459,7 @@ function animate() {
 
             if (!isSolarSystemView && !isGalaxyView && !isUniverseView && !isMultiverseView) {
                 // EARTH VIEW -> Zooming OUT past 24.5 units glides smoothly behind Earth into the Solar System
-                if (camDist > 42.0) {
+                if (camDist > 60.0) {
                     const earthEntry = cosmosBodiesMap.get('Earth');
                     const earthWorld = new THREE.Vector3(11.5, 0, 0);
                     if (earthEntry) earthEntry.obj.getWorldPosition(earthWorld);
@@ -4501,7 +4473,7 @@ function animate() {
                 }
             } else if (isSolarSystemView) {
                 // SOLAR VIEW -> Zooming OUT past 188 units glides smoothly out of our Solar System in the Milky Way
-                if (camDist > 285) {
+                if (camDist > 375) {
                     const solarWorld = new THREE.Vector3(13.335, 0, 0);
                     if (solarSystemPinObj) solarSystemPinObj.getWorldPosition(solarWorld);
                     const outDir = camera.position.clone().sub(controls.target);
@@ -4525,7 +4497,7 @@ function animate() {
                 }
             } else if (isGalaxyView) {
                 // GALAXY VIEW -> Zooming OUT past 188 units glides smoothly out of Laniakea into the Cosmic Web
-                if (camDist > 285) {
+                if (camDist > 395) {
                     const outDir = camera.position.clone().sub(controls.target);
                     if (outDir.lengthSq() < 1e-6) outDir.set(0.2, 0.5, 0.8);
                     outDir.normalize();

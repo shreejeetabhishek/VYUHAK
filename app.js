@@ -959,21 +959,6 @@ function focusCosmosBody(name) {
 
     const worldPos = new THREE.Vector3();
     entry.obj.getWorldPosition(worldPos);
-    if (isCoreCutawayOn) {
-        if (name === 'Sun') {
-            coreCutawayGroup.visible = false;
-        } else {
-            buildCoreCutawayForBody(name);
-            coreCutawayGroup.visible = true;
-        }
-    }
-    if (name !== 'Sun' && name !== 'Earth' && document.getElementById('compare-body-select')) {
-        const sel = document.getElementById('compare-body-select');
-        if ([...sel.options].some(o => o.value === name)) {
-            sel.value = name;
-            updatePlanetComparison(name);
-        }
-    }
     const offsetDist = name === 'Sun' ? 38 : Math.max(2.6, entry.radius * 5.2);
     const camPos = worldPos.clone().add(new THREE.Vector3(offsetDist * 0.7, offsetDist * 0.45, offsetDist * 0.85));
     smoothFlyTo(camPos, worldPos, 900);
@@ -2863,22 +2848,7 @@ function createHelioPlanetMat(colA, colB, banded, hasPolarCaps = false, rimHex =
           statsHTML: 'Sun: ~165 AU &bull; Interstellar Space', a: 165.0, e: 0.0, I: 35.0, L0: 255, LRate: 0, wBar: 0, Omega: 0, tilt: 0, radiusKm: 0.003, gravity: 0, escapeKps: 0, temp: '-270 °C', dayLen: 'Launched 1977',
           density: '722 kg Spacecraft', mag: 'Magnetometer Active', press: 'Interstellar Plasma', structure: '3.7m High-Gain Parabolic Dish, 3 RTG Plutonium-238 nuclear power sources, Cosmic Ray Subsystem, and the Golden Record.',
           esi: 0.00, habStatus: 'Humanity’s Farthest Spacecraft', habNotes: 'Crossed the heliopause on August 25, 2012; traveling at 17.0 km/s (~3.6 AU/yr) through interstellar space.',
-          atmo: 'Local Interstellar Medium (Beyond Heliopause)', moonCount: 0, moons: [] },
-        { name: 'Voyager 2', wikiTitle: 'Voyager_2', type: 'Interstellar Space Probe', visR: 0.21, pos: new THREE.Vector3(-42.0, -34.0, 44.0), color: 0x38bdf8, isStaticProbe: true,
-          statsHTML: 'Sun: ~138 AU &bull; Grand Tour Probe', a: 138.0, e: 0.0, I: -48.0, L0: 135, LRate: 0, wBar: 0, Omega: 0, tilt: 0, radiusKm: 0.003, gravity: 0, escapeKps: 0, temp: '-270 °C', dayLen: 'Launched 1977',
-          density: '722 kg Spacecraft', mag: 'Plasma & Mag Active', press: 'Interstellar Plasma', structure: 'Only spacecraft to visit all four giant planets (Jupiter, Saturn, Uranus, Neptune) before entering interstellar space in 2018.',
-          esi: 0.00, habStatus: 'Active Interstellar Explorer', habNotes: 'Carries the second Golden Record; traveling south of the ecliptic plane at 15.4 km/s.',
-          atmo: 'Local Interstellar Medium', moonCount: 0, moons: [] },
-        { name: 'New Horizons', wikiTitle: 'New_Horizons', type: 'Kuiper Belt Flyby Probe', visR: 0.20, pos: new THREE.Vector3(44.0, 4.5, 48.0), color: 0x34d399, isStaticProbe: true,
-          statsHTML: 'Sun: ~60 AU &bull; Kuiper Belt', a: 60.0, e: 0.0, I: 2.2, L0: 48, LRate: 0, wBar: 0, Omega: 0, tilt: 0, radiusKm: 0.002, gravity: 0, escapeKps: 0, temp: '-265 °C', dayLen: 'Launched 2006',
-          density: '478 kg Spacecraft', mag: 'SWAP Solar Wind', press: 'Kuiper Vacuum', structure: '2.1m Dish, LORRI Long-Range Reconnaissance Imager, Ralph Spectrometer, and RTG power source.',
-          esi: 0.00, habStatus: 'Deep Kuiper Belt Explorer', habNotes: 'Completed historic flybys of Pluto-Charon (2015) and contact binary Arrokoth (2019).',
-          atmo: 'Outer Kuiper Belt Medium', moonCount: 0, moons: [] },
-        { name: 'Parker Probe', wikiTitle: 'Parker_Solar_Probe', type: 'Inner Heliosphere Solar Probe', visR: 0.19, pos: new THREE.Vector3(3.3, 0.35, -1.2), color: 0xf43f5e, isStaticProbe: true,
-          statsHTML: 'Sun: 0.046 AU &bull; 192 km/s Record', a: 0.38, e: 0.88, I: 3.4, L0: 20, LRate: 0, wBar: 0, Omega: 0, tilt: 0, radiusKm: 0.003, gravity: 0, escapeKps: 0, temp: '1,377 °C Shield', dayLen: 'Launched 2018',
-          density: '685 kg Spacecraft', mag: 'FIELDS Corona Sensor', press: 'Solar Corona Plasma', structure: '11.43 cm carbon-composite Thermal Protection System heat shield surviving within 6.16 million km of the Sun’s photosphere.',
-          esi: 0.00, habStatus: 'Fastest Human-Made Object', habNotes: 'Touches the Sun’s outer corona at 692,000 km/h (192 km/s) to trace solar wind acceleration.',
-          atmo: 'Solar Corona Plasma', moonCount: 0, moons: [] }
+          atmo: 'Local Interstellar Medium (Beyond Heliopause)', moonCount: 0, moons: [] }
     ];
 
     EXTRA_SOLAR.forEach(item => {
@@ -3780,113 +3750,21 @@ setInterval(spawnMeteor, 2600);
 
 // --- G. VISIBLE ORBIT LINE ---
 let orbitLineMesh;
-let groundTrackMesh;
-let showGroundTrack = true;
-
-function toggleGroundTrack() {
-    showGroundTrack = !showGroundTrack;
-    const btn = document.getElementById('btn-ground-track');
-    const dot = document.getElementById('track-dot');
-    if (btn) btn.classList.toggle('on', showGroundTrack);
-    if (dot) {
-        dot.classList.toggle('bg-sky-400', showGroundTrack);
-        dot.classList.toggle('bg-slate-500', !showGroundTrack);
-    }
-    if (groundTrackMesh) groundTrackMesh.visible = showGroundTrack && !isGeoLocked && !isISSMode;
-    playSound('click');
-    showToast(showGroundTrack ? '90-Min Ground Track Enabled' : 'Ground Track Hidden');
-}
-
-function updateOrbitalMechanicsCard() {
-    const aKm = R_EARTH_KM + currentAltitudeKm;
-    const periodSec = 2 * Math.PI * Math.sqrt(Math.pow(aKm, 3) / MU_EARTH);
-    const periodMin = periodSec / 60.0;
-    const revsPerDay = 1440.0 / periodMin;
-    const horizonKm = Math.round(R_EARTH_KM * Math.acos(R_EARTH_KM / aKm));
-    let regime = 'Low Earth Orbit (LEO)';
-    if (currentAltitudeKm > 35000) regime = 'Geostationary Orbit (GEO)';
-    else if (currentAltitudeKm > 2000) regime = 'Medium Earth Orbit (MEO)';
-    else if (Math.abs(orbitInclination - 98) <= 3 || orbitInclination >= 85) regime = 'Sun-Synchronous / Polar';
-
-    const pEl = document.getElementById('orb-period');
-    if (pEl) {
-        pEl.textContent = periodMin >= 180 ? `${(periodMin / 60).toFixed(2)} hrs` : `${periodMin.toFixed(1)} min`;
-        document.getElementById('orb-revs').textContent = revsPerDay.toFixed(2);
-        document.getElementById('orb-horizon').textContent = `${horizonKm.toLocaleString()} km`;
-        document.getElementById('orb-regime').textContent = regime;
-    }
-}
-
-function applyOrbitPreset(preset) {
-    if (isMultiverseView || isUniverseView || isGalaxyView || isSolarSystemView) {
-        transitionToScale('EARTH', { onArrived: () => applyOrbitPreset(preset) });
-        return;
-    }
-    if (isISSMode) toggleISSMode();
-    if (isGeoLocked) toggleGeoLock();
-    playSound('lock');
-
-    if (preset === 'LEO') {
-        document.getElementById('alt-slider').value = 550;
-        updateAltitude(550);
-        document.getElementById('inc-slider').value = 53;
-        updateInclination(53);
-        document.getElementById('ecc-slider').value = 0;
-        updateEccentricity(0);
-        showToast('Preset: LEO Constellation (550 km, 53°)');
-    } else if (preset === 'SSO') {
-        document.getElementById('alt-slider').value = 705;
-        updateAltitude(705);
-        document.getElementById('inc-slider').value = 88;
-        updateInclination(88);
-        document.getElementById('ecc-slider').value = 0;
-        updateEccentricity(0);
-        showToast('Preset: Sun-Synchronous Polar (705 km, 88°)');
-    } else if (preset === 'GEO') {
-        document.getElementById('alt-slider').value = 35000;
-        updateAltitude(35000);
-        document.getElementById('inc-slider').value = 0;
-        updateInclination(0);
-        document.getElementById('ecc-slider').value = 0;
-        updateEccentricity(0);
-        showToast('Preset: Geostationary Belt (35,000 km, 0°)');
-    }
-}
-
 function drawOrbitLine() {
     if (orbitLineMesh) earthSystemGroup.remove(orbitLineMesh);
-    if (groundTrackMesh) earthSystemGroup.remove(groundTrackMesh);
     const orbitPoints = [];
-    const groundPoints = [];
     const inclRad = orbitInclination * Math.PI / 180;
-    const rotY = (typeof earthMesh !== 'undefined' && earthMesh) ? earthMesh.rotation.y : 0;
-
     for (let i = 0; i <= 200; i++) {
         const t = (i / 200) * Math.PI * 2;
         const r = orbitRadius * (1 - orbitEccentricity * orbitEccentricity) / (1 + orbitEccentricity * Math.cos(t));
-        const orbPt = new THREE.Vector3(Math.cos(t) * r, Math.sin(t) * Math.sin(inclRad) * r, Math.sin(t) * Math.cos(inclRad) * r);
-        orbitPoints.push(orbPt);
-
-        // Sub-satellite nadir projection accounting for Earth's eastward rotation over 1 orbital period
-        const earthSpinDrift = (i / 200) * 0.42;
-        const nadir = orbPt.clone().normalize().multiplyScalar(1.006);
-        nadir.applyAxisAngle(new THREE.Vector3(0, 1, 0), -earthSpinDrift);
-        groundPoints.push(nadir);
+        orbitPoints.push(new THREE.Vector3(Math.cos(t) * r, Math.sin(t) * Math.sin(inclRad) * r, Math.sin(t) * Math.cos(inclRad) * r));
     }
     orbitLineMesh = new THREE.Line(
         new THREE.BufferGeometry().setFromPoints(orbitPoints),
-        new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.34 })
+        new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.32 })
     );
     orbitLineMesh.visible = !isGeoLocked && !isISSMode;
     earthSystemGroup.add(orbitLineMesh);
-
-    groundTrackMesh = new THREE.Line(
-        new THREE.BufferGeometry().setFromPoints(groundPoints),
-        new THREE.LineBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.48 })
-    );
-    groundTrackMesh.visible = showGroundTrack && !isGeoLocked && !isISSMode;
-    earthSystemGroup.add(groundTrackMesh);
-    updateOrbitalMechanicsCard();
 }
 drawOrbitLine();
 
@@ -4750,15 +4628,6 @@ function animate() {
                 document.getElementById('pt-stats').innerHTML = `Sun: ${hState.rAU.toFixed(2)} AU &bull; ${hState.vKps.toFixed(2)} km/s &bull; ${simYear}`;
             }
         }
-        updateLagrangePositions();
-        if (isCoreCutawayOn && coreCutawayGroup.visible) {
-            const cTarget = focusedCosmosBody === 'Sun' ? 'Earth' : focusedCosmosBody;
-            const cEntry = cosmosBodiesMap.get(cTarget);
-            if (cEntry) {
-                cEntry.obj.getWorldPosition(coreCutawayGroup.position);
-                coreCutawayGroup.rotation.y += 0.45 * dt;
-            }
-        }
     }
 
 
@@ -5062,328 +4931,6 @@ setTimeout(() => {
     fetchLiveIntel(true);
     const coords = worldPositionToLatLon(activeSpacecraft.position, earthMesh.rotation.y);
     fetchSubSatData(coords.lat, coords.lon, true);
-    updatePlanetComparison('Mars');
-    updateOrbitalMechanicsCard();
 }, 350);
 
 animate();
-
-
-// --- 11. V2.0 SCIENTIFIC LAB MODULES (CORE CUTAWAY, LAGRANGE L1-L5, COMPARE LAB, EXO-ORRERY, REDSHIFT) ---
-let isCoreCutawayOn = false;
-let coreCutawayGroup = new THREE.Group();
-coreCutawayGroup.visible = false;
-heliocentricGroup.add(coreCutawayGroup);
-
-function buildCoreCutawayForBody(name) {
-    while (coreCutawayGroup.children.length > 0) {
-        coreCutawayGroup.remove(coreCutawayGroup.children[0]);
-    }
-    const entry = cosmosBodiesMap.get(name);
-    if (!entry || name === 'Sun') return;
-
-    const r = Math.max(0.45, entry.radius || 0.54);
-    const isGas = ['Jupiter', 'Saturn'].includes(name);
-    const isIce = ['Uranus', 'Neptune'].includes(name);
-
-    const layerDefs = isGas
-        ? [
-            { frac: 1.00, color: 0xd97706, opacity: 0.25 },
-            { frac: 0.78, color: 0x38bdf8, opacity: 0.55 }, // Liquid metallic hydrogen
-            { frac: 0.34, color: 0xfef08a, opacity: 0.95 }  // Dense rock-ice core
-          ]
-        : (isIce
-            ? [
-                { frac: 1.00, color: 0x06b6d4, opacity: 0.25 },
-                { frac: 0.76, color: 0x3b82f6, opacity: 0.58 }, // Superionic water-ammonia-methane mantle
-                { frac: 0.36, color: 0xfdba74, opacity: 0.95 }  // Rocky silicate core
-              ]
-            : [
-                { frac: 1.00, color: 0x94a3b8, opacity: 0.22 },
-                { frac: 0.84, color: 0xea580c, opacity: 0.55 }, // Silicate mantle
-                { frac: 0.52, color: 0xfacc15, opacity: 0.82 }, // Liquid outer core
-                { frac: 0.26, color: 0xffffff, opacity: 0.98 }  // Solid inner iron core
-              ]);
-
-    layerDefs.forEach(ld => {
-        const geo = new THREE.SphereGeometry(r * ld.frac, 28, 20, 0, Math.PI * 1.5);
-        const mat = new THREE.MeshBasicMaterial({
-            color: ld.color, transparent: true, opacity: ld.opacity, side: THREE.DoubleSide, depthWrite: false
-        });
-        coreCutawayGroup.add(new THREE.Mesh(geo, mat));
-    });
-
-    const wp = new THREE.Vector3();
-    entry.obj.getWorldPosition(wp);
-    coreCutawayGroup.position.copy(wp);
-}
-
-function toggleCoreCutaway() {
-    isCoreCutawayOn = !isCoreCutawayOn;
-    const btn = document.getElementById('btn-cutaway');
-    if (btn) btn.classList.toggle('bg-amber-600/70', isCoreCutawayOn);
-    playSound('click');
-
-    if (isCoreCutawayOn) {
-        const target = focusedCosmosBody === 'Sun' ? 'Earth' : focusedCosmosBody;
-        if (focusedCosmosBody === 'Sun') focusCosmosBody('Earth');
-        buildCoreCutawayForBody(target);
-        coreCutawayGroup.visible = true;
-        showToast(`3D Core Cutaway Active: ${target}`);
-    } else {
-        coreCutawayGroup.visible = false;
-        showToast('Core Cutaway Closed');
-    }
-}
-
-// Sun-Earth Lagrange Points (L1, L2, L3, L4, L5) + Frost Line Ring
-let showLagrange = false;
-const lagrangeGroup = new THREE.Group();
-lagrangeGroup.visible = false;
-heliocentricGroup.add(lagrangeGroup);
-
-const frostLineRing = new THREE.Mesh(
-    new THREE.RingGeometry(17.1, 17.35, 96),
-    new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.28, depthWrite: false })
-);
-frostLineRing.rotation.x = Math.PI / 2;
-lagrangeGroup.add(frostLineRing);
-
-const lagrangeNodes = {};
-['L1 (JWST/SOHO)', 'L2 (Webb)', 'L3', 'L4 (Trojan)', 'L5 (Trojan)'].forEach((lbl, idx) => {
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({
-        map: sunGlowTex, color: idx < 2 ? 0x38bdf8 : 0xfbbf24, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false
-    }));
-    sp.scale.set(0.65, 0.65, 1);
-    lagrangeGroup.add(sp);
-    lagrangeNodes[lbl] = sp;
-});
-
-function updateLagrangePositions() {
-    if (!showLagrange || !cosmosBodiesMap.has('Earth')) return;
-    const ep = new THREE.Vector3();
-    cosmosBodiesMap.get('Earth').obj.getWorldPosition(ep);
-    const r = ep.length();
-    if (r < 0.1) return;
-    const dir = ep.clone().normalize();
-    lagrangeNodes['L1 (JWST/SOHO)'].position.copy(dir).multiplyScalar(r * 0.90);
-    lagrangeNodes['L2 (Webb)'].position.copy(dir).multiplyScalar(r * 1.10);
-    lagrangeNodes['L3'].position.copy(dir).multiplyScalar(-r);
-    const l4 = ep.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 3);
-    const l5 = ep.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 3);
-    lagrangeNodes['L4 (Trojan)'].position.copy(l4);
-    lagrangeNodes['L5 (Trojan)'].position.copy(l5);
-}
-
-function toggleLagrangePoints() {
-    showLagrange = !showLagrange;
-    lagrangeGroup.visible = showLagrange;
-    const btn = document.getElementById('btn-lagrange');
-    if (btn) btn.classList.toggle('bg-sky-600/70', showLagrange);
-    updateLagrangePositions();
-    playSound('click');
-    showToast(showLagrange ? 'Sun-Earth L1–L5 & Snow Line Active' : 'Lagrange Overlay Hidden');
-}
-
-function updatePlanetComparison(targetName) {
-    const card = document.getElementById('planet-compare-card');
-    if (!card) return;
-    const earth = JPL_PLANETS[2];
-    const entry = cosmosBodiesMap.get(targetName);
-    const p = entry && entry.meta ? entry.meta : JPL_PLANETS[3];
-
-    const rRatio = (p.radiusKm / earth.radiusKm).toFixed(2);
-    const gRatio = (p.gravity / earth.gravity).toFixed(2);
-    const insolation = p.a > 0 ? (1.0 / (p.a * p.a)) : 1.0;
-    const insolStr = insolation >= 0.01 ? `${(insolation * 100).toFixed(1)}% Earth` : `${(insolation * 100).toFixed(3)}% Earth`;
-    const yearDays = Math.round(Math.pow(p.a, 1.5) * 365.25);
-
-    card.innerHTML = `
-        <div class="flex justify-between border-b border-white/10 pb-1">
-            <span class="text-sky-300 font-bold">${targetName} vs Earth</span>
-            <span class="text-emerald-300 font-bold">ESI ${(p.esi || 0.25).toFixed(2)}</span>
-        </div>
-        <div class="grid grid-cols-2 gap-1.5 pt-1 text-[10px]">
-            <div>Radius: <strong class="text-white">${rRatio}&times; Earth</strong></div>
-            <div>Surface Gravity: <strong class="text-amber-300">${gRatio}&times; g</strong></div>
-            <div>Solar Flux: <strong class="text-sky-300">${insolStr}</strong></div>
-            <div>Orbital Year: <strong class="text-purple-300">${yearDays.toLocaleString()} d</strong></div>
-        </div>
-    `;
-}
-
-// --- GALAXY: RELATIVISTIC SAGITTARIUS A* ACCRETION DISK + DARK MATTER HALO + EXOPLANET MINI-ORRERY ---
-let showDarkMatterHalo = false;
-const darkMatterHaloGroup = new THREE.Group();
-darkMatterHaloGroup.visible = false;
-galaxyGroup.add(darkMatterHaloGroup);
-
-(function buildGalacticPhysicsOverlays() {
-    // 1. Relativistic Accretion Disk & Photon Ring around Sagittarius A*
-    const bhDiskMat = new THREE.ShaderMaterial({
-        uniforms: { uTime: solarTimeUniform },
-        vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-        fragmentShader: `
-            varying vec2 vUv;
-            uniform float uTime;
-            void main() {
-                vec2 p = (vUv - 0.5) * 2.0;
-                float r = length(p);
-                if (r < 0.18 || r > 1.0) discard;
-                float ang = atan(p.y, p.x);
-                float swirl = 0.65 + 0.35 * sin(ang * 4.0 - r * 18.0 + uTime * 2.2);
-                // Relativistic Doppler beaming (brighter on approaching left side)
-                float doppler = 0.72 + 0.48 * cos(ang + 0.6);
-                float ring = smoothstep(0.18, 0.28, r) * (1.0 - smoothstep(0.55, 1.0, r));
-                vec3 hotInner = vec3(1.0, 0.95, 0.82);
-                vec3 amberOuter = vec3(0.96, 0.45, 0.12);
-                vec3 col = mix(amberOuter, hotInner, smoothstep(0.65, 0.22, r)) * doppler * swirl;
-                gl_FragColor = vec4(col, ring * 0.88);
-            }
-        `,
-        transparent: true, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false
-    });
-    const sgrAccretion = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 3.4), bhDiskMat);
-    sgrAccretion.rotation.x = -Math.PI / 2 + 0.28;
-    milkyWayDiskGroup.add(sgrAccretion);
-
-    // 2. NFW Dark Matter Halo Shells & Flat Rotation Curve Rings
-    [32, 42, 54].forEach((rad, i) => {
-        const dmRing = new THREE.Mesh(
-            new THREE.RingGeometry(rad - 0.18, rad + 0.18, 96),
-            new THREE.MeshBasicMaterial({ color: 0x818cf8, side: THREE.DoubleSide, transparent: true, opacity: 0.22 - i * 0.04, depthWrite: false })
-        );
-        dmRing.rotation.x = Math.PI / 2;
-        darkMatterHaloGroup.add(dmRing);
-    });
-})();
-
-function toggleDarkMatterHalo() {
-    showDarkMatterHalo = !showDarkMatterHalo;
-    darkMatterHaloGroup.visible = showDarkMatterHalo;
-    const btn = document.getElementById('btn-dm-halo');
-    if (btn) btn.classList.toggle('bg-indigo-600/75', showDarkMatterHalo);
-    playSound('click');
-    showToast(showDarkMatterHalo ? 'NFW Dark Matter Halo (85% Mass) Visible' : 'Dark Matter Halo Hidden');
-}
-
-// Interactive 3D Exoplanet Star-System Mini-Orrery
-const EXOPLANET_SYSTEMS = {
-    'TRAPPIST-1e': {
-        starName: 'TRAPPIST-1 (M8V Ultra-Cool Red Dwarf)',
-        starColor: 0xf87171,
-        desc: '7 temperate Earth-sized worlds packed within 0.06 AU (smaller than Mercury’s orbit). TRAPPIST-1e sits squarely inside the liquid-water habitable zone.',
-        planets: [
-            { name: 'b', r: 0.16, dist: 1.4, col: 0xfdba74 },
-            { name: 'c', r: 0.16, dist: 1.9, col: 0xfed7aa },
-            { name: 'd', r: 0.13, dist: 2.5, col: 0x93c5fd },
-            { name: 'e (Habitable)', r: 0.15, dist: 3.2, col: 0x34d399, hz: true },
-            { name: 'f', r: 0.16, dist: 4.0, col: 0x38bdf8 },
-            { name: 'g', r: 0.17, dist: 4.9, col: 0x818cf8 },
-            { name: 'h', r: 0.12, dist: 5.9, col: 0xcbd5e1 }
-        ]
-    },
-    'Proxima Centauri b': {
-        starName: 'Proxima Centauri (M5.5V Flare Star)',
-        starColor: 0xfb7185,
-        desc: 'At 4.24 light-years away, Proxima b orbits every 11.2 days at 0.0485 AU inside the conservative habitable zone.',
-        planets: [
-            { name: 'd (Sub-Earth)', r: 0.11, dist: 1.8, col: 0x94a3b8 },
-            { name: 'b (Habitable)', r: 0.17, dist: 3.1, col: 0x34d399, hz: true },
-            { name: 'c (Super-Earth)', r: 0.22, dist: 5.4, col: 0x7dd3fc }
-        ]
-    },
-    'TOI-700 d': {
-        starName: 'TOI-700 (M2V Quiet Red Dwarf)',
-        starColor: 0xfb923c,
-        desc: '101.4 light-years away in Dorado; TOI-700 d & e are two Earth-sized planets orbiting inside the habitable zone.',
-        planets: [
-            { name: 'b', r: 0.15, dist: 1.7, col: 0xfdba74 },
-            { name: 'c', r: 0.24, dist: 2.7, col: 0x60a5fa },
-            { name: 'e (Habitable)', r: 0.15, dist: 3.7, col: 0x2dd4bf, hz: true },
-            { name: 'd (Habitable)', r: 0.17, dist: 4.7, col: 0x34d399, hz: true }
-        ]
-    }
-};
-
-const exoMiniOrreryGroup = new THREE.Group();
-exoMiniOrreryGroup.visible = false;
-galaxyGroup.add(exoMiniOrreryGroup);
-
-function openExoplanetSystem(name) {
-    const sys = EXOPLANET_SYSTEMS[name] || EXOPLANET_SYSTEMS['TRAPPIST-1e'];
-    while (exoMiniOrreryGroup.children.length > 0) {
-        exoMiniOrreryGroup.remove(exoMiniOrreryGroup.children[0]);
-    }
-    const anchor = new THREE.Vector3(14.5, 4.5, 1.5);
-    exoMiniOrreryGroup.position.copy(anchor);
-
-    const starMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(0.55, 24, 24),
-        new THREE.MeshBasicMaterial({ color: sys.starColor })
-    );
-    exoMiniOrreryGroup.add(starMesh);
-
-    const hzBand = new THREE.Mesh(
-        new THREE.RingGeometry(2.8, 4.9, 64),
-        new THREE.MeshBasicMaterial({ color: 0x10b981, side: THREE.DoubleSide, transparent: true, opacity: 0.18, depthWrite: false })
-    );
-    hzBand.rotation.x = Math.PI / 2;
-    exoMiniOrreryGroup.add(hzBand);
-
-    sys.planets.forEach((pl, i) => {
-        const pts = [];
-        for (let k = 0; k <= 64; k++) {
-            const a = (k / 64) * Math.PI * 2;
-            pts.push(new THREE.Vector3(Math.cos(a) * pl.dist, 0, Math.sin(a) * pl.dist));
-        }
-        exoMiniOrreryGroup.add(new THREE.LineLoop(
-            new THREE.BufferGeometry().setFromPoints(pts),
-            new THREE.LineBasicMaterial({ color: pl.hz ? 0x34d399 : 0x64748b, transparent: true, opacity: pl.hz ? 0.7 : 0.35 })
-        ));
-        const ang = i * 1.15;
-        const pm = new THREE.Mesh(
-            new THREE.SphereGeometry(pl.r, 18, 18),
-            new THREE.MeshBasicMaterial({ color: pl.col })
-        );
-        pm.position.set(Math.cos(ang) * pl.dist, 0, Math.sin(ang) * pl.dist);
-        exoMiniOrreryGroup.add(pm);
-    });
-
-    exoMiniOrreryGroup.visible = true;
-    const panel = document.getElementById('exoplanet-mini-panel');
-    if (panel) {
-        panel.classList.remove('hidden');
-        document.getElementById('exo-mini-title').textContent = sys.starName;
-        document.getElementById('exo-mini-desc').textContent = sys.desc;
-    }
-    smoothFlyTo(anchor.clone().add(new THREE.Vector3(0, 5.2, 7.6)), anchor, 850);
-    showToast(`3D Star System: ${sys.starName}`);
-}
-
-function closeExoplanetSystem() {
-    exoMiniOrreryGroup.visible = false;
-    const panel = document.getElementById('exoplanet-mini-panel');
-    if (panel) panel.classList.add('hidden');
-    focusGalaxyRegion('Milky Way');
-}
-
-// --- UNIVERSE: COSMIC REDSHIFT (z) & LOOKBACK-TIME SCRUBBER ---
-function updateCosmicRedshift(zRaw) {
-    const z = parseFloat(zRaw);
-    const zValEl = document.getElementById('z-val');
-    const lblEl = document.getElementById('z-epoch-label');
-    if (zValEl) zValEl.textContent = z.toFixed(1);
-
-    // Cosmological lookback time approximation & exact CMB temperature T(z) = 2.7255 * (1 + z)
-    const tCmb = (2.7255 * (1 + z)).toFixed(2);
-    const ageGyr = (13.80 / Math.pow(1 + z, 1.35)).toFixed(2);
-    const scaleFactor = 1.0 / (1.0 + z * 0.045);
-    universeGroup.scale.setScalar(scaleFactor);
-
-    if (lblEl) {
-        lblEl.textContent = z === 0
-            ? `Today (13.8B yr) | T_cmb 2.73K`
-            : `Age ${ageGyr}B yr | T_cmb ${tCmb}K`;
-    }
-}
